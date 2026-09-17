@@ -1,0 +1,10 @@
+node_modules
+.git
+.bento
+.codegraph
+.opencode
+docs
+legacy
+data/*.db
+data/*.db-*
+data/*.xlsx
