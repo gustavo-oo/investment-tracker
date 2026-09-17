@@ -33,6 +33,11 @@ test("mapInstrumentRow: ETF com ticker e previdência com cvm-swb", () => {
   assert.equal(prev.ticker, null);
 });
 
+test("mapInstrumentRow normaliza benchmark para maiúsculas (Selic -> SELIC)", () => {
+  const instrument = mapInstrumentRow(["X", "X", "Renda Fixa", "Selic", "-", "Inter", "2030-01-01 00:00:00", "Selic", "1.0", "Diário", "Ana", "Reserva"]);
+  assert.equal(instrument.benchmark, "SELIC");
+});
+
 test("mapTransactionRow: bruto=Resultado, taxas, sinal da quantidade e NULL em RF", () => {
   const compraRf = mapTransactionRow(["CDB X", "Compra", "2025-04-23 00:00:00", "1176.16", "0.01", "1176.15", "1.0"], "fixed_income", 2);
   assert.equal(compraRf.kind, "BUY");

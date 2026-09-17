@@ -38,7 +38,7 @@ export function slugify(legacyKey: string): string {
   return slug;
 }
 
-export function normalizeLegacyId(value: string): string {
-  const trimmed = value.trim();
+export function normalizeLegacyId(value: string | number): string {
+  const trimmed = String(value).trim();
   return /^\d+\.0$/.test(trimmed) ? trimmed.slice(0, -2) : trimmed;
 }

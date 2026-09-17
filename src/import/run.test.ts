@@ -1,0 +1,59 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { gzipSync } from "node:zlib";
+import { openDb } from "../db/index.ts";
+import { migrate } from "../db/migrate.ts";
+import { counts, listImportRuns, listTransactionsByInstrument } from "../db/repos.ts";
+import { runImport, type ImportInput } from "./run.ts";
+
+const gzip = (obj: unknown) => gzipSync(Buffer.from(JSON.stringify(obj))).toString("base64");
+
+function input(): ImportInput {
+  return {
+    assetsCsv:
+      "ID,Nome do Ativo,Tipo,Subtipo,Código (Ticker/ISIN),Corretora,Vencimento,Indicador,Rentabilidade,Liquidez,Quem investiu?,Objetivo,Total investido\n" +
+      "CDB Teste:  01-01-30,CDB Teste,Renda Fixa,CDB,-,PagBank,2030-01-01 00:00:00,CDI,1.06,Diário,Ana,Reserva,0\n",
+    transactionsCsv:
+      "Ativo,Tipo de Operação,Data,Custo total da Operação,Taxas + Impostos,Resultado,Quantidade de Cotas\n" +
+      "CDB Teste:  01-01-30,Compra,2025-04-23 00:00:00,1000.00,0.0,1000.00,1.0\n" +
+      "CDB Teste:  01-01-30,Resgate,2026-07-01 00:00:00,1100.00,5.50,1100.00,1.0\n",
+    historyCsv:
+      "Mês/Ano,Investimentos acumulados (GZIP + Base64)\n" +
+      `2026-09-01 00:00:00,"${gzip([{ id: "CDB Teste:  01-01-30", value: 1100.55 }])}"\n`,
+  };
+}
+
+test("runImport dry-run não escreve e resume os dados", () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  const summary = runImport(db, input(), { dryRun: true, source: "cli" });
+  assert.deepEqual(summary, {
+    dryRun: true, instruments: 1, transactions: 2, historyRows: 1,
+    latestMonth: "2026-09-01", latestTotalCents: 110055, warnings: [], errors: [],
+  });
+  assert.equal(counts(db).instruments, 0, "dry-run não escreve");
+});
+
+test("runImport grava, audita e é idempotente", () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  const first = runImport(db, input(), { dryRun: false, source: "api" });
+  assert.equal(first.errors.length, 0);
+  const second = runImport(db, input(), { dryRun: false, source: "api" });
+  assert.equal(second.errors.length, 0);
+  assert.equal(counts(db).instruments, 1);
+  assert.equal(counts(db).transactions, 2, "reimportar não duplica");
+  assert.equal(listImportRuns(db, 10).length, 2);
+  assert.equal(listTransactionsByInstrument(db, "cdb-teste-01-01-30")[1]?.grossCents, 110000n);
+});
+
+test("runImport aponta erro de ativo desconhecido sem escrever", () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  const bad = input();
+  bad.transactionsCsv += "CDB Fantasma,Compra,2026-01-01 00:00:00,10.00,0.0,10.00,1.0\n";
+  const summary = runImport(db, bad, { dryRun: false, source: "cli" });
+  assert.equal(summary.errors.length, 1);
+  assert.match(summary.errors[0] ?? "", /CDB Fantasma/);
+  assert.equal(counts(db).instruments, 0, "erro não escreve nada");
+});

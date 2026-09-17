@@ -24,4 +24,5 @@ test("normalizeLegacyId remove sufixo numérico .0", () => {
   assert.equal(normalizeLegacyId("253210.0"), "253210");
   assert.equal(normalizeLegacyId("253210"), "253210");
   assert.equal(normalizeLegacyId("CDB X:  01-01-30"), "CDB X:  01-01-30");
+  assert.equal(normalizeLegacyId(253210), "253210", "id numérico do GZIP vira string");
 });

@@ -16,6 +16,7 @@ export function mapInstrumentRow(row: string[]): InstrumentRow {
   const kind = kindFromLegacy(type);
   const category = categoryFromLegacy(subtype);
   const legacyKey = normalizeLegacyId(id);
+  const benchmarkValue = clean(benchmark);
   return {
     id: slugify(legacyKey),
     legacyKey,
@@ -26,7 +27,7 @@ export function mapInstrumentRow(row: string[]): InstrumentRow {
     quoteSource: kind === "equity" ? "yahoo" : kind === "pension" ? "cvm-swb" : null,
     quoteSymbol: kind === "pension" && clean(ticker) !== null ? normalizeLegacyId(clean(ticker) ?? "") : null,
     currency: "BRL",
-    benchmark: (benchmark ?? "").trim() === "Nenhum" ? null : clean(benchmark),
+    benchmark: benchmarkValue === null || benchmarkValue === "Nenhum" ? null : benchmarkValue.toUpperCase(),
     rateE6: clean(rate) === null ? null : parseDecimal(rate ?? "0", MULTIPLIER_SCALE),
     maturityDate: clean(maturity) === null ? null : isoDate(maturity ?? ""),
     liquidity: clean(liquidity),
