@@ -88,3 +88,31 @@ test("import com ativo inválido responde 422 e não escreve", async () => {
   assert.equal((db.prepare("SELECT COUNT(*) AS total FROM instruments").get() as { total: bigint }).total, 0n);
   await app.close();
 });
+
+test("POST /api/import com CSV malformado responde 422 e audita", async () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  const app = buildApp({ db, csvDir: csvDirFixture(), logger: false });
+  const res = await app.inject({
+    method: "POST",
+    url: "/api/import",
+    payload: { assetsCsv: 'ID,Nome\n"sem-fim,1\n', transactionsCsv: "x\n", historyCsv: "y\n" },
+  });
+  assert.equal(res.statusCode, 422);
+  assert.ok(res.json().errors.length >= 1);
+  const runs = (await app.inject({ method: "GET", url: "/api/import/runs" })).json();
+  assert.equal(runs[0]?.status, "error");
+  await app.close();
+});
+
+test("POST /api/import sem body com CSV_DIR ausente responde 422 e audita", async () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  const app = buildApp({ db, csvDir: "/nao-existe-csv", logger: false });
+  const res = await app.inject({ method: "POST", url: "/api/import", payload: {} });
+  assert.equal(res.statusCode, 422);
+  assert.match(res.json().errors[0] ?? "", /falha ao ler CSVs/);
+  const runs = (await app.inject({ method: "GET", url: "/api/import/runs" })).json();
+  assert.equal(runs[0]?.status, "error");
+  await app.close();
+});

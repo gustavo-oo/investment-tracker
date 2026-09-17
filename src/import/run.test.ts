@@ -4,7 +4,7 @@ import { gzipSync } from "node:zlib";
 import { openDb } from "../db/index.ts";
 import { migrate } from "../db/migrate.ts";
 import { counts, listImportRuns, listTransactionsByInstrument } from "../db/repos.ts";
-import { runImport, type ImportInput } from "./run.ts";
+import { runImport, runImportFromDir, type ImportInput } from "./run.ts";
 
 const gzip = (obj: unknown) => gzipSync(Buffer.from(JSON.stringify(obj))).toString("base64");
 
@@ -103,14 +103,23 @@ test("runImport rejeita ids que colidem após normalização", () => {
 });
 
 test("runImport não lança para CSV com aspas abertas: erros + auditoria", () => {
+  for (const field of ["assetsCsv", "transactionsCsv", "historyCsv"] as const) {
+    const db = openDb(":memory:");
+    migrate(db);
+    const bad = input();
+    bad[field] = 'ID,Nome\n"sem-fim,1\n';
+    const summary = runImport(db, bad, { dryRun: false, source: "api" });
+    assert.ok(summary.errors.length >= 1, `${field} devolve erro`);
+    assert.equal(counts(db).instruments, 0, `${field}: nada é escrito`);
+    assert.equal(listImportRuns(db, 10)[0]?.status, "error", `${field}: falha auditada`);
+  }
+});
+
+test("runImportFromDir audita diretório de CSVs ausente", () => {
   const db = openDb(":memory:");
   migrate(db);
-  const bad = input();
-  bad.assetsCsv = 'ID,Nome do Ativo,Tipo,Subtipo\n"sem-fim,1\n';
-  const summary = runImport(db, bad, { dryRun: false, source: "api" });
-  assert.ok(summary.errors.some((error) => /aspas não fechadas/.test(error)));
-  assert.equal(counts(db).instruments, 0);
-  const runs = listImportRuns(db, 10);
-  assert.equal(runs.length, 1, "falha de parse também é auditada");
-  assert.equal(runs[0]?.status, "error");
+  const summary = runImportFromDir(db, "/nao-existe-csv", { dryRun: false, source: "cli" });
+  assert.equal(summary.errors.length, 1);
+  assert.match(summary.errors[0] ?? "", /falha ao ler CSVs/);
+  assert.equal(listImportRuns(db, 10)[0]?.status, "error");
 });
