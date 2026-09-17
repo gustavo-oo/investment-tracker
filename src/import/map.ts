@@ -10,7 +10,11 @@ const clean = (value: string | undefined): string | null => {
 
 const BENCHMARKS = new Set(["CDI", "SELIC", "IPCA"]);
 
-const isoDate = (value: string): string => value.trim().slice(0, 10);
+const isoDate = (value: string): string => {
+  const iso = value.trim().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) throw new Error(`data inválida: ${JSON.stringify(value)}`);
+  return iso;
+};
 
 export function mapInstrumentRow(row: string[]): InstrumentRow {
   const [id = "", name = "", type = "", subtype = "", ticker, broker, maturity,

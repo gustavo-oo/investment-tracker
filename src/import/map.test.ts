@@ -76,3 +76,14 @@ test("mapTransactionRow rejeita valores negativos (CHECK gross/fees >= 0)", () =
     /valores negativos/,
   );
 });
+
+test("mapTransactionRow rejeita data vazia ou não-ISO", () => {
+  assert.throws(
+    () => mapTransactionRow(["X", "Compra", "", "0", "0", "10.00", "1.0"], "fixed_income", 2),
+    /data inválida/,
+  );
+  assert.throws(
+    () => mapTransactionRow(["X", "Compra", "01/02/2026", "0", "0", "10.00", "1.0"], "fixed_income", 3),
+    /data inválida/,
+  );
+});

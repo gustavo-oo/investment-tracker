@@ -29,9 +29,9 @@ export function parseDecimal(text: string, scale: bigint): bigint {
   if (clean === "" || clean === "-") throw new Error(`número vazio: ${JSON.stringify(text)}`);
   const negative = clean.startsWith("-");
   const body = clean.replace(/^[-+]/, "");
-  const normalized = body.includes(",") && !body.includes(".")
-    ? body.replace(",", ".")
-    : body.replace(/,/g, "");
+  const normalized = body.includes(",")
+    ? body.replace(/\./g, "").replace(",", ".")
+    : body;
   if (!/^\d*(\.\d*)?$/.test(normalized) || normalized === ".") {
     throw new Error(`número inválido: ${JSON.stringify(text)}`);
   }

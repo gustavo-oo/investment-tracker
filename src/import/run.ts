@@ -54,6 +54,16 @@ export function runImport(db: Db, input: ImportInput, opts: { dryRun: boolean; s
     byLegacyKey.set(instrument.legacyKey, instrument);
   }
 
+  const bySlug = new Map<string, InstrumentRow>();
+  for (const instrument of instruments) {
+    const existing = bySlug.get(instrument.id);
+    if (existing !== undefined) {
+      errors.push(`ids colidem após normalização: ${existing.legacyKey} e ${instrument.legacyKey}`);
+      continue;
+    }
+    bySlug.set(instrument.id, instrument);
+  }
+
   const transactions: TransactionRow[] = [];
   parseCsv(input.transactionsCsv).slice(1).forEach((row, index) => {
     if ((row[0] ?? "").trim() === "") return;

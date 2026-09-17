@@ -85,3 +85,19 @@ test("dry-run e import real concordam sobre benchmark inválido (sem SqliteError
   assert.equal(real.errors.length, 3);
   assert.equal(counts(db).instruments, 0);
 });
+
+test("runImport rejeita ids que colidem após normalização", () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  const bad = input();
+  bad.assetsCsv = bad.assetsCsv.replace(
+    "CDB Teste:  01-01-30,CDB Teste,Renda Fixa,CDB,-,PagBank,2030-01-01 00:00:00,CDI,1.06,Diário,Ana,Reserva,0",
+    "A B,Ativo A B,Renda Fixa,CDB,-,PagBank,2030-01-01 00:00:00,CDI,1.06,Diário,Ana,Reserva,0\n" +
+    "A-B,Ativo A-B,Renda Fixa,CDB,-,PagBank,2030-01-01 00:00:00,CDI,1.06,Diário,Ana,Reserva,0",
+  );
+  bad.transactionsCsv = "Ativo,Tipo de Operação,Data,Custo total da Operação,Taxas + Impostos,Resultado,Quantidade de Cotas\n";
+  bad.historyCsv = "Mês/Ano,Investimentos acumulados (GZIP + Base64)\n";
+  const summary = runImport(db, bad, { dryRun: false, source: "cli" });
+  assert.ok(summary.errors.some((error) => /colidem/.test(error)));
+  assert.equal(counts(db).instruments, 0, "colisão não escreve");
+});

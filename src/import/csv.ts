@@ -18,6 +18,7 @@ export function parseCsv(text: string): string[][] {
     else if (ch === "\n") { row.push(field); rows.push(row); row = []; field = ""; }
     else field += ch;
   }
+  if (inQuotes) throw new Error("CSV com aspas não fechadas");
   if (row.length > 0 || field !== "") { row.push(field); rows.push(row); }
   return rows.filter((r) => !(r.length === 1 && r[0] === ""));
 }

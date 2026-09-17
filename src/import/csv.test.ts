@@ -10,3 +10,7 @@ test("parseCsv lida com aspas, vírgula dentro de campo e CRLF", () => {
 test("parseCsv ignora linha final vazia", () => {
   assert.deepEqual(parseCsv("a,b\n"), [["a", "b"]]);
 });
+
+test("parseCsv rejeita aspas não fechadas", () => {
+  assert.throws(() => parseCsv('a,b\n"sem fim,2'), /aspas não fechadas/);
+});

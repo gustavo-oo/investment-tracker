@@ -21,6 +21,12 @@ test("parseDecimal converte decimal exato (vírgula ou ponto)", () => {
   assert.equal(parseDecimal("1.005", CENTS), 101n);
 });
 
+test("parseDecimal entende pt-BR com milhar (1.234,56)", () => {
+  assert.equal(parseDecimal("1.234,56", CENTS), 123456n);
+  assert.equal(parseDecimal("1.234.567,89", CENTS), 123456789n);
+  assert.equal(parseDecimal("-1.000,00", CENTS), -100000n);
+});
+
 test("mulScaled multiplica mantendo a escala", () => {
   assert.equal(mulScaled(93014877553n, 1075n, SHARES_SCALE), 999910n);
 });
