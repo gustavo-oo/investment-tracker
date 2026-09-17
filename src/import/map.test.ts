@@ -58,3 +58,21 @@ test("mapTransactionRow: bruto=Resultado, taxas, sinal da quantidade e NULL em R
   assert.equal(prev.instrumentId, "253210", "id normalizado sem .0");
   assert.equal(prev.quantityE8, 93014877553n);
 });
+
+test("mapInstrumentRow rejeita benchmark fora do CHECK do banco", () => {
+  assert.throws(
+    () => mapInstrumentRow(["X", "X", "Renda Fixa", "CDB", "-", "PagBank", "2030-01-01 00:00:00", "Prefixado", "1.0", "Diário", "Ana", "Reserva"]),
+    /benchmark desconhecido/,
+  );
+});
+
+test("mapTransactionRow rejeita valores negativos (CHECK gross/fees >= 0)", () => {
+  assert.throws(
+    () => mapTransactionRow(["X", "Compra", "2026-01-01 00:00:00", "0", "0", "-10.00", "1.0"], "fixed_income", 2),
+    /valores negativos/,
+  );
+  assert.throws(
+    () => mapTransactionRow(["X", "Compra", "2026-01-01 00:00:00", "0", "-1.00", "10.00", "1.0"], "fixed_income", 2),
+    /valores negativos/,
+  );
+});

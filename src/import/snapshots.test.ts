@@ -16,9 +16,18 @@ test("parseLegacyHistory converte cada mês para centavos e ignora linhas vazias
     { id: "WRLD11", value: 100.5, nShares: 12.3 },
   ]))).toString("base64");
   const csv = `Mês/Ano,Investimentos acumulados (GZIP + Base64)\n2026-09-01 00:00:00,"${gzip}"\n2027-01-01 00:00:00,\n`;
-  const rows = parseLegacyHistory(csv);
-  assert.deepEqual(rows, [
+  const result = parseLegacyHistory(csv);
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual(result.items, [
     { month: "2026-09-01", legacyKey: "CDB X", valueCents: -3520n, sharesE8: null },
     { month: "2026-09-01", legacyKey: "WRLD11", valueCents: 10050n, sharesE8: 1230000000n },
   ]);
+});
+
+test("parseLegacyHistory coleta erro de GZIP inválido sem lançar", () => {
+  const csv = `Mês/Ano,Investimentos acumulados (GZIP + Base64)\n2026-09-01 00:00:00,"isto-nao-e-gzip"\n`;
+  const result = parseLegacyHistory(csv);
+  assert.deepEqual(result.items, []);
+  assert.equal(result.errors.length, 1);
+  assert.match(result.errors[0] ?? "", /histórico inválido/);
 });

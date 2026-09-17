@@ -57,3 +57,31 @@ test("runImport aponta erro de ativo desconhecido sem escrever", () => {
   assert.match(summary.errors[0] ?? "", /CDB Fantasma/);
   assert.equal(counts(db).instruments, 0, "erro não escreve nada");
 });
+
+test("runImport devolve erro (não crash) para histórico corrompido e audita a falha", () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  const bad = input();
+  bad.historyCsv = `Mês/Ano,Investimentos acumulados (GZIP + Base64)\n2026-09-01 00:00:00,"isto-nao-e-gzip"\n`;
+  const summary = runImport(db, bad, { dryRun: false, source: "api" });
+  assert.equal(summary.errors.length, 1);
+  assert.match(summary.errors[0] ?? "", /histórico inválido/);
+  assert.equal(counts(db).instruments, 0);
+  const runs = listImportRuns(db, 10);
+  assert.equal(runs.length, 1, "falha também é auditada");
+  assert.equal(runs[0]?.status, "error");
+  assert.match(runs[0]?.message ?? "", /histórico inválido/);
+});
+
+test("dry-run e import real concordam sobre benchmark inválido (sem SqliteError)", () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  const bad = input();
+  bad.assetsCsv = bad.assetsCsv.replace("CDI", "Prefixado");
+  const dry = runImport(db, bad, { dryRun: true, source: "cli" });
+  assert.equal(dry.errors.length, 3, "1 benchmark inválido + 2 transações órfãs do ativo rejeitado");
+  assert.ok(dry.errors.some((error) => /benchmark desconhecido/.test(error)));
+  const real = runImport(db, bad, { dryRun: false, source: "cli" });
+  assert.equal(real.errors.length, 3);
+  assert.equal(counts(db).instruments, 0);
+});

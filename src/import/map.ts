@@ -8,6 +8,8 @@ const clean = (value: string | undefined): string | null => {
   return trimmed === "" || trimmed === "-" ? null : trimmed;
 };
 
+const BENCHMARKS = new Set(["CDI", "SELIC", "IPCA"]);
+
 const isoDate = (value: string): string => value.trim().slice(0, 10);
 
 export function mapInstrumentRow(row: string[]): InstrumentRow {
@@ -17,6 +19,10 @@ export function mapInstrumentRow(row: string[]): InstrumentRow {
   const category = categoryFromLegacy(subtype);
   const legacyKey = normalizeLegacyId(id);
   const benchmarkValue = clean(benchmark);
+  const normalizedBenchmark = benchmarkValue === null || benchmarkValue === "Nenhum" ? null : benchmarkValue.toUpperCase();
+  if (normalizedBenchmark !== null && !BENCHMARKS.has(normalizedBenchmark)) {
+    throw new Error(`benchmark desconhecido: ${JSON.stringify(benchmark)}`);
+  }
   return {
     id: slugify(legacyKey),
     legacyKey,
@@ -27,7 +33,7 @@ export function mapInstrumentRow(row: string[]): InstrumentRow {
     quoteSource: kind === "equity" ? "yahoo" : kind === "pension" ? "cvm-swb" : null,
     quoteSymbol: kind === "pension" && clean(ticker) !== null ? normalizeLegacyId(clean(ticker) ?? "") : null,
     currency: "BRL",
-    benchmark: benchmarkValue === null || benchmarkValue === "Nenhum" ? null : benchmarkValue.toUpperCase(),
+    benchmark: normalizedBenchmark,
     rateE6: clean(rate) === null ? null : parseDecimal(rate ?? "0", MULTIPLIER_SCALE),
     maturityDate: clean(maturity) === null ? null : isoDate(maturity ?? ""),
     liquidity: clean(liquidity),
@@ -48,13 +54,18 @@ export function mapTransactionRow(row: string[], instrumentKind: InstrumentKind,
   if (!kind) throw new Error(`operação desconhecida na linha ${rowIndex}: ${JSON.stringify(legacyKind)}`);
   const hasQuantity = instrumentKind !== "fixed_income" && clean(quantity) !== null;
   const magnitude = hasQuantity ? parseDecimal(quantity ?? "0", SHARES_SCALE) : null;
+  const grossCents = parseDecimal(result, CENTS);
+  const feesCents = parseDecimal(taxes || "0", CENTS);
+  if (grossCents < 0n || feesCents < 0n) {
+    throw new Error(`valores negativos não são permitidos (bruto ${grossCents}, taxas ${feesCents})`);
+  }
   return {
     instrumentId: slugify(normalizeLegacyId(assetId)),
     tradeDate: isoDate(date),
     kind,
     quantityE8: magnitude === null ? null : kind === "SELL" ? -magnitude : magnitude,
-    grossCents: parseDecimal(result, CENTS),
-    feesCents: parseDecimal(taxes || "0", CENTS),
+    grossCents,
+    feesCents,
     note: null,
     legacyRow: rowIndex,
   };

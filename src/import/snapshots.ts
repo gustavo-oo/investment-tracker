@@ -15,22 +15,29 @@ export function decodeLegacySnapshot(base64: string): LegacySnapshotItem[] {
   return parsed as LegacySnapshotItem[];
 }
 
-export function parseLegacyHistory(csvText: string): LegacySnapshotRaw[] {
+export type HistoryParseResult = { items: LegacySnapshotRaw[]; errors: string[] };
+
+export function parseLegacyHistory(csvText: string): HistoryParseResult {
   const rows = parseCsv(csvText).slice(1);
-  const out: LegacySnapshotRaw[] = [];
+  const items: LegacySnapshotRaw[] = [];
+  const errors: string[] = [];
   for (const row of rows) {
     const month = (row[0] ?? "").trim();
     const gzipCell = (row[1] ?? "").trim();
     if (month === "" || gzipCell === "") continue;
     const isoMonth = month.slice(0, 10);
-    for (const item of decodeLegacySnapshot(gzipCell)) {
-      out.push({
-        month: isoMonth,
-        legacyKey: normalizeLegacyId(item.id),
-        valueCents: parseDecimal(String(item.value), CENTS),
-        sharesE8: item.nShares == null ? null : parseDecimal(String(item.nShares), SHARES_SCALE),
-      });
+    try {
+      for (const item of decodeLegacySnapshot(gzipCell)) {
+        items.push({
+          month: isoMonth,
+          legacyKey: normalizeLegacyId(item.id),
+          valueCents: parseDecimal(String(item.value), CENTS),
+          sharesE8: item.nShares == null ? null : parseDecimal(String(item.nShares), SHARES_SCALE),
+        });
+      }
+    } catch (error) {
+      errors.push(`histórico inválido em ${isoMonth}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
-  return out;
+  return { items, errors };
 }

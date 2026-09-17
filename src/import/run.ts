@@ -70,7 +70,9 @@ export function runImport(db: Db, input: ImportInput, opts: { dryRun: boolean; s
   });
 
   const history: LegacySnapshotRow[] = [];
-  for (const item of parseLegacyHistory(input.historyCsv)) {
+  const historyResult = parseLegacyHistory(input.historyCsv);
+  errors.push(...historyResult.errors);
+  for (const item of historyResult.items) {
     const instrument = byLegacyKey.get(item.legacyKey);
     if (!instrument) {
       warnings.push(`histórico sem cadastro (ignorado): ${item.legacyKey}`);
@@ -95,21 +97,32 @@ export function runImport(db: Db, input: ImportInput, opts: { dryRun: boolean; s
     errors,
   };
 
-  if (!opts.dryRun && errors.length === 0) {
-    db.transaction(() => {
-      clearImportedData(db);
-      insertInstruments(db, instruments);
-      insertTransactions(db, transactions);
-      insertLegacySnapshots(db, history);
+  if (!opts.dryRun) {
+    if (errors.length === 0) {
+      db.transaction(() => {
+        clearImportedData(db);
+        insertInstruments(db, instruments);
+        insertTransactions(db, transactions);
+        insertLegacySnapshots(db, history);
+        insertImportRun(db, {
+          source: opts.source,
+          instruments: instruments.length,
+          transactions: transactions.length,
+          historyRows: history.length,
+          status: "ok",
+          message: null,
+        });
+      })();
+    } else {
       insertImportRun(db, {
         source: opts.source,
         instruments: instruments.length,
         transactions: transactions.length,
         historyRows: history.length,
-        status: "ok",
-        message: null,
+        status: "error",
+        message: errors.slice(0, 5).join("; "),
       });
-    })();
+    }
   }
 
   return summary;
