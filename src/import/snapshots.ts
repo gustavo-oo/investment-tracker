@@ -18,9 +18,14 @@ export function decodeLegacySnapshot(base64: string): LegacySnapshotItem[] {
 export type HistoryParseResult = { items: LegacySnapshotRaw[]; errors: string[] };
 
 export function parseLegacyHistory(csvText: string): HistoryParseResult {
-  const rows = parseCsv(csvText).slice(1);
   const items: LegacySnapshotRaw[] = [];
   const errors: string[] = [];
+  let rows: string[][] = [];
+  try {
+    rows = parseCsv(csvText).slice(1);
+  } catch (error) {
+    return { items, errors: [`csv de histórico inválido: ${error instanceof Error ? error.message : String(error)}`] };
+  }
   for (const row of rows) {
     const month = (row[0] ?? "").trim();
     const gzipCell = (row[1] ?? "").trim();

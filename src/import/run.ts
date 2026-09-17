@@ -35,13 +35,21 @@ export function runImport(db: Db, input: ImportInput, opts: { dryRun: boolean; s
   const errors: string[] = [];
   const warnings: string[] = [];
   const instruments: InstrumentRow[] = [];
+  const message = (error: unknown): string => (error instanceof Error ? error.message : String(error));
 
-  for (const row of parseCsv(input.assetsCsv).slice(1)) {
+  let assetRows: string[][] = [];
+  try {
+    assetRows = parseCsv(input.assetsCsv).slice(1);
+  } catch (error) {
+    errors.push(`csv de ativos inválido: ${message(error)}`);
+  }
+
+  for (const row of assetRows) {
     if ((row[0] ?? "").trim() === "") continue;
     try {
       instruments.push(mapInstrumentRow(row));
     } catch (error) {
-      errors.push(`ativo inválido: ${error instanceof Error ? error.message : String(error)}`);
+      errors.push(`ativo inválido: ${message(error)}`);
     }
   }
 
@@ -65,7 +73,14 @@ export function runImport(db: Db, input: ImportInput, opts: { dryRun: boolean; s
   }
 
   const transactions: TransactionRow[] = [];
-  parseCsv(input.transactionsCsv).slice(1).forEach((row, index) => {
+  let transactionRows: string[][] = [];
+  try {
+    transactionRows = parseCsv(input.transactionsCsv).slice(1);
+  } catch (error) {
+    errors.push(`csv de transações inválido: ${message(error)}`);
+  }
+
+  transactionRows.forEach((row, index) => {
     if ((row[0] ?? "").trim() === "") return;
     const instrument = byLegacyKey.get(normalizeLegacyId(row[0] ?? ""));
     if (!instrument) {
@@ -75,7 +90,7 @@ export function runImport(db: Db, input: ImportInput, opts: { dryRun: boolean; s
     try {
       transactions.push(mapTransactionRow(row, instrument.kind, index + 2));
     } catch (error) {
-      errors.push(`transação inválida: ${error instanceof Error ? error.message : String(error)}`);
+      errors.push(`transação inválida: ${message(error)}`);
     }
   });
 

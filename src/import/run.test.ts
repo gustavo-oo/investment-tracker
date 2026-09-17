@@ -101,3 +101,16 @@ test("runImport rejeita ids que colidem após normalização", () => {
   assert.ok(summary.errors.some((error) => /colidem/.test(error)));
   assert.equal(counts(db).instruments, 0, "colisão não escreve");
 });
+
+test("runImport não lança para CSV com aspas abertas: erros + auditoria", () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  const bad = input();
+  bad.assetsCsv = 'ID,Nome do Ativo,Tipo,Subtipo\n"sem-fim,1\n';
+  const summary = runImport(db, bad, { dryRun: false, source: "api" });
+  assert.ok(summary.errors.some((error) => /aspas não fechadas/.test(error)));
+  assert.equal(counts(db).instruments, 0);
+  const runs = listImportRuns(db, 10);
+  assert.equal(runs.length, 1, "falha de parse também é auditada");
+  assert.equal(runs[0]?.status, "error");
+});

@@ -70,7 +70,8 @@ test("dryRun como string não dispara import real", async () => {
   await app.close();
 });
 
-test("import com ativo inválido responde 422 e não escreve", async () => {  const db = openDb(":memory:");
+test("import com ativo inválido responde 422 e não escreve", async () => {
+  const db = openDb(":memory:");
   migrate(db);
   const app = buildApp({ db, csvDir: csvDirFixture(), logger: false });
   const res = await app.inject({
