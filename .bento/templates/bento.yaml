@@ -1,0 +1,11 @@
+# bento: configuration for generated artifacts and PR size limits.
+# Language agents must use for PR bodies, commit messages, docs, specs, and plans.
+# Free text; examples: English, Portuguese (pt-BR), Spanish (es).
+artifacts_language: English
+
+# PR size limits (bento/small-prs).
+max_lines: 400
+max_files: 10
+overrides:
+  # - glob: "supabase/migrations/**"
+  #   max_lines: 200
