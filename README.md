@@ -19,6 +19,7 @@ Testes: `npm test` · Tipos: `npm run typecheck`
 
 Atualizar: `git pull && docker compose up -d --build`. Backup: copiar `data/`.
 Se o volume der erro de permissão, ajuste o dono de `./data` para o uid do container (1000).
+`env_file.required` exige Docker Compose ≥ 2.24; em versões antigas, crie o `.env` (`cp .env.example .env`).
 
 ## API (v1)
 

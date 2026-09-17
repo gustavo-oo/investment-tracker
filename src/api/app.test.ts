@@ -59,8 +59,18 @@ test("health, import (dry-run e real), instruments e runs", async () => {
   await app.close();
 });
 
-test("import com ativo inválido responde 422 e não escreve", async () => {
+test("dryRun como string não dispara import real", async () => {
   const db = openDb(":memory:");
+  migrate(db);
+  const app = buildApp({ db, csvDir: csvDirFixture(), logger: false });
+  const res = await app.inject({ method: "POST", url: "/api/import", payload: { dryRun: "true" } });
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.json().dryRun, true);
+  assert.equal((db.prepare("SELECT COUNT(*) AS total FROM instruments").get() as { total: bigint }).total, 0n);
+  await app.close();
+});
+
+test("import com ativo inválido responde 422 e não escreve", async () => {  const db = openDb(":memory:");
   migrate(db);
   const app = buildApp({ db, csvDir: csvDirFixture(), logger: false });
   const res = await app.inject({
