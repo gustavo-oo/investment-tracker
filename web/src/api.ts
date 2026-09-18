@@ -28,21 +28,11 @@ export type ImportPayload = {
   dryRun: boolean;
 };
 
-async function readJson<T>(response: Response): Promise<T> {
-  const body = (await response.json().catch(() => null)) as
-    | T
-    | { message?: string; errors?: unknown }
-    | null;
-  if (body && typeof body === "object" && Array.isArray((body as { errors?: unknown }).errors)) {
-    return body as T;
+async function errorMessage(response: Response, body: unknown): Promise<string> {
+  if (body && typeof body === "object" && typeof (body as { message?: unknown }).message === "string") {
+    return String((body as { message: string }).message);
   }
-  if (!response.ok) {
-    const message = body && typeof body === "object" && typeof (body as { message?: unknown }).message === "string"
-      ? String((body as { message: string }).message)
-      : `erro HTTP ${response.status}`;
-    throw new Error(message);
-  }
-  return body as T;
+  return `erro HTTP ${response.status}`;
 }
 
 export async function postImport(payload: ImportPayload): Promise<ImportSummary> {
@@ -51,10 +41,25 @@ export async function postImport(payload: ImportPayload): Promise<ImportSummary>
     headers: { "content-type": "application/json" },
     body: JSON.stringify(payload),
   });
-  return readJson<ImportSummary>(response);
+  const body = (await response.json().catch(() => null)) as ImportSummary | { message?: string } | null;
+  if (body && Array.isArray((body as ImportSummary).errors)) {
+    return body as ImportSummary;
+  }
+  if (!response.ok || body === null) {
+    throw new Error(await errorMessage(response, body));
+  }
+  return body as ImportSummary;
 }
 
 export async function getImportRuns(): Promise<ImportRun[]> {
   const response = await fetch("/api/import/runs");
-  return readJson<ImportRun[]>(response);
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(await errorMessage(response, body));
+  }
+  const body = await response.json();
+  if (!Array.isArray(body)) {
+    throw new Error("resposta inválida do servidor");
+  }
+  return body as ImportRun[];
 }

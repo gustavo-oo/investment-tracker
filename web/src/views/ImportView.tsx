@@ -13,10 +13,10 @@ const readAsBase64 = (file: File): Promise<string> =>
 const normalizeName = (name: string): string =>
   name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\.csv$/, "").trim();
 
-function pickCsv(files: File[], expected: string): File | undefined {
-  const exact = files.find((file) => normalizeName(file.name) === expected);
+function pickCsv(files: File[], exactName: string, token: string): File | undefined {
+  const exact = files.find((file) => normalizeName(file.name) === exactName);
   if (exact) return exact;
-  const candidates = files.filter((file) => normalizeName(file.name).includes(expected));
+  const candidates = files.filter((file) => normalizeName(file.name).includes(token));
   return candidates.length === 1 ? candidates[0] : undefined;
 }
 
@@ -24,9 +24,9 @@ function payloadFromFiles(files: File[], dryRun: boolean): Promise<ImportPayload
   if (files.length === 1 && files[0]!.name.toLowerCase().endsWith(".xlsx")) {
     return readAsBase64(files[0]!).then((workbookBase64) => ({ workbookBase64, dryRun }));
   }
-  const assets = pickCsv(files, "lista de ativos");
-  const transactions = pickCsv(files, "investimentos");
-  const history = pickCsv(files, "evolucao");
+  const assets = pickCsv(files, "lista de ativos", "ativos");
+  const transactions = pickCsv(files, "investimentos", "investimentos");
+  const history = pickCsv(files, "evolucao", "evolu");
   if (!assets || !transactions || !history) {
     return Promise.reject(new Error("envie o .xlsx do Sheets ou os 3 CSVs (Lista de Ativos, Investimentos, Evolução)"));
   }
