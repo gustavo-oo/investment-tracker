@@ -9,12 +9,13 @@ const SHEETS = {
 
 type CellValue =
   | string | number | boolean | Date | null | undefined
-  | { richText?: { text: string }[]; result?: unknown; text?: string };
+  | { richText?: { text: string }[]; result?: unknown; text?: string; error?: string };
 
 function cellToString(value: CellValue): string {
   if (value === null || value === undefined) return "";
   if (value instanceof Date) return value.toISOString().slice(0, 10);
   if (typeof value === "object") {
+    if (typeof value.error === "string") throw new Error(`célula com erro no workbook: ${value.error}`);
     if (Array.isArray(value.richText)) return value.richText.map((part) => part.text).join("");
     if ("result" in value) return cellToString(value.result as CellValue);
     if (typeof value.text === "string") return value.text;

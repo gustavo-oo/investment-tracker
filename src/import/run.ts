@@ -32,7 +32,8 @@ export function buildImportInputFromDir(csvDir: string): ImportInput {
   };
 }
 
-export function runImportFromDir(db: Db, csvDir: string, opts: { dryRun: boolean; source: "ui" | "cli" | "api" }): ImportSummary {  try {
+export function runImportFromDir(db: Db, csvDir: string, opts: { dryRun: boolean; source: "ui" | "cli" | "api" }): ImportSummary {
+  try {
     return runImport(db, buildImportInputFromDir(csvDir), opts);
   } catch (error) {
     const message = `falha ao ler CSVs de ${csvDir}: ${error instanceof Error ? error.message : String(error)}`;
@@ -125,6 +126,10 @@ export function runImport(db: Db, input: ImportInput, opts: { dryRun: boolean; s
   const latestTotalCents = history
     .filter((row) => row.month === latestMonth)
     .reduce((acc, row) => acc + row.valueCents, 0n);
+
+  if (errors.length === 0 && instruments.length === 0 && transactions.length === 0 && history.length === 0) {
+    errors.push("nada para importar: os arquivos vieram vazios");
+  }
 
   const summary: ImportSummary = {
     dryRun: opts.dryRun,

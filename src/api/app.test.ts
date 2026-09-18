@@ -126,3 +126,13 @@ test("POST /api/import com workbook inválido responde 422 e audita", async () =
   assert.match(res.json().errors[0] ?? "", /falha ao ler o workbook/);
   await app.close();
 });
+
+test("POST /api/import com workbookBase64 vazio responde 422 (não cai para o dir)", async () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  const app = buildApp({ db, csvDir: csvDirFixture(), logger: false });
+  const res = await app.inject({ method: "POST", url: "/api/import", payload: { workbookBase64: "" } });
+  assert.equal(res.statusCode, 422);
+  assert.match(res.json().errors[0] ?? "", /falha ao ler o workbook/);
+  await app.close();
+});
