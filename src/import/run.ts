@@ -9,6 +9,7 @@ import { parseCsv } from "./csv.ts";
 import { normalizeLegacyId } from "./catalog.ts";
 import { mapInstrumentRow, mapTransactionRow } from "./map.ts";
 import { parseLegacyHistory } from "./snapshots.ts";
+import { workbookToImportInput } from "./xlsx.ts";
 
 export type ImportInput = { assetsCsv: string; transactionsCsv: string; historyCsv: string };
 
@@ -31,8 +32,7 @@ export function buildImportInputFromDir(csvDir: string): ImportInput {
   };
 }
 
-export function runImportFromDir(db: Db, csvDir: string, opts: { dryRun: boolean; source: "ui" | "cli" | "api" }): ImportSummary {
-  try {
+export function runImportFromDir(db: Db, csvDir: string, opts: { dryRun: boolean; source: "ui" | "cli" | "api" }): ImportSummary {  try {
     return runImport(db, buildImportInputFromDir(csvDir), opts);
   } catch (error) {
     const message = `falha ao ler CSVs de ${csvDir}: ${error instanceof Error ? error.message : String(error)}`;
@@ -166,4 +166,21 @@ export function runImport(db: Db, input: ImportInput, opts: { dryRun: boolean; s
   }
 
   return summary;
+}
+
+export async function runImportFromWorkbook(db: Db, workbookBase64: string, opts: { dryRun: boolean; source: "ui" | "cli" | "api" }): Promise<ImportSummary> {
+  let input: ImportInput;
+  try {
+    input = await workbookToImportInput(workbookBase64);
+  } catch (error) {
+    const message = `falha ao ler o workbook: ${error instanceof Error ? error.message : String(error)}`;
+    if (!opts.dryRun) {
+      insertImportRun(db, { source: opts.source, instruments: 0, transactions: 0, historyRows: 0, status: "error", message });
+    }
+    return {
+      dryRun: opts.dryRun, instruments: 0, transactions: 0, historyRows: 0,
+      latestMonth: null, latestTotalCents: 0, warnings: [], errors: [message],
+    };
+  }
+  return runImport(db, input, opts);
 }

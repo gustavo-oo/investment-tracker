@@ -116,3 +116,13 @@ test("POST /api/import sem body com CSV_DIR ausente responde 422 e audita", asyn
   assert.equal(runs[0]?.status, "error");
   await app.close();
 });
+
+test("POST /api/import com workbook inválido responde 422 e audita", async () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  const app = buildApp({ db, csvDir: csvDirFixture(), logger: false });
+  const res = await app.inject({ method: "POST", url: "/api/import", payload: { workbookBase64: "nao-e-xlsx" } });
+  assert.equal(res.statusCode, 422);
+  assert.match(res.json().errors[0] ?? "", /falha ao ler o workbook/);
+  await app.close();
+});
