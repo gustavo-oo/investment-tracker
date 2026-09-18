@@ -1,9 +1,5 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "default_agent": "flash",
-  "plugin": [
-    "@dietrichgebert/ponytail"
-  ],
   "instructions": [
     ".opencode/instructions/i-have-adhd.md"
   ],

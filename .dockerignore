@@ -1,6 +1,5 @@
 node_modules
 .git
-.bento
 .codegraph
 .opencode
 docs
