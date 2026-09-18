@@ -3,11 +3,13 @@ import assert from "node:assert/strict";
 import { openDb } from "./index.ts";
 import { migrate } from "./migrate.ts";
 import {
-  clearImportedData, counts, getInstrument, getInstrumentByLegacyKey, insertImportRun,
-  insertInstruments, insertLegacySnapshots, insertTransactions, latestLegacyMonth,
-  listImportRuns, listLegacySnapshotByMonth, listTransactionsByInstrument,
+  clearImportedData, counts, earliestTradeDate, getInstrument, getInstrumentByLegacyKey,
+  hasQuoteFromSourceOnDate, indexFrontier, insertImportRun, insertInstruments, insertLegacySnapshots,
+  insertTransactions, latestLegacyMonth, listAllIndexRates, listAllQuotes, listAllTransactions,
+  listImportRuns, listLegacySnapshotByMonth, listSourceStatus, listTransactionsByInstrument,
+  quoteFrontier, recordSourceAttempt, writeIndexRates, writeQuotes,
 } from "./repos.ts";
-import type { InstrumentRow } from "./repos.ts";
+import type { IndexRateRow, InstrumentRow, QuoteRow } from "./repos.ts";
 
 function freshDb() {
   const db = openDb(":memory:");
@@ -51,4 +53,68 @@ test("histórico legado, runs e limpeza", () => {
   assert.deepEqual(counts(db), { instruments: 1, transactions: 0, legacySnapshots: 2, importRuns: 1 });
   clearImportedData(db);
   assert.deepEqual(counts(db), { instruments: 0, transactions: 0, legacySnapshots: 0, importRuns: 1 });
+});
+
+test("writeQuotes: fechado imutável, hoje sobrescreve, pendente finaliza", () => {
+  const db = freshDb();
+  const past: QuoteRow = { ticker: "WRLD11", date: "2026-09-17", closeCents: 1000n, source: "yahoo", settled: true };
+  const today: QuoteRow = { ticker: "WRLD11", date: "2026-09-18", closeCents: 1050n, source: "yahoo", settled: false };
+  assert.deepEqual(writeQuotes(db, [past, today], "2026-09-18"), { inserted: 2, updated: 0, skipped: 0 });
+  assert.deepEqual(
+    writeQuotes(db, [{ ...past, closeCents: 9999n }, { ...today, closeCents: 1060n }], "2026-09-18"),
+    { inserted: 0, updated: 1, skipped: 1 },
+  );
+  const rows = listAllQuotes(db);
+  assert.equal(rows.find((row) => row.date === "2026-09-17")?.closeCents, 1000n);
+  assert.equal(rows.find((row) => row.date === "2026-09-18")?.closeCents, 1060n);
+});
+
+test("writeQuotes: fetch do dia seguinte finaliza o parcial (0→1)", () => {
+  const db = freshDb();
+  writeQuotes(db, [{ ticker: "WRLD11", date: "2026-09-18", closeCents: 1050n, source: "yahoo", settled: false }], "2026-09-18");
+  assert.deepEqual(
+    writeQuotes(db, [{ ticker: "WRLD11", date: "2026-09-18", closeCents: 1075n, source: "yahoo", settled: true }], "2026-09-19"),
+    { inserted: 0, updated: 1, skipped: 0 },
+  );
+  assert.deepEqual(listAllQuotes(db)[0], { ticker: "WRLD11", date: "2026-09-18", closeCents: 1075n, source: "yahoo", settled: true });
+});
+
+test("writeIndexRates ignora reescrita e calcula fronteiras", () => {
+  const db = freshDb();
+  insertInstruments(db, [cdb]);
+  insertTransactions(db, [{ instrumentId: cdb.id, tradeDate: "2025-04-23", kind: "BUY", quantityE8: null, grossCents: 1000n, feesCents: 0n, note: null, legacyRow: null }]);
+  const rates: IndexRateRow[] = [
+    { series: "CDI", date: "2025-04-23", valueE12: 500_000_000n },
+    { series: "CDI", date: "2025-04-24", valueE12: 500_000_000n },
+  ];
+  assert.deepEqual(writeIndexRates(db, rates), { inserted: 2, skipped: 0 });
+  assert.deepEqual(writeIndexRates(db, [{ ...rates[0]!, valueE12: 999n }]), { inserted: 0, skipped: 1 });
+  assert.equal(listAllIndexRates(db)[0]?.valueE12, 500_000_000n);
+  assert.equal(indexFrontier(db, "CDI"), "2025-04-24");
+  assert.equal(indexFrontier(db, "SELIC"), null);
+  assert.equal(earliestTradeDate(db), "2025-04-23");
+  writeQuotes(db, [{ ticker: "WRLD11", date: "2026-09-17", closeCents: 1n, source: "yahoo", settled: true }], "2026-09-18");
+  assert.equal(quoteFrontier(db, "WRLD11"), "2026-09-17");
+  assert.equal(hasQuoteFromSourceOnDate(db, "WRLD11", "alphavantage", "2026-09-17"), false);
+  assert.equal(hasQuoteFromSourceOnDate(db, "WRLD11", "yahoo", "2026-09-17"), true);
+});
+
+test("recordSourceAttempt e listSourceStatus guardam sucesso/erro", () => {
+  const db = freshDb();
+  recordSourceAttempt(db, "yahoo", { ok: true });
+  assert.equal(listSourceStatus(db)[0]?.lastSuccessAt !== null, true);
+  recordSourceAttempt(db, "yahoo", { ok: false, error: "HTTP 502" });
+  const status = listSourceStatus(db)[0];
+  assert.equal(status?.lastError, "HTTP 502");
+  assert.equal(status?.lastErrorAt !== null && status.lastErrorAt > (status.lastSuccessAt ?? ""), true);
+});
+
+test("listAllTransactions devolve todos em ordem de ativo e data", () => {
+  const db = freshDb();
+  insertInstruments(db, [cdb]);
+  insertTransactions(db, [
+    { instrumentId: cdb.id, tradeDate: "2026-07-01", kind: "SELL", quantityE8: null, grossCents: 2n, feesCents: 0n, note: null, legacyRow: null },
+    { instrumentId: cdb.id, tradeDate: "2025-04-23", kind: "BUY", quantityE8: null, grossCents: 1n, feesCents: 0n, note: null, legacyRow: null },
+  ]);
+  assert.deepEqual(listAllTransactions(db).map((t) => t.tradeDate), ["2025-04-23", "2026-07-01"]);
 });

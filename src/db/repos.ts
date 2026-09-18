@@ -22,6 +22,16 @@ export type ImportRunRow = {
   status: "ok" | "error"; message: string | null;
 };
 
+export type QuoteRow = { ticker: string; date: string; closeCents: bigint; source: string; settled: boolean };
+export type IndexRateRow = { series: string; date: string; valueE12: bigint };
+export type SourceStatusRow = {
+  source: string;
+  lastAttemptAt: string | null;
+  lastSuccessAt: string | null;
+  lastErrorAt: string | null;
+  lastError: string | null;
+};
+
 type InstrumentDbRow = {
   id: string; legacy_key: string; name: string; kind: InstrumentKind; category: InstrumentCategory;
   ticker: string | null; quote_source: string | null; quote_symbol: string | null; currency: string;
@@ -140,4 +150,127 @@ export function counts(db: Db): { instruments: number; transactions: number; leg
     legacySnapshots: one("SELECT COUNT(*) AS total FROM legacy_snapshots"),
     importRuns: one("SELECT COUNT(*) AS total FROM import_runs"),
   };
+}
+
+export function writeQuotes(db: Db, rows: QuoteRow[], today: string): { inserted: number; updated: number; skipped: number } {
+  const writeClosed = db.prepare(`INSERT INTO quotes (ticker, date, close_cents, source, settled)
+    VALUES (?, ?, ?, ?, 1)
+    ON CONFLICT(ticker, date) DO UPDATE SET
+      close_cents = excluded.close_cents, source = excluded.source, settled = 1, fetched_at = datetime('now')
+    WHERE quotes.settled = 0`);
+  const writeToday = db.prepare(`INSERT INTO quotes (ticker, date, close_cents, source, settled)
+    VALUES (?, ?, ?, ?, 0)
+    ON CONFLICT(ticker, date) DO UPDATE SET
+      close_cents = excluded.close_cents, source = excluded.source, fetched_at = datetime('now')
+    WHERE quotes.settled = 0`);
+  const find = db.prepare("SELECT settled FROM quotes WHERE ticker = ? AND date = ?");
+  let inserted = 0;
+  let updated = 0;
+  let skipped = 0;
+  const run = db.transaction((items: QuoteRow[]) => {
+    for (const quote of items) {
+      const before = find.get(quote.ticker, quote.date) as { settled: bigint } | undefined;
+      const result = (quote.date < today ? writeClosed : writeToday).run(quote.ticker, quote.date, quote.closeCents, quote.source);
+      if (Number(result.changes) === 0) skipped++;
+      else if (before) updated++;
+      else inserted++;
+    }
+  });
+  run(rows);
+  return { inserted, updated, skipped };
+}
+
+export function writeIndexRates(db: Db, rows: IndexRateRow[]): { inserted: number; skipped: number } {
+  const stmt = db.prepare("INSERT OR IGNORE INTO index_rates (series, date, value_e12) VALUES (?, ?, ?)");
+  let inserted = 0;
+  let skipped = 0;
+  const run = db.transaction((items: IndexRateRow[]) => {
+    for (const rate of items) {
+      const result = stmt.run(rate.series, rate.date, rate.valueE12);
+      if (Number(result.changes) === 0) skipped++;
+      else inserted++;
+    }
+  });
+  run(rows);
+  return { inserted, skipped };
+}
+
+export function quoteFrontier(db: Db, ticker: string): string | null {
+  const row = db.prepare("SELECT MAX(date) AS date FROM quotes WHERE ticker = ?").get(ticker) as { date: string | null };
+  return row.date;
+}
+
+export function indexFrontier(db: Db, series: string): string | null {
+  const row = db.prepare("SELECT MAX(date) AS date FROM index_rates WHERE series = ?").get(series) as { date: string | null };
+  return row.date;
+}
+
+export function earliestTradeDate(db: Db): string | null {
+  const row = db.prepare("SELECT MIN(trade_date) AS date FROM transactions").get() as { date: string | null };
+  return row.date;
+}
+
+export function hasQuoteFromSourceOnDate(db: Db, ticker: string, source: string, date: string): boolean {
+  return db.prepare("SELECT 1 AS found FROM quotes WHERE ticker = ? AND source = ? AND date = ?").get(ticker, source, date) !== undefined;
+}
+
+let lastSourceStatusStamp = 0;
+
+function nextSourceStatusStamp(): string {
+  lastSourceStatusStamp = Math.max(Date.now(), lastSourceStatusStamp + 1);
+  return new Date(lastSourceStatusStamp).toISOString();
+}
+
+export function recordSourceAttempt(db: Db, source: string, result: { ok: true } | { ok: false; error: string }): void {
+  const stamp = nextSourceStatusStamp();
+  if (result.ok) {
+    db.prepare(`INSERT INTO source_status (source, last_attempt_at, last_success_at)
+      VALUES (?, ?, ?)
+      ON CONFLICT(source) DO UPDATE SET
+        last_attempt_at = excluded.last_attempt_at, last_success_at = excluded.last_success_at`).run(source, stamp, stamp);
+    return;
+  }
+  db.prepare(`INSERT INTO source_status (source, last_attempt_at, last_error_at, last_error)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(source) DO UPDATE SET
+      last_attempt_at = excluded.last_attempt_at, last_error_at = excluded.last_error_at, last_error = excluded.last_error`)
+    .run(source, stamp, stamp, result.error.slice(0, 500));
+}
+
+export function listSourceStatus(db: Db): SourceStatusRow[] {
+  const rows = db.prepare("SELECT * FROM source_status ORDER BY source").all() as Array<{
+    source: string; last_attempt_at: string | null; last_success_at: string | null; last_error_at: string | null; last_error: string | null;
+  }>;
+  return rows.map((row) => ({
+    source: row.source, lastAttemptAt: row.last_attempt_at, lastSuccessAt: row.last_success_at,
+    lastErrorAt: row.last_error_at, lastError: row.last_error,
+  }));
+}
+
+export function listAllQuotes(db: Db): QuoteRow[] {
+  const rows = db.prepare("SELECT ticker, date, close_cents, source, settled FROM quotes ORDER BY ticker, date").all() as Array<{
+    ticker: string; date: string; close_cents: bigint; source: string; settled: bigint;
+  }>;
+  return rows.map((row) => ({
+    ticker: row.ticker, date: row.date, closeCents: row.close_cents, source: row.source, settled: Number(row.settled) === 1,
+  }));
+}
+
+export function listAllIndexRates(db: Db): IndexRateRow[] {
+  const rows = db.prepare("SELECT series, date, value_e12 FROM index_rates ORDER BY series, date").all() as Array<{
+    series: string; date: string; value_e12: bigint;
+  }>;
+  return rows.map((row) => ({ series: row.series, date: row.date, valueE12: row.value_e12 }));
+}
+
+export function listAllTransactions(db: Db): TransactionRow[] {
+  const rows = db.prepare("SELECT * FROM transactions ORDER BY instrument_id, trade_date, id").all() as Array<{
+    instrument_id: string; trade_date: string; kind: TransactionKind;
+    quantity_e8: bigint | null; gross_cents: bigint; fees_cents: bigint; note: string | null; legacy_row: bigint | null;
+  }>;
+  return rows.map((row) => ({
+    instrumentId: row.instrument_id, tradeDate: row.trade_date, kind: row.kind,
+    quantityE8: row.quantity_e8, grossCents: row.gross_cents, feesCents: row.fees_cents,
+    note: row.note, legacyRow: row.legacy_row === null ? null : Number(row.legacy_row),
+  }));
 }
