@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ImportView } from "./views/ImportView.tsx";
 
 type View = "importar" | "dashboard";
 
@@ -14,7 +15,7 @@ export function App() {
         </nav>
       </header>
       <main>
-        {view === "importar" ? <p>Tela de import em construção.</p> : <p>Dashboard chega na S6.</p>}
+        {view === "importar" ? <ImportView /> : <p>Dashboard chega na S6.</p>}
       </main>
     </div>
   );
