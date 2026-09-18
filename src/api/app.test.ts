@@ -136,3 +136,15 @@ test("POST /api/import com workbookBase64 vazio responde 422 (não cai para o di
   assert.match(res.json().errors[0] ?? "", /falha ao ler o workbook/);
   await app.close();
 });
+
+test("POST /api/import com CSVs parciais responde 422 (não cai para o dir)", async () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  const app = buildApp({ db, csvDir: csvDirFixture(), logger: false });
+  const res = await app.inject({ method: "POST", url: "/api/import", payload: { assetsCsv: "" } });
+  assert.equal(res.statusCode, 422);
+  assert.match(res.json().errors[0] ?? "", /os 3 CSVs/);
+  const runs = (await app.inject({ method: "GET", url: "/api/import/runs" })).json();
+  assert.equal(runs[0]?.status, "error");
+  await app.close();
+});

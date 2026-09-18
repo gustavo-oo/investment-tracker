@@ -2,9 +2,9 @@ import ExcelJS from "exceljs";
 import { toCsv } from "./csv.ts";
 
 const SHEETS = {
-  assets: "Lista de Ativos",
-  transactions: "Investimentos",
-  history: "Evolução",
+  assets: { name: "Lista de Ativos", columns: 12 },
+  transactions: { name: "Investimentos", columns: 7 },
+  history: { name: "Evolução", columns: 2 },
 } as const;
 
 type CellValue =
@@ -24,12 +24,12 @@ function cellToString(value: CellValue): string {
   return String(value);
 }
 
-function sheetToCsv(workbook: ExcelJS.Workbook, name: string): string {
+function sheetToCsv(workbook: ExcelJS.Workbook, name: string, columns: number): string {
   const sheet = workbook.getWorksheet(name);
   if (!sheet) throw new Error(`aba não encontrada: ${JSON.stringify(name)}`);
   const rows: string[][] = [];
   sheet.eachRow({ includeEmpty: false }, (row) => {
-    const values = Array.isArray(row.values) ? row.values.slice(1) : [];
+    const values = Array.isArray(row.values) ? row.values.slice(1, 1 + columns) : [];
     rows.push(values.map((value) => cellToString(value as CellValue)));
   });
   return toCsv(rows);
@@ -39,8 +39,8 @@ export async function workbookToImportInput(base64: string): Promise<{ assetsCsv
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(Buffer.from(base64, "base64") as unknown as ExcelJS.Buffer);
   return {
-    assetsCsv: sheetToCsv(workbook, SHEETS.assets),
-    transactionsCsv: sheetToCsv(workbook, SHEETS.transactions),
-    historyCsv: sheetToCsv(workbook, SHEETS.history),
+    assetsCsv: sheetToCsv(workbook, SHEETS.assets.name, SHEETS.assets.columns),
+    transactionsCsv: sheetToCsv(workbook, SHEETS.transactions.name, SHEETS.transactions.columns),
+    historyCsv: sheetToCsv(workbook, SHEETS.history.name, SHEETS.history.columns),
   };
 }
