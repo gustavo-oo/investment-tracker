@@ -123,3 +123,18 @@ test("runImportFromDir audita diretório de CSVs ausente", () => {
   assert.match(summary.errors[0] ?? "", /falha ao ler CSVs/);
   assert.equal(listImportRuns(db, 10)[0]?.status, "error");
 });
+
+test("runImport não zera o banco quando os arquivos vêm vazios", () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  runImport(db, input(), { dryRun: false, source: "cli" });
+  assert.equal(counts(db).instruments, 1);
+  const headerOnly = {
+    assetsCsv: "ID,Nome do Ativo,Tipo,Subtipo\n",
+    transactionsCsv: "Ativo,Tipo de Operação,Data,Custo total da Operação,Taxas + Impostos,Resultado,Quantidade de Cotas\n",
+    historyCsv: "Mês/Ano,Investimentos acumulados (GZIP + Base64)\n",
+  };
+  const summary = runImport(db, headerOnly, { dryRun: false, source: "cli" });
+  assert.ok(summary.errors.some((error) => /nada para importar/.test(error)));
+  assert.equal(counts(db).instruments, 1, "dados anteriores preservados");
+});

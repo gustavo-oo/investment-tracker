@@ -116,3 +116,73 @@ test("POST /api/import sem body com CSV_DIR ausente responde 422 e audita", asyn
   assert.equal(runs[0]?.status, "error");
   await app.close();
 });
+
+test("POST /api/import com workbook inválido responde 422 e audita", async () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  const app = buildApp({ db, csvDir: csvDirFixture(), logger: false });
+  const res = await app.inject({ method: "POST", url: "/api/import", payload: { workbookBase64: "nao-e-xlsx" } });
+  assert.equal(res.statusCode, 422);
+  assert.match(res.json().errors[0] ?? "", /falha ao ler o workbook/);
+  await app.close();
+});
+
+test("POST /api/import com workbookBase64 vazio responde 422 (não cai para o dir)", async () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  const app = buildApp({ db, csvDir: csvDirFixture(), logger: false });
+  const res = await app.inject({ method: "POST", url: "/api/import", payload: { workbookBase64: "" } });
+  assert.equal(res.statusCode, 422);
+  assert.match(res.json().errors[0] ?? "", /falha ao ler o workbook/);
+  await app.close();
+});
+
+test("POST /api/import com CSVs parciais responde 422 (não cai para o dir)", async () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  const app = buildApp({ db, csvDir: csvDirFixture(), logger: false });
+  const res = await app.inject({ method: "POST", url: "/api/import", payload: { assetsCsv: "" } });
+  assert.equal(res.statusCode, 422);
+  assert.match(res.json().errors[0] ?? "", /os 3 CSVs/);
+  const runs = (await app.inject({ method: "GET", url: "/api/import/runs" })).json();
+  assert.equal(runs[0]?.status, "error");
+  await app.close();
+});
+
+test("CSV presente mas vazio não importa nem zera o banco", async () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  const app = buildApp({ db, csvDir: csvDirFixture(), logger: false });
+  await app.inject({ method: "POST", url: "/api/import", payload: {} });
+  assert.equal((db.prepare("SELECT COUNT(*) AS total FROM instruments").get() as { total: bigint }).total, 1n);
+
+  const res = await app.inject({
+    method: "POST",
+    url: "/api/import",
+    payload: {
+      assetsCsv: "ID,Nome do Ativo,Tipo,Subtipo\nCDB X:  01-01-30,CDB X,Renda Fixa,CDB\n",
+      transactionsCsv: "",
+      historyCsv: "",
+    },
+  });
+  assert.equal(res.statusCode, 422);
+  assert.match(res.json().errors[0] ?? "", /os 3 CSVs/);
+  assert.equal((db.prepare("SELECT COUNT(*) AS total FROM instruments").get() as { total: bigint }).total, 1n, "nada foi apagado");
+  await app.close();
+});
+
+test("serve o build do web com fallback SPA", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "web-"));
+  writeFileSync(join(dir, "index.html"), '<div id="root"></div>');
+  const db = openDb(":memory:");
+  migrate(db);
+  const app = buildApp({ db, csvDir: csvDirFixture(), logger: false, webDir: dir });
+  const home = await app.inject({ method: "GET", url: "/" });
+  assert.equal(home.statusCode, 200);
+  assert.match(home.body, /id="root"/);
+  const spa = await app.inject({ method: "GET", url: "/qualquer-rota" });
+  assert.equal(spa.statusCode, 200);
+  const api404 = await app.inject({ method: "GET", url: "/api/nao-existe" });
+  assert.equal(api404.statusCode, 404);
+  await app.close();
+});

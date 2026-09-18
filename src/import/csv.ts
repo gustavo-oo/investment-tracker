@@ -26,3 +26,12 @@ export function parseCsv(text: string): string[][] {
 export function readCsv(path: string): string[][] {
   return parseCsv(readFileSync(path, "utf8"));
 }
+
+const escapeField = (field: string): string => {
+  const value = field ?? "";
+  return /[",\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
+};
+
+export function toCsv(rows: string[][]): string {
+  return rows.map((row) => row.map(escapeField).join(",")).join("\n");
+}
