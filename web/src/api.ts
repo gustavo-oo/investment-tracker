@@ -28,16 +28,33 @@ export type ImportPayload = {
   dryRun: boolean;
 };
 
+async function readJson<T>(response: Response): Promise<T> {
+  const body = (await response.json().catch(() => null)) as
+    | T
+    | { message?: string; errors?: unknown }
+    | null;
+  if (body && typeof body === "object" && Array.isArray((body as { errors?: unknown }).errors)) {
+    return body as T;
+  }
+  if (!response.ok) {
+    const message = body && typeof body === "object" && typeof (body as { message?: unknown }).message === "string"
+      ? String((body as { message: string }).message)
+      : `erro HTTP ${response.status}`;
+    throw new Error(message);
+  }
+  return body as T;
+}
+
 export async function postImport(payload: ImportPayload): Promise<ImportSummary> {
   const response = await fetch("/api/import", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(payload),
   });
-  return (await response.json()) as ImportSummary;
+  return readJson<ImportSummary>(response);
 }
 
 export async function getImportRuns(): Promise<ImportRun[]> {
   const response = await fetch("/api/import/runs");
-  return (await response.json()) as ImportRun[];
+  return readJson<ImportRun[]>(response);
 }
