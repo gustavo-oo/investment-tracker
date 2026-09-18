@@ -148,3 +148,25 @@ test("POST /api/import com CSVs parciais responde 422 (não cai para o dir)", as
   assert.equal(runs[0]?.status, "error");
   await app.close();
 });
+
+test("CSV presente mas vazio não importa nem zera o banco", async () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  const app = buildApp({ db, csvDir: csvDirFixture(), logger: false });
+  await app.inject({ method: "POST", url: "/api/import", payload: {} });
+  assert.equal((db.prepare("SELECT COUNT(*) AS total FROM instruments").get() as { total: bigint }).total, 1n);
+
+  const res = await app.inject({
+    method: "POST",
+    url: "/api/import",
+    payload: {
+      assetsCsv: "ID,Nome do Ativo,Tipo,Subtipo\nCDB X:  01-01-30,CDB X,Renda Fixa,CDB\n",
+      transactionsCsv: "",
+      historyCsv: "",
+    },
+  });
+  assert.equal(res.statusCode, 422);
+  assert.match(res.json().errors[0] ?? "", /os 3 CSVs/);
+  assert.equal((db.prepare("SELECT COUNT(*) AS total FROM instruments").get() as { total: bigint }).total, 1n, "nada foi apagado");
+  await app.close();
+});

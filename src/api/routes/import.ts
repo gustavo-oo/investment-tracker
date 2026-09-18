@@ -20,16 +20,17 @@ export function registerImportRoutes(app: FastifyInstance, db: Db, csvDir: strin
     const body = request.body ?? {};
     const dryRun = body.dryRun === true || body.dryRun === "true" || body.dryRun === 1 || body.dryRun === "1";
     const hasWorkbook = typeof body.workbookBase64 === "string";
-    const csvCount = [body.assetsCsv, body.transactionsCsv, body.historyCsv]
-      .filter((value) => typeof value === "string").length;
-    const hasCsvs = csvCount === 3;
+    const csvValues = [body.assetsCsv, body.transactionsCsv, body.historyCsv];
+    const anyCsvKey = csvValues.some((value) => typeof value === "string");
+    const filledCsvs = csvValues.filter((value) => typeof value === "string" && value.trim() !== "").length;
+    const hasCsvs = filledCsvs === 3;
 
     let summary: ImportSummary;
     if (hasWorkbook) {
       summary = await runImportFromWorkbook(db, body.workbookBase64 ?? "", { dryRun, source: "api" });
     } else if (hasCsvs) {
       summary = runImport(db, { assetsCsv: body.assetsCsv ?? "", transactionsCsv: body.transactionsCsv ?? "", historyCsv: body.historyCsv ?? "" }, { dryRun, source: "api" });
-    } else if (csvCount > 0) {
+    } else if (anyCsvKey) {
       summary = summaryWithError(dryRun, "envie os 3 CSVs (Lista de Ativos, Investimentos, Evolução)");
       if (!dryRun) {
         insertImportRun(db, { source: "api", instruments: 0, transactions: 0, historyRows: 0, status: "error", message: summary.errors[0] ?? null });
