@@ -6,9 +6,10 @@ Substitui a planilha Google + Apps Script por um app local (Node + SQLite).
 
     npm install
     npm run import     # lê data/csv e popula data/investments.db
-    npm run dev        # http://localhost:3000
+    npm run dev        # API em http://localhost:3000
+    npm run dev:web    # UI em http://localhost:5173 (proxy /api -> :3000)
 
-Testes: `npm test` · Tipos: `npm run typecheck`
+Testes: `npm test` · Tipos: `npm run typecheck` · Build da UI: `npm run build:web`
 
 ## Homelab (Docker)
 
@@ -16,6 +17,8 @@ Testes: `npm test` · Tipos: `npm run typecheck`
     docker compose up -d --build
     docker compose exec app npm run import   # popula o banco do volume
     curl localhost:3000/api/health
+
+A UI é servida pelo próprio container em `http://<host>:3000`.
 
 Atualizar: `git pull && docker compose up -d --build`. Backup: copiar `data/`.
 Se o volume der erro de permissão, ajuste o dono de `./data` para o uid do container (1000).

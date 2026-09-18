@@ -8,3 +8,5 @@ legacy
 data/*.db
 data/*.db-*
 data/*.xlsx
+web/dist
+web/node_modules

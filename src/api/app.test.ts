@@ -170,3 +170,19 @@ test("CSV presente mas vazio não importa nem zera o banco", async () => {
   assert.equal((db.prepare("SELECT COUNT(*) AS total FROM instruments").get() as { total: bigint }).total, 1n, "nada foi apagado");
   await app.close();
 });
+
+test("serve o build do web com fallback SPA", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "web-"));
+  writeFileSync(join(dir, "index.html"), '<div id="root"></div>');
+  const db = openDb(":memory:");
+  migrate(db);
+  const app = buildApp({ db, csvDir: csvDirFixture(), logger: false, webDir: dir });
+  const home = await app.inject({ method: "GET", url: "/" });
+  assert.equal(home.statusCode, 200);
+  assert.match(home.body, /id="root"/);
+  const spa = await app.inject({ method: "GET", url: "/qualquer-rota" });
+  assert.equal(spa.statusCode, 200);
+  const api404 = await app.inject({ method: "GET", url: "/api/nao-existe" });
+  assert.equal(api404.statusCode, 404);
+  await app.close();
+});
