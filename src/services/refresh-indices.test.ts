@@ -51,3 +51,17 @@ test("refresh de índices grava uma vez, ignora reescrita e registra a fonte", a
   assert.equal(listAllIndexRates(db).length, 3);
   assert.equal(listSourceStatus(db)[0]?.lastError, null);
 });
+
+test("sem ativos não consulta o BCB nem registra a fonte", async () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  let calls = 0;
+  const bcb: IndexSource = {
+    id: "bcb",
+    fetchSeries: async (series) => { calls++; return [{ series, date: "2026-09-17", valueE12: 1n }]; },
+  };
+  const result = await refreshIndices(db, { source: bcb, now: () => new Date("2026-09-18T07:00:00-03:00") });
+  assert.equal(calls, 0);
+  assert.equal(result.inserted, 0);
+  assert.deepEqual(listSourceStatus(db), []);
+});

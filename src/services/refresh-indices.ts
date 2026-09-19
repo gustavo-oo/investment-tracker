@@ -13,9 +13,11 @@ export async function refreshIndices(db: Db, deps: IndexRefreshDeps, full = fals
   const today = toBrDate(now());
   const floor = earliestTradeDate(db);
   const summary = emptySummary(deps.source.id);
+  let attempted = false;
   for (const series of SERIES) {
     const from = full ? floor : (indexFrontier(db, series) ?? floor);
     if (from === null) continue;
+    attempted = true;
     try {
       const rates = await deps.source.fetchSeries(series, from, today);
       // BCB pode publicar índice negativo (IPCA em deflação); o parse já rejeita valor malformado.
@@ -28,6 +30,8 @@ export async function refreshIndices(db: Db, deps: IndexRefreshDeps, full = fals
       summary.errors.push(`${series}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
-  recordSourceAttempt(db, deps.source.id, summary.errors.length === 0 ? { ok: true } : { ok: false, error: summary.errors[0]! });
+  if (attempted) {
+    recordSourceAttempt(db, deps.source.id, summary.errors.length === 0 ? { ok: true } : { ok: false, error: summary.errors[0]! });
+  }
   return summary;
 }

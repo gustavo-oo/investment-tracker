@@ -5,7 +5,7 @@ import { migrate } from "../db/migrate.ts";
 import { insertInstruments, insertTransactions } from "../db/repos.ts";
 import type { InstrumentRow } from "../db/repos.ts";
 import type { IndexSource, QuoteSource } from "../sources/types.ts";
-import { RefreshBusyError, refresh } from "./refresh.ts";
+import { RefreshBusyError, RefreshRequestError, refresh } from "./refresh.ts";
 
 const cdbInstrument: InstrumentRow = {
   id: "cdb-1", legacyKey: "CDB 1", name: "CDB 1", kind: "fixed_income", category: "cdb",
@@ -19,8 +19,16 @@ const emptyIndexSource: IndexSource = { id: "bcb", fetchSeries: async () => [] }
 test("fonte desconhecida e alphavantage sem chave falham com erro claro", async () => {
   const db = openDb(":memory:");
   migrate(db);
-  await assert.rejects(() => refresh(db, { source: "xpto" }, { quoteSources: [emptyQuoteSource], indexSource: emptyIndexSource }), /fonte desconhecida: xpto/);
-  await assert.rejects(() => refresh(db, { source: "alphavantage" }, { quoteSources: [emptyQuoteSource], indexSource: emptyIndexSource }), /alphavantage não configurado/);
+  await assert.rejects(() => refresh(db, { source: "xpto" }, { quoteSources: [emptyQuoteSource], indexSource: emptyIndexSource }), (error: unknown) => {
+    assert.ok(error instanceof RefreshRequestError);
+    assert.match(error.message, /fonte desconhecida: xpto/);
+    return true;
+  });
+  await assert.rejects(() => refresh(db, { source: "alphavantage" }, { quoteSources: [emptyQuoteSource], indexSource: emptyIndexSource }), (error: unknown) => {
+    assert.ok(error instanceof RefreshRequestError);
+    assert.match(error.message, /alphavantage não configurado/);
+    return true;
+  });
 });
 
 test("quotesOnly roda só as cotações e não chama o BCB", async () => {

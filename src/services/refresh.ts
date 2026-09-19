@@ -12,6 +12,13 @@ export class RefreshBusyError extends Error {
   }
 }
 
+export class RefreshRequestError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "RefreshRequestError";
+  }
+}
+
 export type RefreshOptions = {
   full?: boolean;
   source?: string;
@@ -38,14 +45,14 @@ export async function refresh(db: Db, options: RefreshOptions = {}, deps: Refres
     const wanted = options.source;
     const wantsQuotes = wanted === undefined || wanted === "yahoo" || wanted === "alphavantage";
     const wantsIndices = wanted === undefined ? options.quotesOnly !== true : wanted === "bcb";
-    if (!wantsQuotes && !wantsIndices) throw new Error(`fonte desconhecida: ${wanted}`);
+    if (!wantsQuotes && !wantsIndices) throw new RefreshRequestError(`fonte desconhecida: ${wanted}`);
 
     const summaries: RefreshSourceSummary[] = [];
     if (wantsQuotes) {
       let sources = quoteSources;
       if (wanted === "alphavantage") {
         const alphaVantage = quoteSources.find((source) => source.id === "alphavantage");
-        if (!alphaVantage) throw new Error("alphavantage não configurado (ALPHAVANTAGE_API_KEY ausente)");
+        if (!alphaVantage) throw new RefreshRequestError("alphavantage não configurado (ALPHAVANTAGE_API_KEY ausente)");
         sources = [alphaVantage];
       } else if (wanted === "yahoo") {
         sources = quoteSources.filter((source) => source.id === "yahoo");
