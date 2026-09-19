@@ -5,12 +5,19 @@ import type { Db } from "./db/index.ts";
 import { registerHealthRoutes } from "./api/routes/health.ts";
 import { registerImportRoutes } from "./api/routes/import.ts";
 import { registerInstrumentsRoutes } from "./api/routes/instruments.ts";
+import { registerPortfolioRoutes } from "./api/routes/portfolio.ts";
+import { registerRefreshRoutes } from "./api/routes/refresh.ts";
+import type { RefreshDeps } from "./services/refresh.ts";
 
-export function buildApp(options: { db: Db; csvDir: string; logger?: boolean; webDir?: string }): FastifyInstance {
+export function buildApp(options: {
+  db: Db; csvDir: string; logger?: boolean; webDir?: string; refreshDeps?: RefreshDeps;
+}): FastifyInstance {
   const app = Fastify({ logger: options.logger ?? false, bodyLimit: 20 * 1024 * 1024 });
   registerInstrumentsRoutes(app, options.db);
   registerImportRoutes(app, options.db, options.csvDir);
   registerHealthRoutes(app, options.db);
+  registerPortfolioRoutes(app, options.db);
+  registerRefreshRoutes(app, options.db, options.refreshDeps);
 
   if (options.webDir && existsSync(options.webDir)) {
     app.register(fastifyStatic, { root: options.webDir });

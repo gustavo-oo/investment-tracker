@@ -7,6 +7,9 @@ import { gzipSync } from "node:zlib";
 import { buildApp } from "../app.ts";
 import { openDb } from "../db/index.ts";
 import { migrate } from "../db/migrate.ts";
+import { insertInstruments, insertTransactions, writeIndexRates, writeQuotes } from "../db/repos.ts";
+import type { InstrumentRow } from "../db/repos.ts";
+import type { IndexSource, QuoteSource } from "../sources/types.ts";
 
 const gzip = (obj: unknown) => gzipSync(Buffer.from(JSON.stringify(obj))).toString("base64");
 
@@ -31,7 +34,7 @@ test("health, import (dry-run e real), instruments e runs", async () => {
 
   let res = await app.inject({ method: "GET", url: "/api/health" });
   assert.equal(res.statusCode, 200);
-  assert.deepEqual(res.json(), { ok: true, counts: { instruments: 0, transactions: 0, legacySnapshots: 0, importRuns: 0 } });
+  assert.deepEqual(res.json(), { ok: true, counts: { instruments: 0, transactions: 0, legacySnapshots: 0, importRuns: 0 }, sources: [] });
 
   res = await app.inject({ method: "POST", url: "/api/import", payload: { dryRun: true } });
   assert.equal(res.statusCode, 200);
@@ -184,5 +187,100 @@ test("serve o build do web com fallback SPA", async () => {
   assert.equal(spa.statusCode, 200);
   const api404 = await app.inject({ method: "GET", url: "/api/nao-existe" });
   assert.equal(api404.statusCode, 404);
+  await app.close();
+});
+
+const baseInstrument = {
+  currency: "BRL", quoteSource: null, quoteSymbol: null, maturityDate: null,
+  liquidity: null, broker: "PagBank", objective: "Reserva", investor: "Ana",
+} as const;
+
+const cdbInstrument: InstrumentRow = {
+  ...baseInstrument, id: "cdb-1", legacyKey: "CDB 1", name: "CDB 1", kind: "fixed_income",
+  category: "cdb", ticker: null, benchmark: "CDI", rateE6: 1_000_000n,
+};
+
+const etfInstrument: InstrumentRow = {
+  ...baseInstrument, id: "etf-1", legacyKey: "ETF 1", name: "ETF 1", kind: "equity",
+  category: "etf_equity", ticker: "WRLD11", benchmark: null, rateE6: null, broker: "XP",
+};
+
+function seedPortfolio(db: ReturnType<typeof openDb>) {
+  insertInstruments(db, [cdbInstrument, etfInstrument]);
+  insertTransactions(db, [
+    { instrumentId: cdbInstrument.id, tradeDate: "2026-09-17", kind: "BUY", quantityE8: null, grossCents: 100_000n, feesCents: 0n, note: null, legacyRow: null },
+    { instrumentId: etfInstrument.id, tradeDate: "2026-09-17", kind: "BUY", quantityE8: 10_00000000n, grossCents: 9_000n, feesCents: 0n, note: null, legacyRow: null },
+  ]);
+  writeIndexRates(db, [{ series: "CDI", date: "2026-09-17", valueE12: 1_000_000_000n }]);
+  writeQuotes(db, [{ ticker: "WRLD11", date: "2026-09-17", closeCents: 1_000n, source: "yahoo", settled: true }], "2026-09-18");
+}
+
+test("rotas de portfolio, history e allocation respondem em centavos", async () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  seedPortfolio(db);
+  const app = buildApp({ db, csvDir: csvDirFixture(), logger: false });
+
+  let res = await app.inject({ method: "GET", url: "/api/portfolio" });
+  assert.equal(res.statusCode, 200);
+  const portfolio = res.json();
+  assert.equal(portfolio.totals.marketValueCents, 110_100);
+  assert.equal(portfolio.positions.length, 2);
+  assert.equal(portfolio.positions[0].priceSource, "bcb");
+
+  res = await app.inject({ method: "GET", url: "/api/history?from=2026-08&to=2026-09" });
+  assert.equal(res.json().length, 2);
+  assert.equal(res.json()[1].marketValueCents, 110_100);
+
+  res = await app.inject({ method: "GET", url: "/api/history?from=26-08" });
+  assert.equal(res.statusCode, 400);
+
+  res = await app.inject({ method: "GET", url: "/api/allocation?by=broker" });
+  assert.deepEqual(res.json().groups, [
+    { key: "PagBank", marketValueCents: 100_100, pct: 90.92 },
+    { key: "XP", marketValueCents: 10_000, pct: 9.08 },
+  ]);
+
+  res = await app.inject({ method: "GET", url: "/api/allocation?by=nada" });
+  assert.equal(res.statusCode, 400);
+
+  await app.close();
+});
+
+test("POST /api/refresh usa as fontes injetadas e atualiza o health", async () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  insertInstruments(db, [etfInstrument]);
+  insertTransactions(db, [{ instrumentId: etfInstrument.id, tradeDate: "2025-04-23", kind: "BUY", quantityE8: 10_00000000n, grossCents: 9_000n, feesCents: 0n, note: null, legacyRow: null }]);
+  const yahoo: QuoteSource = {
+    id: "yahoo",
+    available: async () => true,
+    fetchDaily: async () => [{ ticker: "WRLD11", date: "2026-09-17", closeCents: 1_000n }],
+  };
+  const bcb: IndexSource = {
+    id: "bcb",
+    fetchSeries: async (series) => [{ series, date: "2026-09-17", valueE12: 1_000_000_000n }],
+  };
+  const app = buildApp({
+    db, csvDir: csvDirFixture(), logger: false,
+    refreshDeps: { quoteSources: [yahoo], indexSource: bcb, now: () => new Date("2026-09-18T12:00:00-03:00") },
+  });
+
+  const res = await app.inject({ method: "POST", url: "/api/refresh" });
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(res.json().sources.map((source: { id: string }) => source.id), ["yahoo", "bcb"]);
+
+  const health = (await app.inject({ method: "GET", url: "/api/health" })).json();
+  assert.deepEqual(health.sources.map((source: { id: string }) => source.id), ["bcb", "yahoo"]);
+  assert.equal(health.sources.every((source: { stale: boolean }) => source.stale === false), true);
+
+  const bad = await app.inject({ method: "POST", url: "/api/refresh?source=xpto" });
+  assert.equal(bad.statusCode, 400);
+  assert.match(bad.json().error, /fonte desconhecida: xpto/);
+
+  const av = await app.inject({ method: "POST", url: "/api/refresh?source=alphavantage" });
+  assert.equal(av.statusCode, 400);
+  assert.match(av.json().error, /alphavantage não configurado/);
+
   await app.close();
 });
