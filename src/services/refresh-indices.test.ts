@@ -13,6 +13,22 @@ const cdb: InstrumentRow = {
   rateE6: 1_000_000n, maturityDate: null, liquidity: null, broker: "PagBank", objective: "Reserva", investor: "Ana",
 };
 
+test("refresh de índices persiste valor negativo (IPCA em deflação)", async () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  insertInstruments(db, [cdb]);
+  insertTransactions(db, [{ instrumentId: cdb.id, tradeDate: "2025-04-23", kind: "BUY", quantityE8: null, grossCents: 1000n, feesCents: 0n, note: null, legacyRow: null }]);
+  const bcb: IndexSource = {
+    id: "bcb",
+    fetchSeries: async (series) => [{ series, date: "2025-08-01", valueE12: -1_100_000_000n }],
+  };
+  const now = () => new Date("2026-09-18T07:00:00-03:00");
+  const summary = await refreshIndices(db, { source: bcb, now });
+  assert.equal(summary.inserted, 3);
+  const ipca = listAllIndexRates(db).find((rate) => rate.series === "IPCA" && rate.date === "2025-08-01");
+  assert.equal(ipca?.valueE12, -1_100_000_000n);
+});
+
 test("refresh de índices grava uma vez, ignora reescrita e registra a fonte", async () => {
   const db = openDb(":memory:");
   migrate(db);

@@ -18,7 +18,8 @@ export async function refreshIndices(db: Db, deps: IndexRefreshDeps, full = fals
     if (from === null) continue;
     try {
       const rates = await deps.source.fetchSeries(series, from, today);
-      const valid = rates.filter((rate) => rate.date <= today && rate.valueE12 > 0n);
+      // BCB pode publicar índice negativo (IPCA em deflação); o parse já rejeita valor malformado.
+      const valid = rates.filter((rate) => rate.date <= today);
       const written = writeIndexRates(db, valid);
       summary.fetched += valid.length;
       summary.inserted += written.inserted;
