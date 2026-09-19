@@ -17,6 +17,7 @@ const defaultAttempts = new Map<string, string>();
 
 export async function refreshQuotes(db: Db, deps: QuoteRefreshDeps): Promise<RefreshSourceSummary[]> {
   const summaries = new Map<string, RefreshSourceSummary>(deps.sources.map((source) => [source.id, emptySummary(source.id)]));
+  const attempted = new Set<string>();
   const [primary, fallback] = deps.sources;
   if (!primary) return [];
   const now = deps.now ?? (() => new Date());
@@ -29,6 +30,7 @@ export async function refreshQuotes(db: Db, deps: QuoteRefreshDeps): Promise<Ref
 
   const trySource = async (source: QuoteSource, ticker: string, from: string): Promise<boolean> => {
     const summary = summaries.get(source.id)!;
+    attempted.add(source.id);
     try {
       const quotes = await source.fetchDaily([ticker], from, today);
       const valid = quotes.filter((quote) => quote.date <= today && quote.closeCents > 0n);
@@ -59,6 +61,7 @@ export async function refreshQuotes(db: Db, deps: QuoteRefreshDeps): Promise<Ref
   }
 
   for (const source of deps.sources) {
+    if (!attempted.has(source.id)) continue;
     const summary = summaries.get(source.id)!;
     recordSourceAttempt(db, source.id, summary.errors.length === 0 ? { ok: true } : { ok: false, error: summary.errors[0]! });
   }

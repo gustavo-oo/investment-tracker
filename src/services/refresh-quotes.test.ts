@@ -88,7 +88,33 @@ test("fallback AV roda 1× no dia quando o Yahoo falha e registra erro do Yahoo"
   assert.equal(avCalls, 1, "segunda falha do Yahoo no mesmo dia não gasta cota do AV");
   assert.equal(listAllQuotes(db)[0]?.source, "alphavantage");
   const yahooStatus = listSourceStatus(db).find((status) => status.source === "yahoo");
-  assert.equal(yahooStatus?.lastError !== null, true);
+  assert.ok(yahooStatus?.lastError);
+});
+
+test("fonte não consultada não recebe source_status", async () => {
+  const db = freshDb();
+  let avCalls = 0;
+  const yahoo = fakeSource("yahoo", () => [{ ticker: "WRLD11", date: "2026-09-18", closeCents: 2000n }]);
+  const av = fakeSource("alphavantage", () => { avCalls++; return [{ ticker: "WRLD11", date: "2026-09-18", closeCents: 1234n }]; });
+  await refreshQuotes(db, { sources: [yahoo, av], now: NOW, fallbackAttempts: new Map() });
+  assert.equal(avCalls, 0, "primário saudável não aciona o fallback");
+  assert.deepEqual(listSourceStatus(db).map((status) => status.source), ["yahoo"]);
+});
+
+test("erro do fallback throttled não é sobrescrito por sucesso no mesmo dia", async () => {
+  const db = freshDb();
+  let avCalls = 0;
+  const yahoo = fakeSource("yahoo", () => { throw new Error("yahoo fora do ar"); });
+  const av = fakeSource("alphavantage", () => { avCalls++; throw new Error("av throttled"); });
+  const attempts = new Map<string, string>();
+  await refreshQuotes(db, { sources: [yahoo, av], now: NOW, fallbackAttempts: attempts });
+  const afterFirst = listSourceStatus(db).find((status) => status.source === "alphavantage");
+  assert.equal(afterFirst?.lastError, "WRLD11: av throttled");
+  await refreshQuotes(db, { sources: [yahoo, av], now: NOW, fallbackAttempts: attempts });
+  assert.equal(avCalls, 1, "throttle impede nova chamada do AV no mesmo dia");
+  const afterSecond = listSourceStatus(db).find((status) => status.source === "alphavantage");
+  assert.equal(afterSecond?.lastError, "WRLD11: av throttled");
+  assert.equal(afterSecond?.lastSuccessAt, null);
 });
 
 test("full ignora a fronteira e começa da 1ª transação", async () => {
