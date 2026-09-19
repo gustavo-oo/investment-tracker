@@ -5,7 +5,7 @@ import { buildAllocation, ALLOCATION_BY } from "../../services/allocation.ts";
 import { buildHistory } from "../../services/history.ts";
 import { buildPortfolio } from "../../services/portfolio.ts";
 
-const isMonth = (value: unknown): value is string => typeof value === "string" && /^\d{4}-\d{2}$/.test(value);
+const isMonth = (value: unknown): value is string => typeof value === "string" && /^\d{4}-(0[1-9]|1[0-2])$/.test(value);
 
 export function registerPortfolioRoutes(app: FastifyInstance, db: Db): void {
   app.get("/api/portfolio", () => {

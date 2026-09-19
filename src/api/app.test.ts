@@ -235,6 +235,12 @@ test("rotas de portfolio, history e allocation respondem em centavos", async () 
   res = await app.inject({ method: "GET", url: "/api/history?from=26-08" });
   assert.equal(res.statusCode, 400);
 
+  res = await app.inject({ method: "GET", url: "/api/history?from=2026-00" });
+  assert.equal(res.statusCode, 400);
+
+  res = await app.inject({ method: "GET", url: "/api/history?from=2026-13" });
+  assert.equal(res.statusCode, 400);
+
   res = await app.inject({ method: "GET", url: "/api/allocation?by=broker" });
   assert.deepEqual(res.json().groups, [
     { key: "PagBank", marketValueCents: 100_100, pct: 90.92 },
