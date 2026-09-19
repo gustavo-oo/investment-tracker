@@ -23,6 +23,22 @@ test("fonte desconhecida e alphavantage sem chave falham com erro claro", async 
   await assert.rejects(() => refresh(db, { source: "alphavantage" }, { quoteSources: [emptyQuoteSource], indexSource: emptyIndexSource }), /alphavantage não configurado/);
 });
 
+test("quotesOnly roda só as cotações e não chama o BCB", async () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  insertInstruments(db, [cdbInstrument]);
+  insertTransactions(db, [{ instrumentId: cdbInstrument.id, tradeDate: "2025-04-23", kind: "BUY", quantityE8: null, grossCents: 1000n, feesCents: 0n, note: null, legacyRow: null }]);
+  let indexCalls = 0;
+  const indexSource: IndexSource = {
+    id: "bcb",
+    fetchSeries: async (series) => { indexCalls++; return [{ series, date: "2026-09-17", valueE12: 1n }]; },
+  };
+  const quoteSource: QuoteSource = { id: "yahoo", available: async () => true, fetchDaily: async () => [] };
+  const result = await refresh(db, { quotesOnly: true }, { quoteSources: [quoteSource], indexSource });
+  assert.equal(indexCalls, 0);
+  assert.deepEqual(result.sources.map((summary) => summary.id), ["yahoo"]);
+});
+
 test("mutex barra refresh concorrente", async () => {
   const db = openDb(":memory:");
   migrate(db);

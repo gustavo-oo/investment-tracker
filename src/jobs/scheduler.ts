@@ -24,7 +24,7 @@ export function startScheduler(db: Db, options: SchedulerOptions = {}): { stop: 
   const onError = options.onError ?? ((error: unknown) => { console.error(error); });
   const run = (refreshOptions: RefreshOptions) => { void refreshFn(db, refreshOptions).catch(onError); };
 
-  const quotesTask = cronImpl.schedule(CRON_QUOTES, () => run({}), { timezone });
+  const quotesTask = cronImpl.schedule(CRON_QUOTES, () => run({ quotesOnly: true }), { timezone });
   const indicesTask = cronImpl.schedule(CRON_INDICES, () => run({ source: "bcb" }), { timezone });
 
   return {

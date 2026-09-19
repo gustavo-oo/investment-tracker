@@ -12,7 +12,12 @@ export class RefreshBusyError extends Error {
   }
 }
 
-export type RefreshOptions = { full?: boolean; source?: string };
+export type RefreshOptions = {
+  full?: boolean;
+  source?: string;
+  /** Interno: usado apenas pelo scheduler de 10 min para rodar só as cotações, sem tocar no BCB. Não faz parte da API HTTP. */
+  quotesOnly?: boolean;
+};
 export type RefreshResult = { sources: RefreshSourceSummary[] };
 export type RefreshDeps = {
   quoteSources?: QuoteSource[];
@@ -32,7 +37,7 @@ export async function refresh(db: Db, options: RefreshOptions = {}, deps: Refres
     const indexSource = deps.indexSource ?? createIndexSource(sourceDeps);
     const wanted = options.source;
     const wantsQuotes = wanted === undefined || wanted === "yahoo" || wanted === "alphavantage";
-    const wantsIndices = wanted === undefined || wanted === "bcb";
+    const wantsIndices = wanted === undefined ? options.quotesOnly !== true : wanted === "bcb";
     if (!wantsQuotes && !wantsIndices) throw new Error(`fonte desconhecida: ${wanted}`);
 
     const summaries: RefreshSourceSummary[] = [];

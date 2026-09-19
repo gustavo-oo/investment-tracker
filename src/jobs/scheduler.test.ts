@@ -30,7 +30,7 @@ test("scheduler registra os dois cron e dispara o refresh certo", () => {
 
   scheduled[0]?.callback();
   scheduled[1]?.callback();
-  assert.deepEqual(calls, [{}, { source: "bcb" }]);
+  assert.deepEqual(calls, [{ quotesOnly: true }, { source: "bcb" }]);
 
   scheduler.stop();
   assert.equal(stops, 2);
