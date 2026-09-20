@@ -3,14 +3,14 @@ import assert from "node:assert/strict";
 import { openDb } from "./index.ts";
 import { migrate } from "./migrate.ts";
 
-test("migrate aplica 001 e 002 e é idempotente", () => {
+test("migrate aplica 001 a 003 e é idempotente", () => {
   const db = openDb(":memory:");
-  assert.equal(migrate(db), 2);
+  assert.equal(migrate(db), 3);
   assert.equal(migrate(db), 0);
   const tables = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name")
     .all()
     .map((row) => (row as { name: string }).name);
-  for (const table of ["instruments", "transactions", "quotes", "index_rates", "valuations", "legacy_snapshots", "import_runs", "source_status"]) {
+  for (const table of ["instruments", "transactions", "quotes", "index_rates", "valuations", "legacy_snapshots", "import_runs", "source_status", "fund_quotas"]) {
     assert.ok(tables.includes(table), `tabela ${table} existe`);
   }
 });

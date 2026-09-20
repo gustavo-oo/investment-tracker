@@ -32,6 +32,8 @@ export type SourceStatusRow = {
   lastError: string | null;
 };
 
+export type FundQuotaRow = { symbol: string; date: string; quotaE12: bigint; source: string; settled: boolean };
+
 type InstrumentDbRow = {
   id: string; legacy_key: string; name: string; kind: InstrumentKind; category: InstrumentCategory;
   ticker: string | null; quote_source: string | null; quote_symbol: string | null; currency: string;
@@ -272,5 +274,47 @@ export function listAllTransactions(db: Db): TransactionRow[] {
     instrumentId: row.instrument_id, tradeDate: row.trade_date, kind: row.kind,
     quantityE8: row.quantity_e8, grossCents: row.gross_cents, feesCents: row.fees_cents,
     note: row.note, legacyRow: row.legacy_row === null ? null : Number(row.legacy_row),
+  }));
+}
+
+export function writeFundQuotas(db: Db, rows: FundQuotaRow[], today: string): { inserted: number; updated: number; skipped: number } {
+  const writeClosed = db.prepare(`INSERT INTO fund_quotas (symbol, date, quota_e12, source, settled)
+    VALUES (?, ?, ?, ?, 1)
+    ON CONFLICT(symbol, date) DO UPDATE SET
+      quota_e12 = excluded.quota_e12, source = excluded.source, settled = 1, fetched_at = datetime('now')
+    WHERE fund_quotas.settled = 0`);
+  const writeToday = db.prepare(`INSERT INTO fund_quotas (symbol, date, quota_e12, source, settled)
+    VALUES (?, ?, ?, ?, 0)
+    ON CONFLICT(symbol, date) DO UPDATE SET
+      quota_e12 = excluded.quota_e12, source = excluded.source, fetched_at = datetime('now')
+    WHERE fund_quotas.settled = 0`);
+  const find = db.prepare("SELECT settled FROM fund_quotas WHERE symbol = ? AND date = ?");
+  let inserted = 0;
+  let updated = 0;
+  let skipped = 0;
+  const run = db.transaction((items: FundQuotaRow[]) => {
+    for (const quota of items) {
+      const before = find.get(quota.symbol, quota.date) as { settled: bigint } | undefined;
+      const result = (quota.date < today ? writeClosed : writeToday).run(quota.symbol, quota.date, quota.quotaE12, quota.source);
+      if (Number(result.changes) === 0) skipped++;
+      else if (before) updated++;
+      else inserted++;
+    }
+  });
+  run(rows);
+  return { inserted, updated, skipped };
+}
+
+export function fundQuotaFrontier(db: Db, symbol: string): string | null {
+  const row = db.prepare("SELECT MAX(date) AS date FROM fund_quotas WHERE symbol = ?").get(symbol) as { date: string | null };
+  return row.date;
+}
+
+export function listAllFundQuotas(db: Db): FundQuotaRow[] {
+  const rows = db.prepare("SELECT symbol, date, quota_e12, source, settled FROM fund_quotas ORDER BY symbol, date").all() as Array<{
+    symbol: string; date: string; quota_e12: bigint; source: string; settled: bigint;
+  }>;
+  return rows.map((row) => ({
+    symbol: row.symbol, date: row.date, quotaE12: row.quota_e12, source: row.source, settled: Number(row.settled) === 1,
   }));
 }

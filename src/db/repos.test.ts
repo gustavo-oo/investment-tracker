@@ -3,13 +3,13 @@ import assert from "node:assert/strict";
 import { openDb } from "./index.ts";
 import { migrate } from "./migrate.ts";
 import {
-  clearImportedData, counts, earliestTradeDate, getInstrument, getInstrumentByLegacyKey,
+  clearImportedData, counts, earliestTradeDate, fundQuotaFrontier, getInstrument, getInstrumentByLegacyKey,
   hasQuoteFromSourceOnDate, indexFrontier, insertImportRun, insertInstruments, insertLegacySnapshots,
-  insertTransactions, latestLegacyMonth, listAllIndexRates, listAllQuotes, listAllTransactions,
+  insertTransactions, latestLegacyMonth, listAllFundQuotas, listAllIndexRates, listAllQuotes, listAllTransactions,
   listImportRuns, listLegacySnapshotByMonth, listSourceStatus, listTransactionsByInstrument,
-  quoteFrontier, recordSourceAttempt, writeIndexRates, writeQuotes,
+  quoteFrontier, recordSourceAttempt, writeFundQuotas, writeIndexRates, writeQuotes,
 } from "./repos.ts";
-import type { IndexRateRow, InstrumentRow, QuoteRow } from "./repos.ts";
+import type { FundQuotaRow, IndexRateRow, InstrumentRow, QuoteRow } from "./repos.ts";
 
 function freshDb() {
   const db = openDb(":memory:");
@@ -117,4 +117,31 @@ test("listAllTransactions devolve todos em ordem de ativo e data", () => {
     { instrumentId: cdb.id, tradeDate: "2025-04-23", kind: "BUY", quantityE8: null, grossCents: 1n, feesCents: 0n, note: null, legacyRow: null },
   ]);
   assert.deepEqual(listAllTransactions(db).map((t) => t.tradeDate), ["2025-04-23", "2026-07-01"]);
+});
+
+test("writeFundQuotas: fechado imutável, hoje sobrescreve e pendente finaliza", () => {
+  const db = freshDb();
+  const past: FundQuotaRow = { symbol: "253210", date: "2026-09-16", quotaE12: 1_217_429_617_864n, source: "cvm-swb", settled: true };
+  const today: FundQuotaRow = { symbol: "253210", date: "2026-09-18", quotaE12: 1_220_696_672_715n, source: "cvm-swb", settled: false };
+  assert.deepEqual(writeFundQuotas(db, [past, today], "2026-09-18"), { inserted: 2, updated: 0, skipped: 0 });
+  assert.deepEqual(
+    writeFundQuotas(db, [{ ...past, quotaE12: 1n }, { ...today, quotaE12: 1_221_000_000_000n }], "2026-09-18"),
+    { inserted: 0, updated: 1, skipped: 1 },
+  );
+  assert.deepEqual(listAllFundQuotas(db), [
+    { symbol: "253210", date: "2026-09-16", quotaE12: 1_217_429_617_864n, source: "cvm-swb", settled: true },
+    { symbol: "253210", date: "2026-09-18", quotaE12: 1_221_000_000_000n, source: "cvm-swb", settled: false },
+  ]);
+  assert.equal(fundQuotaFrontier(db, "253210"), "2026-09-18");
+  assert.equal(fundQuotaFrontier(db, "000000"), null);
+});
+
+test("writeFundQuotas: fetch do dia seguinte finaliza o parcial (0→1)", () => {
+  const db = freshDb();
+  writeFundQuotas(db, [{ symbol: "253210", date: "2026-09-18", quotaE12: 1n, source: "cvm-swb", settled: false }], "2026-09-18");
+  assert.deepEqual(
+    writeFundQuotas(db, [{ symbol: "253210", date: "2026-09-18", quotaE12: 2n, source: "cvm-swb", settled: true }], "2026-09-19"),
+    { inserted: 0, updated: 1, skipped: 0 },
+  );
+  assert.deepEqual(listAllFundQuotas(db)[0], { symbol: "253210", date: "2026-09-18", quotaE12: 2n, source: "cvm-swb", settled: true });
 });
