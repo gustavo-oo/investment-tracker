@@ -5,6 +5,7 @@ export type MultiplierE6 = bigint;
 
 export const CENTS = 100n;
 export const SHARES_SCALE = 100_000_000n;
+export const QUOTA_SCALE = 1_000_000_000_000n;
 export const RATE_SCALE = 1_000_000_000_000n;
 export const MULTIPLIER_SCALE = 1_000_000n;
 

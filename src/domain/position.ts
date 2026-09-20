@@ -1,8 +1,9 @@
-import { MULTIPLIER_SCALE, RATE_SCALE, SHARES_SCALE, divRoundHalfUp, mulScaled } from "./money.ts";
+import { CENTS, MULTIPLIER_SCALE, QUOTA_SCALE, RATE_SCALE, SHARES_SCALE, divRoundHalfUp, mulScaled } from "./money.ts";
 import type { InstrumentKind, TransactionKind } from "./model.ts";
 
 export type RatePoint = { date: string; valueE12: bigint };
 export type QuotePoint = { date: string; closeCents: bigint };
+export type PensionQuotePoint = { date: string; quotaE12: bigint };
 
 export type PositionTransaction = {
   tradeDate: string;
@@ -19,6 +20,7 @@ export type PositionInput = {
   transactions: PositionTransaction[];
   quotes: QuotePoint[];
   rates: RatePoint[];
+  pensionQuotes?: PensionQuotePoint[];
 };
 
 export type PositionValue = {
@@ -76,6 +78,27 @@ export function equityValueCents(
   return { valueCents: mulScaled(quantityE8, priceCents, SHARES_SCALE), priceCents, priceDate };
 }
 
+/** Valor PGBL: cotas × última cota ≤ asOf; cota em e12, cotas em e8. */
+export function pensionValueCents(
+  quantityE8: bigint,
+  quotas: PensionQuotePoint[],
+  asOf: string,
+): { valueCents: bigint | null; priceCents: bigint | null; priceDate: string | null } {
+  let quotaE12: bigint | null = null;
+  let priceDate: string | null = null;
+  for (const quota of quotas) {
+    if (quota.date > asOf) break;
+    quotaE12 = quota.quotaE12;
+    priceDate = quota.date;
+  }
+  if (quotaE12 === null) return { valueCents: null, priceCents: null, priceDate: null };
+  return {
+    valueCents: divRoundHalfUp(quantityE8 * quotaE12, SHARES_SCALE * QUOTA_SCALE / CENTS),
+    priceCents: divRoundHalfUp(quotaE12, QUOTA_SCALE / CENTS),
+    priceDate,
+  };
+}
+
 /** Posição de um ativo em `asOf`, com investido/resgatado/taxas acumulados até a data. */
 export function instrumentValue(input: PositionInput, asOf: string): PositionValue {
   let investedCents = 0n;
@@ -99,7 +122,8 @@ export function instrumentValue(input: PositionInput, asOf: string): PositionVal
     return { marketValueCents: valueCents, priceCents: null, priceDate: lastRateDate, quantityE8: null, investedCents, redeemedCents, feesCents };
   }
   if (input.kind === "pension") {
-    return { marketValueCents: null, priceCents: null, priceDate: null, quantityE8, investedCents, redeemedCents, feesCents };
+    const quota = pensionValueCents(quantityE8 ?? 0n, input.pensionQuotes ?? [], asOf);
+    return { marketValueCents: quota.valueCents, priceCents: quota.priceCents, priceDate: quota.priceDate, quantityE8, investedCents, redeemedCents, feesCents };
   }
   const equity = equityValueCents(quantityE8 ?? 0n, input.quotes, asOf);
   return { marketValueCents: equity.valueCents, priceCents: equity.priceCents, priceDate: equity.priceDate, quantityE8, investedCents, redeemedCents, feesCents };

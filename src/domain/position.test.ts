@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { equityValueCents, instrumentValue, rfValueCents, type PositionInput } from "./position.ts";
+import { equityValueCents, instrumentValue, pensionValueCents, rfValueCents, type PositionInput } from "./position.ts";
 
 const rate = (date: string) => ({ date, valueE12: 1_000_000_000n }); // 0,1% ao dia
 
@@ -31,7 +31,7 @@ test("RV usa último fechamento ≤ asOf e devolve null sem cota", () => {
   assert.deepEqual(equityValueCents(10_00000000n, [], "2026-01-05"), { valueCents: null, priceCents: null, priceDate: null });
 });
 
-test("instrumentValue consolida invested/redeemed/fees e PGBL fica pendente", () => {
+test("instrumentValue consolida invested/redeemed/fees e PGBL fica pendente sem cota", () => {
   const rf: PositionInput = {
     kind: "fixed_income", benchmark: "CDI", rateE6: 1_000_000n,
     transactions: [
@@ -49,4 +49,34 @@ test("instrumentValue consolida invested/redeemed/fees e PGBL fica pendente", ()
   const pension = instrumentValue({ ...rf, kind: "pension", benchmark: null, rateE6: null }, "2026-01-05");
   assert.equal(pension.marketValueCents, null);
   assert.equal(pension.quantityE8, null);
+});
+
+test("PGBL: cotas × última cota ≤ asOf, com precisão e12", () => {
+  const quotas = [
+    { date: "2026-08-31", quotaE12: 1_203_709_189_955n },
+    { date: "2026-09-17", quotaE12: 1_220_696_672_715n },
+  ];
+  assert.deepEqual(pensionValueCents(11_754_09886092n, quotas, "2026-09-17"), {
+    valueCents: 1_434_819n, priceCents: 122n, priceDate: "2026-09-17",
+  });
+  assert.deepEqual(pensionValueCents(11_754_09886092n, quotas, "2026-09-16"), {
+    valueCents: 1_414_852n, priceCents: 120n, priceDate: "2026-08-31",
+  });
+  assert.deepEqual(pensionValueCents(11_754_09886092n, quotas, "2026-08-30"), { valueCents: null, priceCents: null, priceDate: null });
+  assert.deepEqual(pensionValueCents(11_754_09886092n, [], "2026-09-17"), { valueCents: null, priceCents: null, priceDate: null });
+});
+
+test("instrumentValue: PGBL usa pensionQuotes e fica pendente sem cota", () => {
+  const input: PositionInput = {
+    kind: "pension", benchmark: null, rateE6: null,
+    transactions: [{ tradeDate: "2026-01-02", kind: "BUY", quantityE8: 5_00000000n, grossCents: 50_000n, feesCents: 0n }],
+    quotes: [], rates: [],
+    pensionQuotes: [{ date: "2026-01-02", quotaE12: 1_200_000_000_000n }],
+  };
+  const value = instrumentValue(input, "2026-01-05");
+  assert.equal(value.marketValueCents, 600n); // 5 cotas × R$ 1,20
+  assert.equal(value.priceCents, 120n);
+  assert.equal(value.priceDate, "2026-01-02");
+  assert.equal(value.quantityE8, 5_00000000n);
+  assert.equal(instrumentValue({ ...input, pensionQuotes: [] }, "2026-01-05").marketValueCents, null);
 });
