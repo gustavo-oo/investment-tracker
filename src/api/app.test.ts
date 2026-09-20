@@ -9,7 +9,7 @@ import { openDb } from "../db/index.ts";
 import { migrate } from "../db/migrate.ts";
 import { insertInstruments, insertTransactions, writeIndexRates, writeQuotes } from "../db/repos.ts";
 import type { InstrumentRow } from "../db/repos.ts";
-import type { IndexSource, QuoteSource } from "../sources/types.ts";
+import type { FundQuotaSource, IndexSource, QuoteSource } from "../sources/types.ts";
 
 const gzip = (obj: unknown) => gzipSync(Buffer.from(JSON.stringify(obj))).toString("base64");
 
@@ -267,14 +267,15 @@ test("POST /api/refresh usa as fontes injetadas e atualiza o health", async () =
     id: "bcb",
     fetchSeries: async (series) => [{ series, date: "2026-09-17", valueE12: 1_000_000_000n }],
   };
+  const cvm: FundQuotaSource = { id: "cvm-swb", fetchDaily: async () => [] };
   const app = buildApp({
     db, csvDir: csvDirFixture(), logger: false,
-    refreshDeps: { quoteSources: [yahoo], indexSource: bcb, now: () => new Date("2026-09-18T12:00:00-03:00") },
+    refreshDeps: { quoteSources: [yahoo], indexSource: bcb, pensionSource: cvm, now: () => new Date("2026-09-18T12:00:00-03:00") },
   });
 
   const res = await app.inject({ method: "POST", url: "/api/refresh" });
   assert.equal(res.statusCode, 200);
-  assert.deepEqual(res.json().sources.map((source: { id: string }) => source.id), ["yahoo", "bcb"]);
+  assert.deepEqual(res.json().sources.map((source: { id: string }) => source.id), ["yahoo", "bcb", "cvm-swb"]);
 
   const health = (await app.inject({ method: "GET", url: "/api/health" })).json();
   assert.deepEqual(health.sources.map((source: { id: string }) => source.id), ["bcb", "yahoo"]);

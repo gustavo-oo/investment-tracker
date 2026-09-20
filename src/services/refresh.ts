@@ -1,7 +1,8 @@
 import type { Db } from "../db/index.ts";
-import { createIndexSource, createQuoteSources } from "../sources/index.ts";
-import type { IndexSource, QuoteSource } from "../sources/types.ts";
+import { createFundQuotaSource, createIndexSource, createQuoteSources } from "../sources/index.ts";
+import type { FundQuotaSource, IndexSource, QuoteSource } from "../sources/types.ts";
 import { refreshIndices } from "./refresh-indices.ts";
+import { refreshPension } from "./refresh-pension.ts";
 import { refreshQuotes } from "./refresh-quotes.ts";
 import type { RefreshSourceSummary } from "./refresh-summary.ts";
 
@@ -29,6 +30,7 @@ export type RefreshResult = { sources: RefreshSourceSummary[] };
 export type RefreshDeps = {
   quoteSources?: QuoteSource[];
   indexSource?: IndexSource;
+  pensionSource?: FundQuotaSource;
   now?: () => Date;
   fallbackAttempts?: Map<string, string>;
 };
@@ -42,10 +44,12 @@ export async function refresh(db: Db, options: RefreshOptions = {}, deps: Refres
     const sourceDeps = { alphaVantageApiKey: process.env.ALPHAVANTAGE_API_KEY ?? "" };
     const quoteSources = deps.quoteSources ?? createQuoteSources(sourceDeps);
     const indexSource = deps.indexSource ?? createIndexSource(sourceDeps);
+    const pensionSource = deps.pensionSource ?? createFundQuotaSource(sourceDeps);
     const wanted = options.source;
     const wantsQuotes = wanted === undefined || wanted === "yahoo" || wanted === "alphavantage";
     const wantsIndices = wanted === undefined ? options.quotesOnly !== true : wanted === "bcb";
-    if (!wantsQuotes && !wantsIndices) throw new RefreshRequestError(`fonte desconhecida: ${wanted}`);
+    const wantsPension = wanted === undefined ? options.quotesOnly !== true : wanted === "cvm-swb";
+    if (!wantsQuotes && !wantsIndices && !wantsPension) throw new RefreshRequestError(`fonte desconhecida: ${wanted}`);
 
     const summaries: RefreshSourceSummary[] = [];
     if (wantsQuotes) {
@@ -60,6 +64,7 @@ export async function refresh(db: Db, options: RefreshOptions = {}, deps: Refres
       summaries.push(...(await refreshQuotes(db, { sources, now: deps.now, full: options.full, fallbackAttempts: deps.fallbackAttempts })));
     }
     if (wantsIndices) summaries.push(await refreshIndices(db, { source: indexSource, now: deps.now }, options.full));
+    if (wantsPension) summaries.push(await refreshPension(db, { source: pensionSource, now: deps.now, full: options.full }));
     return { sources: summaries };
   } finally {
     running = false;

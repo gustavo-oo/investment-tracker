@@ -1,7 +1,8 @@
 import { createAlphaVantageSource } from "./alphavantage.ts";
 import { createBcbSource } from "./bcb.ts";
+import { createCvmSwbSource } from "./cvm-swb.ts";
 import { createYahooSource } from "./yahoo.ts";
-import type { FetchLike, IndexSource, QuoteSource } from "./types.ts";
+import type { FetchLike, FundQuotaSource, IndexSource, QuoteSource } from "./types.ts";
 
 export type SourceDeps = { fetchImpl?: FetchLike; alphaVantageApiKey?: string };
 
@@ -15,4 +16,8 @@ export function createQuoteSources(deps: SourceDeps = {}): QuoteSource[] {
 
 export function createIndexSource(deps: SourceDeps = {}): IndexSource {
   return createBcbSource(deps);
+}
+
+export function createFundQuotaSource(deps: SourceDeps = {}): FundQuotaSource {
+  return createCvmSwbSource(deps);
 }

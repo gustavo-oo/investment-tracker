@@ -2,15 +2,21 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { openDb } from "../db/index.ts";
 import { migrate } from "../db/migrate.ts";
-import { insertInstruments, insertTransactions } from "../db/repos.ts";
+import { insertInstruments, insertTransactions, listAllFundQuotas } from "../db/repos.ts";
 import type { InstrumentRow } from "../db/repos.ts";
-import type { IndexSource, QuoteSource } from "../sources/types.ts";
+import type { FundQuotaSource, IndexSource, QuoteSource } from "../sources/types.ts";
 import { RefreshBusyError, RefreshRequestError, refresh } from "./refresh.ts";
 
 const cdbInstrument: InstrumentRow = {
   id: "cdb-1", legacyKey: "CDB 1", name: "CDB 1", kind: "fixed_income", category: "cdb",
   ticker: null, quoteSource: null, quoteSymbol: null, currency: "BRL", benchmark: "CDI",
   rateE6: 1_000_000n, maturityDate: null, liquidity: null, broker: "PagBank", objective: "Reserva", investor: "Ana",
+};
+
+const pgblInstrument: InstrumentRow = {
+  id: "pgbl-1", legacyKey: "PGBL 1", name: "PGBL 1", kind: "pension", category: "pension_ipca",
+  ticker: null, quoteSource: "cvm-swb", quoteSymbol: "253210", currency: "BRL", benchmark: null,
+  rateE6: null, maturityDate: null, liquidity: null, broker: "BTG", objective: "Aposentadoria", investor: "Ana",
 };
 
 const emptyQuoteSource: QuoteSource = { id: "yahoo", available: async () => true, fetchDaily: async () => [] };
@@ -63,4 +69,40 @@ test("mutex barra refresh concorrente", async () => {
   release();
   const result = await first;
   assert.equal(result.sources[0]?.id, "bcb");
+});
+
+test("source cvm-swb roda só a previdência e usa o quote_symbol", async () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  insertInstruments(db, [pgblInstrument]);
+  insertTransactions(db, [{ instrumentId: pgblInstrument.id, tradeDate: "2025-10-01", kind: "BUY", quantityE8: 930_14877553n, grossCents: 100_000n, feesCents: 0n, note: null, legacyRow: null }]);
+  const symbols: string[] = [];
+  const pensionSource: FundQuotaSource = {
+    id: "cvm-swb",
+    fetchDaily: async (requested, from, to) => {
+      symbols.push(requested[0]!);
+      assert.equal(from, "2025-10-01");
+      assert.equal(to, "2026-09-18");
+      return [{ symbol: requested[0]!, date: "2026-09-17", quotaE12: 1_220_696_672_715n }];
+    },
+  };
+  const result = await refresh(db, { source: "cvm-swb" }, {
+    quoteSources: [], indexSource: emptyIndexSource, pensionSource,
+    now: () => new Date("2026-09-18T14:00:00-03:00"),
+  });
+  assert.deepEqual(result.sources.map((summary) => summary.id), ["cvm-swb"]);
+  assert.deepEqual(symbols, ["253210"]);
+  assert.equal(listAllFundQuotas(db)[0]?.quotaE12, 1_220_696_672_715n);
+});
+
+test("quotesOnly não busca previdência", async () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  insertInstruments(db, [pgblInstrument]);
+  insertTransactions(db, [{ instrumentId: pgblInstrument.id, tradeDate: "2025-10-01", kind: "BUY", quantityE8: 930_14877553n, grossCents: 100_000n, feesCents: 0n, note: null, legacyRow: null }]);
+  let pensionCalls = 0;
+  const pensionSource: FundQuotaSource = { id: "cvm-swb", fetchDaily: async () => { pensionCalls++; return []; } };
+  const result = await refresh(db, { quotesOnly: true }, { quoteSources: [emptyQuoteSource], indexSource: emptyIndexSource, pensionSource });
+  assert.deepEqual(result.sources.map((summary) => summary.id), ["yahoo"]);
+  assert.equal(pensionCalls, 0);
 });
