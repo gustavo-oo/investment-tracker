@@ -1,5 +1,5 @@
 import type { Db } from "../db/index.ts";
-import { listAllIndexRates, listAllQuotes, listAllTransactions, listInstruments } from "../db/repos.ts";
+import { listAllFundQuotas, listAllIndexRates, listAllQuotes, listAllTransactions, listInstruments } from "../db/repos.ts";
 import { addMonths, monthEnd, monthRange, toBrDate } from "../domain/dates.ts";
 import { cdiMonthPct, ipcaMonthPct } from "../domain/evolution.ts";
 import { instrumentValue } from "../domain/position.ts";
@@ -32,6 +32,7 @@ export function buildHistory(db: Db, options: HistoryOptions = {}, deps: { now?:
   const transactions = listAllTransactions(db);
   const quotes = listAllQuotes(db);
   const rates = listAllIndexRates(db);
+  const fundQuotas = listAllFundQuotas(db);
   const cdiRates = rates.filter((rate) => rate.series === "CDI");
   const ipcaRates = rates.filter((rate) => rate.series === "IPCA");
 
@@ -43,11 +44,15 @@ export function buildHistory(db: Db, options: HistoryOptions = {}, deps: { now?:
     for (const instrument of instruments) {
       const instrumentTransactions = transactions.filter((transaction) => transaction.instrumentId === instrument.id);
       const instrumentQuotes = instrument.ticker === null ? [] : quotes.filter((quote) => quote.ticker === instrument.ticker);
+      const instrumentFundQuotas = instrument.kind === "pension" && instrument.quoteSymbol !== null
+        ? fundQuotas.filter((quota) => quota.symbol === instrument.quoteSymbol)
+        : [];
       const series = instrument.benchmark === "SELIC" ? "SELIC" : instrument.benchmark === "CDI" ? "CDI" : null;
       const instrumentRates = series === null ? [] : rates.filter((rate) => rate.series === series);
       const value = instrumentValue({
         kind: instrument.kind, benchmark: instrument.benchmark, rateE6: instrument.rateE6,
         transactions: instrumentTransactions, quotes: instrumentQuotes, rates: instrumentRates,
+        pensionQuotes: instrumentFundQuotas,
       }, asOf);
       marketValueCents += value.marketValueCents ?? 0n;
       investedCents += sumMonth(instrumentTransactions, month, "BUY");

@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { openDb } from "../db/index.ts";
 import { migrate } from "../db/migrate.ts";
-import { insertInstruments, insertTransactions, writeIndexRates } from "../db/repos.ts";
+import { insertInstruments, insertTransactions, writeFundQuotas, writeIndexRates } from "../db/repos.ts";
 import type { InstrumentRow } from "../db/repos.ts";
 import { buildHistory } from "./history.ts";
 
@@ -12,6 +12,23 @@ const cdb: InstrumentRow = {
   rateE6: 1_000_000n, maturityDate: null, liquidity: null, broker: "PagBank",
   objective: "Reserva", investor: "Ana",
 };
+
+const pgbl: InstrumentRow = {
+  id: "pgbl-1", legacyKey: "PGBL 1", name: "PGBL 1", kind: "pension", category: "pension_ipca",
+  ticker: null, quoteSource: "cvm-swb", quoteSymbol: "253210", currency: "BRL", benchmark: null,
+  rateE6: null, maturityDate: null, liquidity: null, broker: "BTG", objective: "Aposentadoria", investor: "Ana",
+};
+
+test("history inclui previdência com cota", () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  insertInstruments(db, [pgbl]);
+  insertTransactions(db, [{ instrumentId: pgbl.id, tradeDate: "2026-09-17", kind: "BUY", quantityE8: 5_00000000n, grossCents: 50_000n, feesCents: 0n, note: null, legacyRow: null }]);
+  writeFundQuotas(db, [{ symbol: "253210", date: "2026-09-17", quotaE12: 1_220_696_672_715n, source: "cvm-swb", settled: true }], "2026-09-18");
+  const points = buildHistory(db, { from: "2026-09", to: "2026-09" }, { now: () => new Date("2026-09-18T12:00:00-03:00") });
+  assert.equal(points[0]?.marketValueCents, 610n);
+  assert.equal(points[0]?.investedCents, 50_000n);
+});
 
 test("history devolve 12 meses com total, aportes e índices do mês", () => {
   const db = openDb(":memory:");

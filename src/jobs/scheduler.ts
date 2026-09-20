@@ -3,11 +3,11 @@ import type { Db } from "../db/index.ts";
 import { refresh, type RefreshOptions } from "../services/refresh.ts";
 
 export const CRON_QUOTES = "*/10 10-17 * * 1-5";
-export const CRON_INDICES = "0 7 * * *";
+export const CRON_DAILY = "0 7 * * *";
 
 export type CronTask = { stop: () => void };
 export type CronLike = {
-  schedule: (expression: string, callback: () => void, options: { timezone: string }) => CronTask;
+  schedule: (expression: string, callback: () => void | Promise<void>, options: { timezone: string }) => CronTask;
 };
 
 export type SchedulerOptions = {
@@ -25,10 +25,22 @@ export function startScheduler(db: Db, options: SchedulerOptions = {}): { stop: 
   const run = (refreshOptions: RefreshOptions) => { void refreshFn(db, refreshOptions).catch(onError); };
 
   const quotesTask = cronImpl.schedule(CRON_QUOTES, () => run({ quotesOnly: true }), { timezone });
-  const indicesTask = cronImpl.schedule(CRON_INDICES, () => run({ source: "bcb" }), { timezone });
+  const runDaily = async () => {
+    try {
+      await refreshFn(db, { source: "bcb" });
+    } catch (error) {
+      onError(error);
+    }
+    try {
+      await refreshFn(db, { source: "cvm-swb" });
+    } catch (error) {
+      onError(error);
+    }
+  };
+  const dailyTask = cronImpl.schedule(CRON_DAILY, () => runDaily(), { timezone });
 
   return {
-    stop: () => { quotesTask.stop(); indicesTask.stop(); },
+    stop: () => { quotesTask.stop(); dailyTask.stop(); },
     runNow: () => run({}),
   };
 }

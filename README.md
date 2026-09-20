@@ -7,7 +7,7 @@ Substitui a planilha Google + Apps Script por um app local (Node + SQLite).
     npm install
     npm run import     # lê data/csv e popula data/investments.db
     npm run dev        # API em http://localhost:3000
-    # cotações/índices: job roda no processo (10 min no pregão, índices às 7h);
+    # cotações/índices: job roda no processo (10 min no pregão; índices + previdência às 7h);
     # ALPHAVANTAGE_API_KEY no .env habilita o fallback do Yahoo.
     npm run dev:web    # UI em http://localhost:5173 (proxy /api -> :3000)
 
@@ -37,7 +37,7 @@ Se o volume der erro de permissão, ajuste o dono de `./data` para o uid do cont
 | `GET /api/portfolio` | posições + totais (RF capitalizada, RV = cotas × fechamento) |
 | `GET /api/history?from=YYYY-MM&to=YYYY-MM` | evolução mensal (default: 12 meses) |
 | `GET /api/allocation?by=category\|broker\|objective` | alocação por critério |
-| `POST /api/refresh?full=1&source=yahoo\|alphavantage\|bcb` | coleta manual (todas as fontes sem `source`); `full=1` refaz a janela |
+| `POST /api/refresh?full=1&source=yahoo\|alphavantage\|bcb\|cvm-swb` | coleta manual (todas as fontes sem `source`); `full=1` refaz a janela |
 | `GET /api/health` | status + contagens + fontes (última coleta/erro, stale) |
 
 ## Estrutura
