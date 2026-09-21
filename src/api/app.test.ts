@@ -325,6 +325,33 @@ test("POST /api/refresh usa as fontes injetadas e atualiza o health", async () =
   await app.close();
 });
 
+test("POST /api/refresh devolve erro de reparo por fonte", async () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  insertInstruments(db, [etfInstrument]);
+  insertTransactions(db, [{ instrumentId: etfInstrument.id, tradeDate: "2025-04-23", kind: "BUY", quantityE8: 10_00000000n, grossCents: 9_000n, feesCents: 0n, note: null, legacyRow: null }]);
+  const yahoo: QuoteSource = {
+    id: "yahoo", available: async () => true,
+    fetchDaily: async () => Array.from({ length: 8 }, (_, index) => ({ ticker: "WRLD11", date: `2025-04-${String(index + 1).padStart(2, "0")}`, closeCents: 1_000n })),
+  };
+  const bcb: IndexSource = { id: "bcb", fetchSeries: async () => [] };
+  const cvm: FundQuotaSource = { id: "cvm-swb", fetchDaily: async () => [] };
+  const monthly: MonthlyQuoteSource = {
+    id: "alphavantage", available: async () => true,
+    fetchMonthly: async () => { throw new Error("av fora do ar"); },
+  };
+  const app = buildApp({
+    db, csvDir: csvDirFixture(), logger: false,
+    refreshDeps: { quoteSources: [yahoo], indexSource: bcb, pensionSource: cvm, monthlySource: monthly, now: () => new Date("2026-09-21T12:00:00-03:00") },
+  });
+
+  const res = await app.inject({ method: "POST", url: "/api/refresh" });
+  assert.equal(res.statusCode, 200);
+  assert.match(res.json().repairs[0].error, /av fora do ar/);
+
+  await app.close();
+});
+
 test("GET /api/reconciliation devolve totais e divergências classificadas", async () => {
   const db = openDb(":memory:");
   migrate(db);
@@ -351,6 +378,13 @@ test("GET /api/reconciliation devolve totais e divergências classificadas", asy
   assert.equal((await app.inject({ method: "GET", url: "/api/reconciliation?month=26-09" })).statusCode, 400);
   assert.equal((await app.inject({ method: "GET", url: "/api/reconciliation?month=2026-09&asOf=2026-08-01" })).statusCode, 400);
   assert.equal((await app.inject({ method: "GET", url: "/api/reconciliation?asOf=30/09/2026" })).statusCode, 400);
+  assert.equal((await app.inject({ method: "GET", url: "/api/reconciliation?month=2026-09&asOf=2026-09-31" })).statusCode, 400, "asOf fora do calendário");
+
+  const defaults = await app.inject({ method: "GET", url: "/api/reconciliation" });
+  assert.equal(defaults.statusCode, 200);
+  const defaultBody = defaults.json();
+  assert.match(defaultBody.month, /^\d{4}-\d{2}$/);
+  assert.equal(defaultBody.asOf.slice(0, 7), defaultBody.month, "asOf default fica dentro do mês default");
 
   await app.close();
 });

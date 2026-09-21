@@ -134,6 +134,26 @@ test("refresh roda o reparo depois das cotações e devolve repairs", async () =
   assert.deepEqual(listAllQuotes(db).map((quote) => [quote.date, quote.closeCents, quote.source]), [["2025-04-30", 1_100n, "alphavantage"]]);
 });
 
+test("quotesOnly roda o reparo de trechos constantes", async () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  insertInstruments(db, [etfInstrument]);
+  insertTransactions(db, [{ instrumentId: etfInstrument.id, tradeDate: "2025-04-23", kind: "BUY", quantityE8: 10_00000000n, grossCents: 9_000n, feesCents: 0n, note: null, legacyRow: null }]);
+  const quotes: QuoteSource = {
+    id: "yahoo", available: async () => true,
+    fetchDaily: async () => Array.from({ length: 8 }, (_, index) => ({ ticker: "WRLD11", date: `2025-04-${String(index + 1).padStart(2, "0")}`, closeCents: 1_000n })),
+  };
+  const monthly: MonthlyQuoteSource = {
+    id: "alphavantage", available: async () => true,
+    fetchMonthly: async () => [{ ticker: "WRLD11", date: "2025-04-30", closeCents: 1_100n }],
+  };
+  const result = await refresh(db, { quotesOnly: true }, {
+    quoteSources: [quotes], indexSource: emptyIndexSource, monthlySource: monthly,
+    now: () => new Date("2026-09-21T12:00:00-03:00"),
+  });
+  assert.deepEqual(result.repairs, [{ ticker: "WRLD11", from: "2025-04-01", to: "2025-04-08", deleted: 8, inserted: 1 }]);
+});
+
 test("source cvm-swb não roda o reparo", async () => {
   const db = openDb(":memory:");
   migrate(db);

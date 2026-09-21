@@ -101,6 +101,17 @@ test("RF encerrada zera resíduo (≤ R$ 0,01) e resgate parcial fica intacto", 
   // venda 100099 × 1,001 = 100199,099 → 100199 → resíduo +1
   assert.equal(instrumentValue(tiny, "2026-01-05").marketValueCents, 0n);
 
+  const amortized: PositionInput = {
+    ...base,
+    rates: [rate("2026-01-05")],
+    transactions: [
+      { tradeDate: "2026-01-02", kind: "BUY", quantityE8: null, grossCents: 100_000n, feesCents: 0n },
+      { tradeDate: "2026-01-05", kind: "AMORTIZATION", quantityE8: null, grossCents: -99_999n, feesCents: 0n },
+    ],
+  };
+  // compra 100000 × 1,001 = 100100; amortização −99999 × 1,001 = −100098,999 → resíduo +1,001 → 1¢ → 0
+  assert.equal(instrumentValue(amortized, "2026-01-05").marketValueCents, 0n);
+
   const partial: PositionInput = {
     ...base,
     transactions: [base.transactions[0]!, { tradeDate: "2026-01-05", kind: "SELL", quantityE8: null, grossCents: 40_000n, feesCents: 0n }],
