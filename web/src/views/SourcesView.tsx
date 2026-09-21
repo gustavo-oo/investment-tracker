@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowsClockwise, WarningCircle } from "@phosphor-icons/react";
-import { getHealth, getReconciliation, postRefresh, type Health, type Reconciliation, type RefreshResult } from "../api.ts";
+import { getHealth, getReconciliation, postRefresh, type Health, type Reconciliation, type ReconciliationCause, type RefreshResult } from "../api.ts";
 import { formataBRL, formataDataHora, formataMes, formataNumero } from "../format.ts";
 
-const ROTULO_CAUSA: Record<string, string> = {
+const ROTULO_CAUSA: Record<ReconciliationCause, string> = {
   "residuo-zerado": "Resíduo zerado (regra)",
   "transacao-fora-da-janela": "Transação posterior à data do snapshot",
   "legado-snapshot-maio-2025": "Snapshot do legado menor que o principal (maio/2025)",
@@ -24,6 +24,7 @@ export function SourcesView({ reloadToken }: { reloadToken: number }) {
   const [resultado, setResultado] = useState<RefreshResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const refreshController = useRef<AbortController | null>(null);
 
   const carregar = useCallback(async (signal: AbortSignal) => {
     try {
@@ -43,20 +44,27 @@ export function SourcesView({ reloadToken }: { reloadToken: number }) {
     const id = setInterval(() => void carregar(controller.signal), 5 * 60 * 1000);
     return () => {
       controller.abort();
+      refreshController.current?.abort();
       clearInterval(id);
     };
   }, [carregar, reloadToken]);
 
   async function atualizar() {
+    refreshController.current?.abort();
+    const controller = new AbortController();
+    refreshController.current = controller;
     setBusy(true);
     setErro(null);
     try {
-      setResultado(await postRefresh());
-      await carregar(new AbortController().signal);
+      const novoResultado = await postRefresh();
+      if (controller.signal.aborted) return;
+      setResultado(novoResultado);
+      await carregar(controller.signal);
     } catch (cause) {
+      if (controller.signal.aborted) return;
       setErro(cause instanceof Error ? cause.message : String(cause));
     } finally {
-      setBusy(false);
+      if (!controller.signal.aborted) setBusy(false);
     }
   }
 
@@ -133,9 +141,11 @@ export function SourcesView({ reloadToken }: { reloadToken: number }) {
             </div>
             {resultado.repairs.length > 0 && (
               <p className="section-hint">
-                Reparo: {resultado.repairs.map((repair) => repair.error !== undefined
-                  ? `${repair.ticker} ${repair.from}..${repair.to} falhou (${repair.error})`
-                  : `${repair.ticker} ${repair.from}..${repair.to}: ${repair.deleted} linhas apagadas, ${repair.inserted} pontos gravados`).join(" · ")}
+                Reparo: {resultado.repairs.map((repair) => repair.skipped === true
+                  ? `${repair.ticker} ${repair.from}..${repair.to}: pulado (sem cotação mensal)`
+                  : repair.error !== undefined
+                    ? `${repair.ticker} ${repair.from}..${repair.to} falhou (${repair.error})`
+                    : `${repair.ticker} ${repair.from}..${repair.to}: ${repair.deleted} linhas apagadas, ${repair.inserted} pontos gravados`).join(" · ")}
               </p>
             )}
           </section>
@@ -143,42 +153,44 @@ export function SourcesView({ reloadToken }: { reloadToken: number }) {
 
         {reconciliation !== null && (
           <section className="card">
-            <div className="section-head">
-              <h2 className="section-title">Reconciliação — {formataMes(reconciliation.month)}</h2>
-              {reconciliation.unexplained === 0 ? (
-                <span className="badge badge-ok">{formataNumero(reconciliation.divergences.length)} divergências explicadas</span>
-              ) : (
-                <span className="badge badge-error">{formataNumero(reconciliation.unexplained)} não explicadas</span>
-              )}
-            </div>
-            <p className="section-hint">Compara o cálculo do app com o snapshot do legado em {reconciliation.asOf}. Divergências conhecidas têm causa registrada; igualdade não é forçada.</p>
-            <div className="stats">
-              <div className="stat"><span className="stat-label">Legado</span><span className="stat-value">{formataBRL(reconciliation.totals.legacyCents)}</span></div>
-              <div className="stat"><span className="stat-label">Referência (resíduos zerados)</span><span className="stat-value">{formataBRL(reconciliation.totals.referenceCents)}</span></div>
-              <div className="stat"><span className="stat-label">Nosso</span><span className="stat-value">{formataBRL(reconciliation.totals.ourCents)}</span></div>
-              <div className="stat"><span className="stat-label">Diferença</span><span className="stat-value">{formataBRL(reconciliation.totals.diffCents)}</span></div>
-            </div>
-            {reconciliation.divergences.length > 0 && (
-              <div className="table-wrap">
-                <table>
-                  <caption className="sr-only">Divergências da reconciliação</caption>
-                  <thead>
-                    <tr><th scope="col">Ativo</th><th scope="col" className="num">Legado</th><th scope="col" className="num">Nosso</th><th scope="col" className="num">Diferença</th><th scope="col">Causa</th></tr>
-                  </thead>
-                  <tbody>
-                    {reconciliation.divergences.map((divergence) => (
-                      <tr key={divergence.instrumentId}>
-                        <td>{divergence.name}</td>
-                        <td className="num">{formataBRL(divergence.legacyCents)}</td>
-                        <td className="num">{formataBRL(divergence.ourCents)}</td>
-                        <td className="num">{formataBRL(divergence.diffCents)}</td>
-                        <td>{ROTULO_CAUSA[divergence.cause] ?? divergence.cause}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            <details className="recon" open={reconciliation.unexplained > 0}>
+              <summary>
+                <span className="section-title">Reconciliação — {formataMes(reconciliation.month)}</span>
+                {reconciliation.unexplained === 0 ? (
+                  <span className="badge badge-ok">{formataNumero(reconciliation.divergences.length)} divergências explicadas</span>
+                ) : (
+                  <span className="badge badge-error">{formataNumero(reconciliation.unexplained)} não explicadas</span>
+                )}
+              </summary>
+              <p className="section-hint">Compara o cálculo do app com o snapshot do legado em {reconciliation.asOf}. Divergências conhecidas têm causa registrada; igualdade não é forçada.</p>
+              <div className="stats">
+                <div className="stat"><span className="stat-label">Legado</span><span className="stat-value">{formataBRL(reconciliation.totals.legacyCents)}</span></div>
+                <div className="stat"><span className="stat-label">Referência (resíduos zerados)</span><span className="stat-value">{formataBRL(reconciliation.totals.referenceCents)}</span></div>
+                <div className="stat"><span className="stat-label">Nosso</span><span className="stat-value">{formataBRL(reconciliation.totals.ourCents)}</span></div>
+                <div className="stat"><span className="stat-label">Diferença</span><span className="stat-value">{formataBRL(reconciliation.totals.diffCents)}</span></div>
               </div>
-            )}
+              {reconciliation.divergences.length > 0 && (
+                <div className="table-wrap">
+                  <table>
+                    <caption className="sr-only">Divergências da reconciliação</caption>
+                    <thead>
+                      <tr><th scope="col">Ativo</th><th scope="col" className="num">Legado</th><th scope="col" className="num">Nosso</th><th scope="col" className="num">Diferença</th><th scope="col">Causa</th></tr>
+                    </thead>
+                    <tbody>
+                      {reconciliation.divergences.map((divergence) => (
+                        <tr key={divergence.instrumentId}>
+                          <td>{divergence.name}</td>
+                          <td className="num">{formataBRL(divergence.legacyCents)}</td>
+                          <td className="num">{formataBRL(divergence.ourCents)}</td>
+                          <td className="num">{formataBRL(divergence.diffCents)}</td>
+                          <td>{ROTULO_CAUSA[divergence.cause] ?? divergence.cause}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </details>
           </section>
         )}
       </div>
