@@ -34,9 +34,9 @@ export type PortfolioResult = {
   sources: SourceSummary[];
 };
 
-export function buildPortfolio(db: Db, deps: { now?: () => Date } = {}): PortfolioResult {
+export function buildPortfolio(db: Db, deps: { now?: () => Date; asOf?: string } = {}): PortfolioResult {
   const now = deps.now ?? (() => new Date());
-  const asOf = toBrDate(now());
+  const asOf = deps.asOf ?? toBrDate(now());
   const instruments = listInstruments(db);
   const transactions = listAllTransactions(db);
   const quotes = listAllQuotes(db);

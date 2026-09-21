@@ -53,6 +53,19 @@ test("portfolio calcula RF, RV e PGBL, e marca stale por fonte", () => {
   assert.equal(portfolio.sources.find((source) => source.id === "yahoo")?.stale, true);
 });
 
+test("buildPortfolio aceita asOf explícito (reconciliação)", () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  insertInstruments(db, [etf]);
+  insertTransactions(db, [{ instrumentId: etf.id, tradeDate: "2026-09-01", kind: "BUY", quantityE8: 10_00000000n, grossCents: 9_000n, feesCents: 0n, note: null, legacyRow: null }]);
+  writeQuotes(db, [
+    { ticker: "WRLD11", date: "2026-09-15", closeCents: 1_000n, source: "yahoo", settled: true },
+    { ticker: "WRLD11", date: "2026-09-20", closeCents: 2_000n, source: "yahoo", settled: true },
+  ], "2026-09-21");
+  assert.equal(buildPortfolio(db, { asOf: "2026-09-15" }).positions[0]?.marketValueCents, 10_000n);
+  assert.equal(buildPortfolio(db, { asOf: "2026-09-20" }).positions[0]?.marketValueCents, 20_000n);
+});
+
 test("PGBL sem cota fica null + stale", () => {
   const db = openDb(":memory:");
   migrate(db);
