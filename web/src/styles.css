@@ -614,6 +614,28 @@ tbody tr:last-child td {
   gap: 16px;
 }
 
+.chart {
+  margin-top: 8px;
+}
+
+.chart-tooltip {
+  background: var(--surface, #fff);
+  border: 1px solid var(--border, #d8dee7);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 12%);
+}
+
+.chart-tooltip-title {
+  font-weight: 600;
+  margin: 0 0 4px;
+}
+
+.chart-tooltip p {
+  margin: 0;
+}
+
 .chart-placeholder {
   display: flex;
   flex-direction: column;

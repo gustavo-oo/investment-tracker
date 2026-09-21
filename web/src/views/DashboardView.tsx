@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
-import { ArrowsClockwise, ChartPie, Clock, Table, WarningCircle, XCircle } from "@phosphor-icons/react";
+import { ArrowsClockwise, ChartLineUp, ChartPie, Clock, Table, WarningCircle, XCircle } from "@phosphor-icons/react";
+import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import {
   getAllocation, getHealth, getHistory, getPortfolio, getReconciliation, postRefresh,
   type Allocation, type AllocationBy, type Health, type HistoryPoint, type Portfolio, type Reconciliation,
 } from "../api.ts";
 import {
-  formataBRL, formataCategoria, formataHora, formataMes, formataNumero, formataPercentual,
+  formataBRL, formataCategoria, formataHora, formataIndice, formataMes, formataNumero, formataPercentual,
   formataQuantidade, mesDeslocado,
 } from "../format.ts";
 
@@ -33,6 +34,43 @@ const ROTULO_CAUSA: Record<string, string> = {
   "data-de-referencia": "Data de referência do snapshot do legado",
   "nao-explicada": "Não explicada",
 };
+
+type LinhaGrafico = {
+  mes: string; carteira: number; cdi: number; ipca: number; patrimonioCents: number;
+};
+
+function base100(history: HistoryPoint[]): LinhaGrafico[] {
+  const primeiro = history[0];
+  if (!primeiro || primeiro.marketValueCents === 0) return [];
+  let cdi = 100;
+  let ipca = 100;
+  return history.map((point) => {
+    const row: LinhaGrafico = {
+      mes: formataMes(point.month),
+      carteira: (point.marketValueCents / primeiro.marketValueCents) * 100,
+      cdi, ipca, patrimonioCents: point.marketValueCents,
+    };
+    if (point.cdiPct !== null) cdi *= 1 + point.cdiPct / 100;
+    if (point.ipcaPct !== null) ipca *= 1 + point.ipcaPct / 100;
+    return row;
+  });
+}
+
+function TooltipEvolucao({ active, payload, label }: {
+  active?: boolean;
+  payload?: Array<{ payload: LinhaGrafico }>;
+  label?: string;
+}) {
+  if (!active || !payload || payload.length === 0) return null;
+  const row = payload[0]!.payload;
+  return (
+    <div className="chart-tooltip">
+      <p className="chart-tooltip-title">{label}</p>
+      <p>Patrimônio: <strong>{formataBRL(row.patrimonioCents)}</strong></p>
+      <p>Carteira {formataIndice(row.carteira)} · CDI {formataIndice(row.cdi)} · IPCA {formataIndice(row.ipca)}</p>
+    </div>
+  );
+}
 
 async function carregaDashboard(): Promise<DashboardData> {
   const portfolio = await getPortfolio();
@@ -276,6 +314,37 @@ export function DashboardView() {
             </section>
           ))}
         </div>
+
+        <section className="card">
+          <div className="section-head">
+            <h2 className="section-title">Evolução 12 meses</h2>
+            <p className="section-hint">
+              Base 100 no início da janela: carteira, CDI e IPCA acumulados. Passe o mouse para ver o patrimônio em R$.
+            </p>
+          </div>
+          {base100(history).length === 0 ? (
+            <div className="empty">
+              <ChartLineUp size={22} aria-hidden="true" />
+              <p className="empty-title">Sem histórico suficiente</p>
+              <p className="empty-hint">A evolução aparece quando houver cotações e índices no período.</p>
+            </div>
+          ) : (
+            <div className="chart">
+              <ResponsiveContainer width="100%" height={280}>
+                <LineChart data={base100(history)} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="mes" tickLine={false} axisLine={false} fontSize={12} />
+                  <YAxis domain={["auto", "auto"]} tickLine={false} axisLine={false} fontSize={12} width={44} />
+                  <Tooltip content={<TooltipEvolucao />} />
+                  <Legend />
+                  <Line type="monotone" dataKey="carteira" name="Carteira" stroke="#2f6feb" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="cdi" name="CDI" stroke="#7a5200" strokeWidth={1.5} dot={false} />
+                  <Line type="monotone" dataKey="ipca" name="IPCA" stroke="#1f7a4d" strokeWidth={1.5} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </section>
 
         <section className="card">
           <details className="recon">
