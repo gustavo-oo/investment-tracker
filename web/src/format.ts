@@ -19,6 +19,11 @@ export function formataDataHora(valor: string): string {
 
 const NOMES_MES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 
+export function formataData(iso: string): string {
+  const [ano, mes, dia] = iso.split("-");
+  return ano && mes && dia ? `${dia}/${mes}/${ano}` : iso;
+}
+
 export function formataMes(isoMes: string): string {
   const [ano, mes] = isoMes.split("-");
   const nome = NOMES_MES[Number(mes) - 1];

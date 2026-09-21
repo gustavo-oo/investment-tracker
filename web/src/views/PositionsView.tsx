@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { MagnifyingGlass, Table, X } from "@phosphor-icons/react";
 import { getPortfolio, getTransactions, type PortfolioPosition, type Transaction } from "../api.ts";
-import { formataBRL, formataCategoria, formataDataHora, formataMes, formataPercentualSinal, formataQuantidade } from "../format.ts";
+import { formataBRL, formataCategoria, formataData, formataMes, formataPercentualSinal, formataQuantidade } from "../format.ts";
 
 type Ordem = "valor" | "nome" | "rendimento" | "rendimentoPct" | "pct";
 
-function rendimentoDe(posicao: PortfolioPosition): { cents: number; pct: number | null } {
+function rendimentoDe(posicao: PortfolioPosition): { cents: number | null; pct: number | null } {
+  if (posicao.marketValueCents === null) return { cents: null, pct: null };
   const capital = posicao.investedCents - posicao.redeemedCents;
-  const cents = (posicao.marketValueCents ?? 0) - capital;
+  const cents = posicao.marketValueCents - capital;
   return { cents, pct: capital > 0 ? (cents / capital) * 100 : null };
 }
 
@@ -53,7 +54,10 @@ export function PositionsView({ reloadToken, filtroInicial }: {
     setTransacoes(null);
     getTransactions(selecionada.instrumentId, controller.signal)
       .then(setTransacoes)
-      .catch(() => setTransacoes([]));
+      .catch((cause: unknown) => {
+        if (cause instanceof DOMException && cause.name === "AbortError") return;
+        setTransacoes([]);
+      });
     return () => controller.abort();
   }, [selecionada]);
 
@@ -68,7 +72,7 @@ export function PositionsView({ reloadToken, filtroInicial }: {
     .filter((posicao) => objetivo === "todos" || (posicao.objective ?? "—") === objetivo)
     .sort((a, b) => {
       if (ordem === "nome") return a.name.localeCompare(b.name, "pt-BR");
-      if (ordem === "rendimento") return rendimentoDe(b).cents - rendimentoDe(a).cents;
+      if (ordem === "rendimento") return (rendimentoDe(b).cents ?? -Infinity) - (rendimentoDe(a).cents ?? -Infinity);
       if (ordem === "rendimentoPct") return (rendimentoDe(b).pct ?? -Infinity) - (rendimentoDe(a).pct ?? -Infinity);
       if (ordem === "pct") return (b.marketValueCents ?? 0) - (a.marketValueCents ?? 0);
       return (b.marketValueCents ?? 0) - (a.marketValueCents ?? 0);
@@ -159,8 +163,8 @@ export function PositionsView({ reloadToken, filtroInicial }: {
                     <td>{ROTULO_KIND[posicao.kind] ?? posicao.kind}</td>
                     <td className="num">{posicao.marketValueCents === null ? "—" : formataBRL(posicao.marketValueCents)}</td>
                     <td className="num">{total > 0 && posicao.marketValueCents !== null ? formataPercentualSinal((posicao.marketValueCents / total) * 100) : "—"}</td>
-                    <td className={`num ${rendimento.cents >= 0 ? "rendimento-positivo" : "rendimento-negativo"}`}>
-                      {formataBRL(rendimento.cents)}{rendimento.pct === null ? "" : ` (${formataPercentualSinal(rendimento.pct)})`}
+                    <td className={`num ${rendimento.cents === null ? "" : rendimento.cents >= 0 ? "rendimento-positivo" : "rendimento-negativo"}`}>
+                      {rendimento.cents === null ? "—" : <>{formataBRL(rendimento.cents)}{rendimento.pct === null ? "" : ` (${formataPercentualSinal(rendimento.pct)})`}</>}
                     </td>
                   </tr>
                 );
@@ -200,8 +204,8 @@ export function PositionsView({ reloadToken, filtroInicial }: {
                 </thead>
                 <tbody>
                   {transacoes.map((transacao, index) => (
-                    <tr key={index}>
-                      <td>{formataDataHora(`${transacao.tradeDate} 00:00:00`)}</td>
+                    <tr key={`${transacao.tradeDate}:${transacao.kind}:${index}`}>
+                      <td>{formataData(transacao.tradeDate)}</td>
                       <td>{ROTULO_OPERACAO[transacao.kind] ?? transacao.kind}</td>
                       <td className="num">{transacao.quantityE8 === null ? "—" : formataQuantidade(transacao.quantityE8)}</td>
                       <td className="num">{precoMedio(transacao)}</td>
