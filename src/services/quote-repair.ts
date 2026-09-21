@@ -41,6 +41,7 @@ export async function repairWindow(
 export async function repairConstantRuns(db: Db, deps: QuoteRepairDeps): Promise<QuoteRepairResult[]> {
   if (!(await deps.source.available())) return [];
   const today = toBrDate((deps.now ?? (() => new Date()))());
+  const currentMonth = today.slice(0, 7);
   const quotes = listAllQuotes(db);
   const tickers = listInstruments(db)
     .filter((instrument) => instrument.kind === "equity" && instrument.ticker !== null)
@@ -48,6 +49,7 @@ export async function repairConstantRuns(db: Db, deps: QuoteRepairDeps): Promise
   const results: QuoteRepairResult[] = [];
   for (const ticker of tickers) {
     for (const run of findConstantRuns(quotes.filter((quote) => quote.ticker === ticker), { today })) {
+      if (run.from.slice(0, 7) === currentMonth) continue;
       try {
         results.push(await repairWindow(db, { source: deps.source, ticker, from: run.from, to: run.to, today }));
       } catch (error) {

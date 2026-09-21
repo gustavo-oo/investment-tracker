@@ -71,16 +71,43 @@ test("reparo não apaga quando a AV não tem ponto na janela; erro não derruba 
   assert.equal(listAllQuotes(db).length, 8, "nada mudou");
 });
 
-test("trecho no mês corrente ignora ponto parcial da AV e nada é apagado", async () => {
+test("trecho no mês corrente é pulado sem consultar a fonte e nada é apagado", async () => {
   const db = freshDb();
   writeQuotes(db, flatQuotes(8, "2026-09"), TODAY);
-  const results = await repairConstantRuns(db, {
-    source: fakeMonthly([{ ticker: "B5P211", date: "2026-09-18", closeCents: 9_570n }]),
-    now,
-  });
-  assert.equal(results[0]?.skipped, true);
+  let fetches = 0;
+  const source: MonthlyQuoteSource = {
+    id: "alphavantage",
+    available: async () => true,
+    fetchMonthly: async () => {
+      fetches += 1;
+      return [{ ticker: "B5P211", date: "2026-09-18", closeCents: 9_570n }];
+    },
+  };
+  assert.deepEqual(await repairConstantRuns(db, { source, now }), []);
+  assert.equal(fetches, 0, "não consulta a fonte para trecho do mês corrente");
   assert.equal(listAllQuotes(db).length, 8, "as 8 linhas continuam lá");
   assert.deepEqual(listAllQuotes(db).map((quote) => quote.source), Array(8).fill("yahoo"));
+});
+
+test("trecho que começa em mês fechado e cruza o mês corrente segue reparando", async () => {
+  const db = freshDb();
+  writeQuotes(db, [
+    ...["25", "26", "27", "28", "29"].map((day) => ({
+      ticker: "B5P211", date: `2026-08-${day}`, closeCents: 7125n, source: "yahoo", settled: true,
+    })),
+    ...["01", "02", "03"].map((day) => ({
+      ticker: "B5P211", date: `2026-09-${day}`, closeCents: 7125n, source: "yahoo", settled: true,
+    })),
+  ], TODAY);
+  const results = await repairConstantRuns(db, {
+    source: fakeMonthly([{ ticker: "B5P211", date: "2026-08-31", closeCents: 9_570n }]),
+    now,
+  });
+  assert.deepEqual(results, [{ ticker: "B5P211", from: "2026-08-25", to: "2026-09-03", deleted: 8, inserted: 1 }]);
+  assert.deepEqual(
+    listAllQuotes(db).map((quote) => [quote.date, quote.closeCents, quote.source]),
+    [["2026-08-31", 9_570n, "alphavantage"]],
+  );
 });
 
 test("repairWindow força a janela mesmo sem trecho constante", async () => {
