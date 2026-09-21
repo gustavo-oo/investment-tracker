@@ -32,6 +32,7 @@ const ROTULO_CAUSA: Record<string, string> = {
   "legado-sem-selic-junho-2026": "Legado sem capitalização Selic (junho/2026)",
   "fonte-yahoo-corrompida": "Fonte Yahoo corrompida no histórico",
   "data-de-referencia": "Data de referência do snapshot do legado",
+  "cotacao-fora-da-janela": "Cotação posterior ao snapshot do legado (mês corrente)",
   "nao-explicada": "Não explicada",
 };
 

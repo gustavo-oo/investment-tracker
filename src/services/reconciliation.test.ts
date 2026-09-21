@@ -23,7 +23,7 @@ const etf: InstrumentRow = {
 const classify = (overrides: Partial<Parameters<typeof classifyDivergence>[0]>) =>
   classifyDivergence({
     instrument: cdi, month: "2026-09", legacyCents: 100n, ourCents: 200n, diffCents: 100n,
-    transactionAfterAsOf: false, ...overrides,
+    transactionAfterAsOf: false, currentMonth: "2026-09", ...overrides,
   });
 
 test("classifyDivergence segue a ordem das regras", () => {
@@ -39,6 +39,29 @@ test("classifyDivergence segue a ordem das regras", () => {
   );
   assert.equal(
     classify({ month: "2024-12", legacyCents: 100_000n, ourCents: 200_000n, diffCents: 100_000n }),
+    "nao-explicada",
+  );
+});
+
+test("classifyDivergence: cotação de RV/PGBL no mês corrente tem causa própria", () => {
+  const etfAberto = { ...etf, id: "etf-2" };
+  assert.equal(
+    classify({ instrument: etfAberto, month: "2026-09", currentMonth: "2026-09", legacyCents: 100_000n, ourCents: 101_340n, diffCents: 1_340n }),
+    "cotacao-fora-da-janela",
+  );
+  // fora do mês corrente e acima de 0,5% → não explicada
+  assert.equal(
+    classify({ instrument: etfAberto, month: "2026-08", currentMonth: "2026-09", legacyCents: 100_000n, ourCents: 101_340n, diffCents: 1_340n }),
+    "nao-explicada",
+  );
+  // acima de 5% no mês corrente → não explicada
+  assert.equal(
+    classify({ instrument: etfAberto, month: "2026-09", currentMonth: "2026-09", legacyCents: 100_000n, ourCents: 120_000n, diffCents: 20_000n }),
+    "nao-explicada",
+  );
+  // RF no mês corrente não usa a regra de cotação (benchmark fora de CDI/SELIC para não casar as regras do legado)
+  assert.equal(
+    classify({ instrument: { ...cdi, benchmark: "IPCA" }, month: "2026-09", currentMonth: "2026-09", legacyCents: 100_000n, ourCents: 101_340n, diffCents: 1_340n }),
     "nao-explicada",
   );
 });

@@ -96,7 +96,7 @@ export type Allocation = { by: AllocationBy; groups: Array<{ key: string; market
 export type ReconciliationCause =
   | "residuo-zerado" | "transacao-fora-da-janela"
   | "legado-snapshot-maio-2025" | "legado-sem-cdi-maio-2026" | "legado-sem-selic-junho-2026"
-  | "fonte-yahoo-corrompida" | "data-de-referencia" | "nao-explicada";
+  | "fonte-yahoo-corrompida" | "data-de-referencia" | "cotacao-fora-da-janela" | "nao-explicada";
 
 export type Reconciliation = {
   month: string; asOf: string;

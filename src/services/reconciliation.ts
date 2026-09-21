@@ -13,6 +13,7 @@ export const RECONCILIATION_CAUSES = [
   "legado-sem-selic-junho-2026",
   "fonte-yahoo-corrompida",
   "data-de-referencia",
+  "cotacao-fora-da-janela",
   "nao-explicada",
 ] as const;
 export type ReconciliationCause = (typeof RECONCILIATION_CAUSES)[number];
@@ -38,7 +39,7 @@ const abs = (value: bigint): bigint => (value < 0n ? -value : value);
 /** Primeira regra que casar define a causa; regras de bug conhecido do legado vêm antes das genéricas. */
 export function classifyDivergence(input: {
   instrument: InstrumentRow; month: string; legacyCents: bigint; ourCents: bigint; diffCents: bigint;
-  transactionAfterAsOf: boolean;
+  transactionAfterAsOf: boolean; currentMonth: string;
 }): ReconciliationCause {
   const { instrument, month, legacyCents, ourCents, diffCents } = input;
   if (ourCents === 0n && legacyCents < 0n) return "residuo-zerado";
@@ -48,6 +49,8 @@ export function classifyDivergence(input: {
   if (instrument.benchmark === "SELIC" && month >= "2026-06" && diffCents > 0n) return "legado-sem-selic-junho-2026";
   if (instrument.ticker === "B5P211" && month <= "2026-01") return "fonte-yahoo-corrompida";
   if (legacyCents !== 0n && abs(diffCents) * 200n <= abs(legacyCents)) return "data-de-referencia";
+  if ((instrument.kind === "equity" || instrument.kind === "pension") && month === input.currentMonth
+    && legacyCents !== 0n && abs(diffCents) * 20n <= abs(legacyCents)) return "cotacao-fora-da-janela";
   return "nao-explicada";
 }
 
@@ -87,6 +90,7 @@ export function buildReconciliation(
       legacyCents, ourCents, diffCents,
       cause: classifyDivergence({
         instrument, month, legacyCents, ourCents, diffCents, transactionAfterAsOf: hasTransactionAfter(instrument.id),
+        currentMonth: today.slice(0, 7),
       }),
     });
   }
