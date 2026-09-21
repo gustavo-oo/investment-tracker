@@ -7,7 +7,7 @@ import { gzipSync } from "node:zlib";
 import { buildApp } from "../app.ts";
 import { openDb } from "../db/index.ts";
 import { migrate } from "../db/migrate.ts";
-import { insertInstruments, insertTransactions, writeIndexRates, writeQuotes } from "../db/repos.ts";
+import { insertInstruments, insertTransactions, recordSourceAttempt, writeFundQuotas, writeIndexRates, writeQuotes } from "../db/repos.ts";
 import type { InstrumentRow } from "../db/repos.ts";
 import type { FundQuotaSource, IndexSource, QuoteSource } from "../sources/types.ts";
 
@@ -205,6 +205,12 @@ const etfInstrument: InstrumentRow = {
   category: "etf_equity", ticker: "WRLD11", benchmark: null, rateE6: null, broker: "XP",
 };
 
+const pgblInstrument: InstrumentRow = {
+  ...baseInstrument, id: "pgbl-1", legacyKey: "PGBL 1", name: "PGBL 1", kind: "pension",
+  category: "pension_ipca", ticker: null, quoteSource: "cvm-swb", quoteSymbol: "253210",
+  benchmark: null, rateE6: null,
+};
+
 function seedPortfolio(db: ReturnType<typeof openDb>) {
   insertInstruments(db, [cdbInstrument, etfInstrument]);
   insertTransactions(db, [
@@ -249,6 +255,31 @@ test("rotas de portfolio, history e allocation respondem em centavos", async () 
 
   res = await app.inject({ method: "GET", url: "/api/allocation?by=nada" });
   assert.equal(res.statusCode, 400);
+
+  await app.close();
+});
+
+test("portfolio com PGBL calcula pela cota CVM e health lista cvm-swb", async () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  insertInstruments(db, [pgblInstrument]);
+  insertTransactions(db, [
+    { instrumentId: pgblInstrument.id, tradeDate: "2026-09-10", kind: "BUY", quantityE8: 5_00000000n, grossCents: 60_000n, feesCents: 0n, note: null, legacyRow: null },
+  ]);
+  writeFundQuotas(db, [{ symbol: "253210", date: "2026-09-17", quotaE12: 1_220_696_672_715n, source: "cvm-swb", settled: true }], "2026-09-18");
+  recordSourceAttempt(db, "cvm-swb", { ok: true });
+  const app = buildApp({ db, csvDir: csvDirFixture(), logger: false });
+
+  const portfolio = (await app.inject({ method: "GET", url: "/api/portfolio" })).json();
+  const pension = portfolio.positions[0];
+  assert.equal(pension.marketValueCents, 610);
+  assert.equal(pension.priceCents, 122);
+  assert.equal(pension.priceDate, "2026-09-17");
+  assert.equal(pension.priceSource, "cvm-swb");
+  assert.equal(pension.stale, false);
+
+  const health = (await app.inject({ method: "GET", url: "/api/health" })).json();
+  assert.ok(health.sources.some((source: { id: string }) => source.id === "cvm-swb"), "health inclui cvm-swb");
 
   await app.close();
 });

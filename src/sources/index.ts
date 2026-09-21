@@ -18,6 +18,10 @@ export function createIndexSource(deps: SourceDeps = {}): IndexSource {
   return createBcbSource(deps);
 }
 
+let defaultFundQuotaSource: FundQuotaSource | undefined;
+
+/** Sem deps injetadas, devolve o singleton do processo — o cache de 6h precisa sobreviver entre refreshes. */
 export function createFundQuotaSource(deps: SourceDeps = {}): FundQuotaSource {
-  return createCvmSwbSource(deps);
+  if (deps.fetchImpl !== undefined) return createCvmSwbSource(deps);
+  return (defaultFundQuotaSource ??= createCvmSwbSource(deps));
 }

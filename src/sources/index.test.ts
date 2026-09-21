@@ -8,3 +8,12 @@ test("registro inclui AV só com chave e BCB como fonte de índices", () => {
   assert.equal(createIndexSource({}).id, "bcb");
   assert.equal(createFundQuotaSource({}).id, "cvm-swb");
 });
+
+test("createFundQuotaSource reusa o singleton sem deps e cria instância nova com fetchImpl injetado", () => {
+  const primeira = createFundQuotaSource({});
+  assert.equal(createFundQuotaSource({}), primeira);
+  assert.equal(primeira.id, "cvm-swb");
+  const injetada = createFundQuotaSource({ fetchImpl: async () => new Response("") });
+  assert.notEqual(injetada, primeira);
+  assert.equal(injetada.id, "cvm-swb");
+});
