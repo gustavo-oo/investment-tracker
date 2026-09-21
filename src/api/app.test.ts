@@ -7,7 +7,7 @@ import { gzipSync } from "node:zlib";
 import { buildApp } from "../app.ts";
 import { openDb } from "../db/index.ts";
 import { migrate } from "../db/migrate.ts";
-import { insertInstruments, insertTransactions, recordSourceAttempt, writeFundQuotas, writeIndexRates, writeQuotes } from "../db/repos.ts";
+import { insertInstruments, insertLegacySnapshots, insertTransactions, recordSourceAttempt, writeFundQuotas, writeIndexRates, writeQuotes } from "../db/repos.ts";
 import type { InstrumentRow } from "../db/repos.ts";
 import type { FundQuotaSource, IndexSource, MonthlyQuoteSource, QuoteSource } from "../sources/types.ts";
 
@@ -321,6 +321,36 @@ test("POST /api/refresh usa as fontes injetadas e atualiza o health", async () =
   const av = await app.inject({ method: "POST", url: "/api/refresh?source=alphavantage" });
   assert.equal(av.statusCode, 400);
   assert.match(av.json().error, /alphavantage não configurado/);
+
+  await app.close();
+});
+
+test("GET /api/reconciliation devolve totais e divergências classificadas", async () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  seedPortfolio(db);
+  insertLegacySnapshots(db, [
+    { month: "2026-09-01", instrumentId: cdbInstrument.id, valueCents: -3_520n, sharesE8: null },
+    { month: "2026-09-01", instrumentId: etfInstrument.id, valueCents: 10_000n, sharesE8: null },
+  ]);
+  const app = buildApp({ db, csvDir: csvDirFixture(), logger: false });
+
+  const res = await app.inject({ method: "GET", url: "/api/reconciliation?month=2026-09&asOf=2026-09-30" });
+  assert.equal(res.statusCode, 200);
+  const body = res.json();
+  assert.equal(body.month, "2026-09");
+  assert.equal(body.asOf, "2026-09-30");
+  assert.equal(body.totals.legacyCents, 6_480);
+  assert.equal(body.totals.referenceCents, 10_000);
+  assert.equal(body.totals.ourCents, 110_100);
+  assert.deepEqual(body.divergences.map((divergence: { instrumentId: string; cause: string }) => [divergence.instrumentId, divergence.cause]), [
+    ["cdb-1", "legado-sem-cdi-maio-2026"],
+  ]);
+  assert.equal(body.unexplained, 0);
+
+  assert.equal((await app.inject({ method: "GET", url: "/api/reconciliation?month=26-09" })).statusCode, 400);
+  assert.equal((await app.inject({ method: "GET", url: "/api/reconciliation?month=2026-09&asOf=2026-08-01" })).statusCode, 400);
+  assert.equal((await app.inject({ method: "GET", url: "/api/reconciliation?asOf=30/09/2026" })).statusCode, 400);
 
   await app.close();
 });

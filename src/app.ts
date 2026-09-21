@@ -6,6 +6,7 @@ import { registerHealthRoutes } from "./api/routes/health.ts";
 import { registerImportRoutes } from "./api/routes/import.ts";
 import { registerInstrumentsRoutes } from "./api/routes/instruments.ts";
 import { registerPortfolioRoutes } from "./api/routes/portfolio.ts";
+import { registerReconciliationRoutes } from "./api/routes/reconciliation.ts";
 import { registerRefreshRoutes } from "./api/routes/refresh.ts";
 import type { RefreshDeps } from "./services/refresh.ts";
 
@@ -17,6 +18,7 @@ export function buildApp(options: {
   registerImportRoutes(app, options.db, options.csvDir);
   registerHealthRoutes(app, options.db);
   registerPortfolioRoutes(app, options.db);
+  registerReconciliationRoutes(app, options.db);
   registerRefreshRoutes(app, options.db, options.refreshDeps);
 
   if (options.webDir && existsSync(options.webDir)) {

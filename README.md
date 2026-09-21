@@ -42,6 +42,7 @@ Se o volume der erro de permissão, ajuste o dono de `./data` para o uid do cont
 | `GET /api/portfolio` | posições + totais (RF capitalizada, RV = cotas × fechamento) |
 | `GET /api/history?from=YYYY-MM&to=YYYY-MM` | evolução mensal (default: 12 meses) |
 | `GET /api/allocation?by=category\|broker\|objective` | alocação por critério |
+| `GET /api/reconciliation?month=YYYY-MM&asOf=YYYY-MM-DD` | reconciliação do mês contra o legado (totais e divergências com causa) |
 | `POST /api/refresh?full=1&source=yahoo\|alphavantage\|bcb\|cvm-swb` | coleta manual (todas as fontes sem `source`); `full=1` refaz a janela; resposta inclui `repairs` |
 | `GET /api/health` | status + contagens + fontes (última coleta/erro, stale) |
 
