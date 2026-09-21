@@ -682,3 +682,64 @@ tbody tr:last-child td {
     transition-duration: 0.01ms !important;
   }
 }
+
+.badge-warn {
+  background: var(--warn-soft, #fff4d6);
+  color: var(--warn, #7a5200);
+  margin-left: 8px;
+}
+
+.alloc-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.alloc-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.alloc-name {
+  font-weight: 500;
+}
+
+.alloc-value {
+  color: var(--text-2);
+}
+
+.alloc-bar {
+  display: block;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--surface-2, #eceff3);
+  margin-top: 6px;
+  overflow: hidden;
+}
+
+.alloc-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent, #2f6feb);
+}
+
+.recon summary {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.recon[open] summary {
+  margin-bottom: 8px;
+}
+
+.recon .stats {
+  margin: 12px 0;
+}

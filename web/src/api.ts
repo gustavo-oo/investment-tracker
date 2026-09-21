@@ -63,3 +63,81 @@ export async function getImportRuns(): Promise<ImportRun[]> {
   }
   return body as ImportRun[];
 }
+
+export type SourceSummary = {
+  id: string; lastAttemptAt: string | null; lastSuccessAt: string | null;
+  lastErrorAt: string | null; lastError: string | null; stale: boolean;
+};
+
+export type Health = { ok: boolean; counts: { instruments: number; transactions: number; legacySnapshots: number; importRuns: number }; sources: SourceSummary[] };
+
+export type PortfolioPosition = {
+  instrumentId: string; name: string; kind: "fixed_income" | "equity" | "pension"; category: string;
+  broker: string | null; objective: string | null; benchmark: string | null; rateE6: number | null;
+  quantityE8: number | null; priceCents: number | null; priceDate: string | null; priceSource: string | null;
+  marketValueCents: number | null; investedCents: number; redeemedCents: number; feesCents: number; stale: boolean;
+};
+
+export type Portfolio = {
+  asOf: string;
+  totals: { investedCents: number; redeemedCents: number; feesCents: number; marketValueCents: number };
+  positions: PortfolioPosition[];
+  sources: SourceSummary[];
+};
+
+export type HistoryPoint = {
+  month: string; marketValueCents: number; investedCents: number; redeemedCents: number;
+  cdiPct: number | null; ipcaPct: number | null;
+};
+
+export type AllocationBy = "category" | "broker" | "objective";
+export type Allocation = { by: AllocationBy; groups: Array<{ key: string; marketValueCents: number; pct: number }> };
+
+export type ReconciliationCause =
+  | "residuo-zerado" | "transacao-fora-da-janela"
+  | "legado-snapshot-maio-2025" | "legado-sem-cdi-maio-2026" | "legado-sem-selic-junho-2026"
+  | "fonte-yahoo-corrompida" | "data-de-referencia" | "nao-explicada";
+
+export type Reconciliation = {
+  month: string; asOf: string;
+  totals: { legacyCents: number; referenceCents: number; ourCents: number; diffCents: number };
+  divergences: Array<{
+    instrumentId: string; name: string; kind: string; benchmark: string | null;
+    legacyCents: number; ourCents: number; diffCents: number; cause: ReconciliationCause;
+  }>;
+  unexplained: number;
+};
+
+export type RefreshResult = {
+  sources: Array<{ id: string; fetched: number; inserted: number; updated: number; skipped: number; errors: string[] }>;
+  repairs: Array<{ ticker: string; from: string; to: string; deleted: number; inserted: number; skipped?: boolean; error?: string }>;
+};
+
+async function apiErrorMessage(response: Response, body: unknown): Promise<string> {
+  if (body && typeof body === "object" && typeof (body as { error?: unknown }).error === "string") {
+    return String((body as { error: string }).error);
+  }
+  return errorMessage(response, body);
+}
+
+async function getJson<T>(url: string): Promise<T> {
+  const response = await fetch(url);
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(await apiErrorMessage(response, body));
+  }
+  return (await response.json()) as T;
+}
+
+export const getPortfolio = (): Promise<Portfolio> => getJson("/api/portfolio");
+export const getHealth = (): Promise<Health> => getJson("/api/health");
+export const getAllocation = (by: AllocationBy): Promise<Allocation> => getJson(`/api/allocation?by=${by}`);
+export const getReconciliation = (month: string): Promise<Reconciliation> => getJson(`/api/reconciliation?month=${month}`);
+export const getHistory = (from: string, to: string): Promise<HistoryPoint[]> => getJson(`/api/history?from=${from}&to=${to}`);
+
+export async function postRefresh(): Promise<RefreshResult> {
+  const response = await fetch("/api/refresh", { method: "POST" });
+  const body = (await response.json().catch(() => null)) as RefreshResult | { error?: string } | null;
+  if (!response.ok) throw new Error(await apiErrorMessage(response, body));
+  return body as RefreshResult;
+}

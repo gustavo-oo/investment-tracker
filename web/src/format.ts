@@ -42,3 +42,41 @@ const ROTULO_FONTE: Record<string, string> = {
 export function formataFonte(fonte: string): string {
   return ROTULO_FONTE[fonte] ?? fonte;
 }
+
+const formatadorHora = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
+
+function parseTimestamp(value: string): Date | null {
+  const parsed = new Date(value.includes("T") ? value : `${value.replace(" ", "T")}Z`);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+export function formataHora(value: string): string {
+  const parsed = parseTimestamp(value);
+  return parsed === null ? value : formatadorHora.format(parsed);
+}
+
+export function formataPercentual(valor: number): string {
+  return `${valor.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%`;
+}
+
+export function formataIndice(valor: number): string {
+  return valor.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
+}
+
+export function formataQuantidade(e8: number): string {
+  return (e8 / 1e8).toLocaleString("pt-BR", { maximumFractionDigits: 4 });
+}
+
+const ROTULO_CATEGORIA: Record<string, string> = {
+  cdb: "CDB", lca: "LCA", selic: "Tesouro Selic", etf_fixed: "ETF RF", etf_equity: "ETF RV", pension_ipca: "Previdência",
+};
+
+export function formataCategoria(categoria: string): string {
+  return ROTULO_CATEGORIA[categoria] ?? categoria;
+}
+
+export function mesDeslocado(mes: string, delta: number): string {
+  const [ano = 0, numero = 1] = mes.split("-").map(Number);
+  const total = ano * 12 + (numero - 1) + delta;
+  return `${String(Math.floor(total / 12)).padStart(4, "0")}-${String(((total % 12) + 12) % 12 + 1).padStart(2, "0")}`;
+}
