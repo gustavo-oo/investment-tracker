@@ -42,7 +42,7 @@ export function classifyDivergence(input: {
   transactionAfterAsOf: boolean; currentMonth: string;
 }): ReconciliationCause {
   const { instrument, month, legacyCents, ourCents, diffCents } = input;
-  if (ourCents === 0n && legacyCents < 0n) return "residuo-zerado";
+  if (ourCents === 0n && legacyCents !== 0n && legacyCents <= 1n) return "residuo-zerado";
   if (input.transactionAfterAsOf) return "transacao-fora-da-janela";
   if (instrument.id === "cdb-di-01-12-28" && month >= "2025-05") return "legado-snapshot-maio-2025";
   if (instrument.benchmark === "CDI" && month >= "2026-05" && diffCents > 0n) return "legado-sem-cdi-maio-2026";

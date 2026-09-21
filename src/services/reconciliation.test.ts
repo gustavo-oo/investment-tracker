@@ -28,6 +28,8 @@ const classify = (overrides: Partial<Parameters<typeof classifyDivergence>[0]>) 
 
 test("classifyDivergence segue a ordem das regras", () => {
   assert.equal(classify({ ourCents: 0n, legacyCents: -10n, diffCents: 10n }), "residuo-zerado");
+  assert.equal(classify({ ourCents: 0n, legacyCents: 1n, diffCents: -1n }), "residuo-zerado");
+  assert.equal(classify({ ourCents: 0n, legacyCents: 500n, diffCents: -500n }), "nao-explicada");
   assert.equal(classify({ transactionAfterAsOf: true }), "transacao-fora-da-janela");
   assert.equal(classify({ instrument: { ...cdi, id: "cdb-di-01-12-28" } }), "legado-snapshot-maio-2025");
   assert.equal(classify({ month: "2026-05" }), "legado-sem-cdi-maio-2026");
