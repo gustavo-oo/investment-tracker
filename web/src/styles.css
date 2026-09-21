@@ -705,3 +705,65 @@ tbody tr:last-child td {
   .sidebar-foot { flex-direction: row; align-items: center; margin-top: 0; margin-left: auto; }
   .content { padding: 0 16px; }
 }
+
+.valores,
+.resumo-itens,
+.fontes-resumo,
+.tags {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.valor-fraco {
+  color: var(--text-2);
+  font-weight: 400;
+}
+
+.rendimento-linha {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.rendimento-linha .stat-value,
+.rendimento-linha .stat-note {
+  margin-top: 0;
+}
+
+.stat-value.pequeno {
+  font-size: 20px;
+}
+
+.alloc-value {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.alloc-value strong {
+  color: var(--text);
+}
+
+.tags {
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.tags .chip {
+  cursor: default;
+}
+
+.lista-erros,
+.lista-reparos {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.lista-erros li,
+.lista-reparos li {
+  margin: 2px 0;
+}

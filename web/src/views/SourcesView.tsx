@@ -137,20 +137,33 @@ export function SourcesView({ reloadToken }: { reloadToken: number }) {
                       <td className="num">{source.inserted}</td>
                       <td className="num">{source.updated}</td>
                       <td className="num">{source.skipped}</td>
-                      <td>{source.errors.length === 0 ? "—" : source.errors.join(" · ")}</td>
+                      <td>
+                        {source.errors.length === 0 ? "—" : (
+                          <ul className="lista-erros">
+                            {source.errors.map((erro) => <li key={erro}>{erro}</li>)}
+                          </ul>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
             {resultado.repairs.length > 0 && (
-              <p className="section-hint">
-                Reparo: {resultado.repairs.map((repair) => repair.skipped === true
-                  ? `${repair.ticker} ${repair.from}..${repair.to}: pulado (sem cotação mensal)`
-                  : repair.error !== undefined
-                    ? `${repair.ticker} ${repair.from}..${repair.to} falhou (${repair.error})`
-                    : `${repair.ticker} ${repair.from}..${repair.to}: ${repair.deleted} linhas apagadas, ${repair.inserted} pontos gravados`).join(" · ")}
-              </p>
+              <div className="section-hint">
+                <p>Reparo:</p>
+                <ul className="lista-reparos">
+                  {resultado.repairs.map((repair, index) => (
+                    <li key={`${repair.ticker}:${repair.from}:${repair.to}:${index}`}>
+                      {repair.skipped === true
+                        ? `${repair.ticker} ${repair.from}..${repair.to}: pulado (sem cotação mensal)`
+                        : repair.error !== undefined
+                          ? `${repair.ticker} ${repair.from}..${repair.to} falhou (${repair.error})`
+                          : `${repair.ticker} ${repair.from}..${repair.to}: ${repair.deleted} linhas apagadas, ${repair.inserted} pontos gravados`}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
           </section>
         )}

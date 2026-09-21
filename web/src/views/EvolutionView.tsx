@@ -122,7 +122,10 @@ export function EvolutionView({ reloadToken }: { reloadToken: number }) {
                       <td className="num">{formataBRL(mes.investedCents)}</td>
                       <td className="num">{formataBRL(mes.redeemedCents)}</td>
                       <td className={`num ${mes.rendimentoCents >= 0 ? "rendimento-positivo" : "rendimento-negativo"}`}>
-                        {formataBRL(mes.rendimentoCents)}{mes.portfolioPct === null ? "" : ` (${formataPercentualSinal(mes.portfolioPct)})`}
+                        <span className="valores">
+                          <strong>{formataBRL(mes.rendimentoCents)}</strong>
+                          {mes.portfolioPct !== null && <span className="valor-fraco">{formataPercentualSinal(mes.portfolioPct)}</span>}
+                        </span>
                       </td>
                       <td className="num">{mes.cdiPct === null ? "—" : formataPercentualSinal(mes.cdiPct)}</td>
                       <td className="num">{mes.ipcaPct === null ? "—" : formataPercentualSinal(mes.ipcaPct)}</td>
@@ -139,7 +142,7 @@ export function EvolutionView({ reloadToken }: { reloadToken: number }) {
         <section className="card">
           <div className="section-head">
             <h2 className="section-title">De onde veio o crescimento</h2>
-            <p className="section-hint">você aportou · o mercado rendeu · você resgatou</p>
+            <p className="section-hint">Aporte na base, rendimento no topo, resgate abaixo do eixo.</p>
           </div>
           <ResponsiveContainer width="100%" height={260}>
             <ComposedChart data={crescimento} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>

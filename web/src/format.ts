@@ -97,5 +97,5 @@ export function formataPontosPercentuais(valor: number): string {
 }
 
 export function formataJanela(from: string, to: string): string {
-  return `${formataMes(from)} → ${formataMes(to)}`;
+  return `${formataMes(from)} – ${formataMes(to)}`;
 }

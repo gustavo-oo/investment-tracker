@@ -90,7 +90,8 @@ function TooltipRs({ active, payload }: { active?: boolean; payload?: Array<{ pa
       <p className="chart-tooltip-title">{linha.rotulo}</p>
       <p>Patrimônio: <strong>{formataBRL(linha.patrimonioCents)}</strong></p>
       <p>Variação: {formataBRL(linha.variacaoCents)}</p>
-      <p>Aporte: {formataBRL(linha.aporteCents)} · Resgate: {formataBRL(linha.resgateCents)}</p>
+      <p>Aporte: {formataBRL(linha.aporteCents)}</p>
+      <p>Resgate: {formataBRL(linha.resgateCents)}</p>
       <p>Rendimento: {formataBRL(linha.rendimentoCents)}</p>
     </div>
   );
@@ -103,7 +104,8 @@ function TooltipPct({ active, payload }: { active?: boolean; payload?: Array<{ p
     <div className="chart-tooltip">
       <p className="chart-tooltip-title">{linha.rotulo}</p>
       <p>Carteira: {linha.carteira === null ? "—" : formataPercentualSinal(linha.carteira)}</p>
-      <p>CDI: {linha.cdi === null ? "—" : formataPercentualSinal(linha.cdi)} · IPCA: {linha.ipca === null ? "—" : formataPercentualSinal(linha.ipca)}</p>
+      <p>CDI: {linha.cdi === null ? "—" : formataPercentualSinal(linha.cdi)}</p>
+      <p>IPCA: {linha.ipca === null ? "—" : formataPercentualSinal(linha.ipca)}</p>
     </div>
   );
 }
@@ -136,12 +138,11 @@ export function EvolucaoChart({ history, performance, altura = 280 }: {
         <button type="button" className={aba === "pct" ? "chip active" : "chip"} onClick={() => setAba("pct")}>%</button>
         {aba === "pct" && (
           <>
-            <span className="section-hint">·</span>
             <button type="button" className={subAba === "mes" ? "chip active" : "chip"} onClick={() => setSubAba("mes")}>Mês a mês</button>
             <button type="button" className={subAba === "acumulado" ? "chip active" : "chip"} onClick={() => setSubAba("acumulado")}>Acumulado</button>
           </>
         )}
-        {trimestral && <span className="section-hint">· por trimestre</span>}
+        {trimestral && <span className="section-hint">por trimestre</span>}
       </div>
 
       <ResponsiveContainer width="100%" height={altura}>

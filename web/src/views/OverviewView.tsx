@@ -128,7 +128,11 @@ export function OverviewView({ reloadToken, onAbrirPosicoes, onAbrirFontes }: {
               <p className="section-hint">{formataJanela(performance.from, performance.to)}</p>
             </div>
             <p className="stat-value grande">{formataBRL(portfolio.totals.marketValueCents)}</p>
-            <p className="section-hint">rendimento {formataBRL(rendimento)} ({formataPercentualSinal(rendimentoPct)} sobre o capital)</p>
+            <div className="rendimento-linha">
+              <span className="stat-label">Rendimento</span>
+              <span className="stat-value pequeno">{formataBRL(rendimento)}</span>
+              <span className="stat-note">{formataPercentualSinal(rendimentoPct)} sobre o capital</span>
+            </div>
           </section>
 
           <section className="card">
@@ -148,7 +152,11 @@ export function OverviewView({ reloadToken, onAbrirPosicoes, onAbrirFontes }: {
                 <li className="alloc-row" key={bloco.kind}>
                   <button type="button" className="alloc-line botao-linha" onClick={() => onAbrirPosicoes(bloco.kind)}>
                     <span className="alloc-name">{NOMES_KIND[bloco.kind] ?? bloco.kind}</span>
-                    <span className="alloc-value">{formataBRL(bloco.valor)} · {bloco.pct.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% · {bloco.quantidade} ativos</span>
+                    <span className="alloc-value">
+                      <strong>{formataBRL(bloco.valor)}</strong>
+                      <span className="valor-fraco">{bloco.pct.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%</span>
+                      <span className="valor-fraco">{bloco.quantidade} {bloco.quantidade === 1 ? "ativo" : "ativos"}</span>
+                    </span>
                   </button>
                   <span className="alloc-bar"><span className="alloc-bar-fill" style={{ width: `${Math.min(100, bloco.pct)}%` }} /></span>
                 </li>
@@ -168,8 +176,12 @@ export function OverviewView({ reloadToken, onAbrirPosicoes, onAbrirFontes }: {
                 <span className="stat-note">{formataJanela(performance.from, performance.to)}</span>
               </div>
               <div className="stat">
-                <span className="stat-label">CDI · IPCA</span>
-                <span className="stat-value">{formataPercentualSinal(performance.accumulated.cdiPct)} · {formataPercentualSinal(performance.accumulated.ipcaPct)}</span>
+                <span className="stat-label">CDI</span>
+                <span className="stat-value">{formataPercentualSinal(performance.accumulated.cdiPct)}</span>
+              </div>
+              <div className="stat">
+                <span className="stat-label">IPCA</span>
+                <span className="stat-value">{formataPercentualSinal(performance.accumulated.ipcaPct)}</span>
               </div>
               <div className="stat">
                 <span className="stat-label">12 meses</span>
@@ -197,7 +209,10 @@ export function OverviewView({ reloadToken, onAbrirPosicoes, onAbrirFontes }: {
                   <li className="alloc-row" key={grupo.key}>
                     <div className="alloc-line">
                       <span className="alloc-name">{alocacaoBy === "category" ? formataCategoria(grupo.key) : grupo.key}</span>
-                      <span className="alloc-value">{formataBRL(grupo.marketValueCents)} · {grupo.pct.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%</span>
+                      <span className="alloc-value">
+                        <strong>{formataBRL(grupo.marketValueCents)}</strong>
+                        <span className="valor-fraco">{grupo.pct.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%</span>
+                      </span>
                     </div>
                     <span className="alloc-bar"><span className="alloc-bar-fill" style={{ width: `${Math.min(100, grupo.pct)}%` }} /></span>
                   </li>
@@ -208,9 +223,10 @@ export function OverviewView({ reloadToken, onAbrirPosicoes, onAbrirFontes }: {
 
           <section className="card">
             <div className="section-head"><h2 className="section-title">Fontes</h2></div>
-            <p className="section-hint">
-              <Coins size={14} aria-hidden="true" /> {health.sources.length - stale} ok · {stale} desatualizadas
-              {stale > 0 && <span className="badge badge-warn">desatualizado</span>}
+            <p className="section-hint fontes-resumo">
+              <Coins size={14} aria-hidden="true" />
+              <span>{health.sources.length - stale} fontes ok</span>
+              {stale > 0 && <span className="badge badge-warn">{stale} desatualizada{stale === 1 ? "" : "s"}</span>}
             </p>
             <button type="button" className="btn btn-secondary" onClick={onAbrirFontes}>Ver fontes</button>
           </section>

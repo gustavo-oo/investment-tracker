@@ -83,7 +83,10 @@ export function PositionsView({ reloadToken, filtroInicial }: {
       <div className="page-head">
         <div>
           <h1 className="page-title">Posições</h1>
-          <p className="page-sub">{visiveis.length} de {(posicoes ?? []).length} ativos · valor total {formataBRL(total)}</p>
+          <p className="page-sub resumo-itens">
+            <span>{visiveis.length} de {(posicoes ?? []).length} ativos</span>
+            <span>valor total {formataBRL(total)}</span>
+          </p>
         </div>
       </div>
 
@@ -164,7 +167,12 @@ export function PositionsView({ reloadToken, filtroInicial }: {
                     <td className="num">{posicao.marketValueCents === null ? "—" : formataBRL(posicao.marketValueCents)}</td>
                     <td className="num">{total > 0 && posicao.marketValueCents !== null ? formataPercentualSinal((posicao.marketValueCents / total) * 100) : "—"}</td>
                     <td className={`num ${rendimento.cents === null ? "" : rendimento.cents >= 0 ? "rendimento-positivo" : "rendimento-negativo"}`}>
-                      {rendimento.cents === null ? "—" : <>{formataBRL(rendimento.cents)}{rendimento.pct === null ? "" : ` (${formataPercentualSinal(rendimento.pct)})`}</>}
+                      {rendimento.cents === null ? "—" : (
+                        <span className="valores">
+                          <strong>{formataBRL(rendimento.cents)}</strong>
+                          {rendimento.pct !== null && <span className="valor-fraco">{formataPercentualSinal(rendimento.pct)}</span>}
+                        </span>
+                      )}
                     </td>
                   </tr>
                 );
@@ -182,8 +190,10 @@ export function PositionsView({ reloadToken, filtroInicial }: {
               <X size={15} /> Fechar
             </button>
           </div>
-          <p className="section-hint">
-            {formataCategoria(selecionada.category)} · {selecionada.broker ?? "—"} · {ROTULO_KIND[selecionada.kind] ?? selecionada.kind}
+          <p className="tags">
+            <span className="chip">{formataCategoria(selecionada.category)}</span>
+            <span className="chip">{selecionada.broker ?? "—"}</span>
+            <span className="chip">{ROTULO_KIND[selecionada.kind] ?? selecionada.kind}</span>
           </p>
           <div className="stats">
             <div className="stat"><span className="stat-label">Valor</span><span className="stat-value">{selecionada.marketValueCents === null ? "—" : formataBRL(selecionada.marketValueCents)}</span></div>

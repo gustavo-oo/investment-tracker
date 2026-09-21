@@ -59,7 +59,7 @@ export function App() {
         ...result.sources.flatMap((source) => source.errors.map((erro) => `${source.id}: ${erro}`)),
         ...result.repairs.filter((repair) => repair.error !== undefined).map((repair) => `${repair.ticker}: ${repair.error}`),
       ];
-      setRecado(erros.length > 0 ? erros.join(" · ") : "cotações atualizadas");
+      setRecado(erros.length > 0 ? erros.join("; ") : "cotações atualizadas");
       await carregaHealth();
       setReloadToken((token) => token + 1);
     } catch (cause) {
