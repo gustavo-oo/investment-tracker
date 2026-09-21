@@ -3,7 +3,7 @@ import type { Db } from "../../db/index.ts";
 import { isMonth } from "../../domain/dates.ts";
 import { toNumberSafe } from "../../domain/money.ts";
 import { buildAllocation, ALLOCATION_BY } from "../../services/allocation.ts";
-import { buildHistory } from "../../services/history.ts";
+import { buildHistory, resolveHistoryWindow } from "../../services/history.ts";
 import { buildPortfolio } from "../../services/portfolio.ts";
 
 export function registerPortfolioRoutes(app: FastifyInstance, db: Db): void {
@@ -37,7 +37,7 @@ export function registerPortfolioRoutes(app: FastifyInstance, db: Db): void {
     if ((from !== undefined && !isMonth(from)) || (to !== undefined && !isMonth(to))) {
       return reply.code(400).send({ error: "from/to devem ser YYYY-MM" });
     }
-    return buildHistory(db, { from, to }).map((point) => ({
+    return buildHistory(db, resolveHistoryWindow(db, { from, to })).map((point) => ({
       month: point.month,
       marketValueCents: toNumberSafe(point.marketValueCents),
       investedCents: toNumberSafe(point.investedCents),

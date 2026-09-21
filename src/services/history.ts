@@ -1,5 +1,5 @@
 import type { Db } from "../db/index.ts";
-import { listAllFundQuotas, listAllIndexRates, listAllQuotes, listAllTransactions, listInstruments } from "../db/repos.ts";
+import { earliestTradeDate, listAllFundQuotas, listAllIndexRates, listAllQuotes, listAllTransactions, listInstruments } from "../db/repos.ts";
 import { addMonths, monthEnd, monthRange, toBrDate } from "../domain/dates.ts";
 import { cdiMonthPct, ipcaMonthPct } from "../domain/evolution.ts";
 import { instrumentValue } from "../domain/position.ts";
@@ -20,6 +20,30 @@ function sumMonth(transactions: TransactionRow[], month: string, kind: "BUY" | "
   return transactions
     .filter((transaction) => transaction.kind === kind && transaction.tradeDate.slice(0, 7) === month)
     .reduce((total, transaction) => total + transaction.grossCents + (kind === "BUY" ? transaction.feesCents : 0n), 0n);
+}
+
+/** Janela efetiva: defaults e clamp no primeiro mês com retorno (mês anterior com valor > 0). */
+export function resolveHistoryWindow(
+  db: Db,
+  options: HistoryOptions = {},
+  deps: { now?: () => Date } = {},
+): { from: string; to: string } {
+  const today = toBrDate((deps.now ?? (() => new Date()))());
+  const to = options.to ?? today.slice(0, 7);
+  const requestedFrom = options.from ?? addMonths(to, -11);
+  const first = firstMonthWithReturn(db, to);
+  const from = first !== null && requestedFrom < first ? first : requestedFrom;
+  return { from, to };
+}
+
+function firstMonthWithReturn(db: Db, limit: string): string | null {
+  const earliest = earliestTradeDate(db);
+  if (earliest === null) return null;
+  const points = buildHistory(db, { from: earliest.slice(0, 7), to: limit });
+  for (let index = 1; index < points.length; index++) {
+    if (points[index - 1]!.marketValueCents > 0n) return points[index]!.month;
+  }
+  return null;
 }
 
 export function buildHistory(db: Db, options: HistoryOptions = {}, deps: { now?: () => Date } = {}): HistoryPoint[] {

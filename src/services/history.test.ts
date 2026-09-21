@@ -4,7 +4,7 @@ import { openDb } from "../db/index.ts";
 import { migrate } from "../db/migrate.ts";
 import { insertInstruments, insertTransactions, writeFundQuotas, writeIndexRates } from "../db/repos.ts";
 import type { InstrumentRow } from "../db/repos.ts";
-import { buildHistory } from "./history.ts";
+import { buildHistory, resolveHistoryWindow } from "./history.ts";
 
 const cdb: InstrumentRow = {
   id: "cdb-1", legacyKey: "CDB 1", name: "CDB 1", kind: "fixed_income", category: "cdb",
@@ -56,4 +56,27 @@ test("history devolve 12 meses com total, aportes e índices do mês", () => {
   assert.equal(feb?.redeemedCents, 20_000n);
   const sep = points.find((point) => point.month === "2026-09");
   assert.equal(sep?.marketValueCents, 80_100n, "mês corrente usa hoje como asOf");
+});
+
+test("resolveHistoryWindow clampa no primeiro mês com retorno", () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  insertInstruments(db, [cdb]);
+  insertTransactions(db, [{ instrumentId: cdb.id, tradeDate: "2025-04-23", kind: "BUY", quantityE8: null, grossCents: 100_000n, feesCents: 0n, note: null, legacyRow: null }]);
+  writeIndexRates(db, [{ series: "CDI", date: "2025-05-02", valueE12: 1_000_000_000n }]);
+  const now = () => new Date("2026-09-18T12:00:00-03:00");
+
+  // abr/2025 é atividade inicial; mai/2025 é o primeiro mês com mês anterior > 0
+  assert.deepEqual(resolveHistoryWindow(db, { from: "2000-01", to: "2026-09" }, { now }), { from: "2025-05", to: "2026-09" });
+  // pedido depois do clamp fica intacto
+  assert.deepEqual(resolveHistoryWindow(db, { from: "2025-08", to: "2026-09" }, { now }), { from: "2025-08", to: "2026-09" });
+  // default: to = mês corrente, from = to − 11
+  assert.deepEqual(resolveHistoryWindow(db, {}, { now }), { from: "2025-10", to: "2026-09" });
+});
+
+test("resolveHistoryWindow sem transações mantém a janela pedida", () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  const now = () => new Date("2026-09-18T12:00:00-03:00");
+  assert.deepEqual(resolveHistoryWindow(db, { from: "2000-01", to: "2026-09" }, { now }), { from: "2000-01", to: "2026-09" });
 });
