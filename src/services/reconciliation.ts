@@ -66,7 +66,7 @@ export function buildReconciliation(
   const legacy = listLegacySnapshotByMonth(db, `${month}-01`);
   const legacyByInstrument = new Map(legacy.map((row) => [row.instrumentId, row.valueCents]));
   const portfolio = buildPortfolio(db, { asOf });
-  const oursByInstrument = new Map(portfolio.positions.map((position) => [position.instrumentId, position.marketValueCents ?? 0n]));
+  const oursByInstrument = new Map(portfolio.positions.map((position) => [position.instrumentId, position.marketValueCents]));
   const transactions = listAllTransactions(db);
   const hasTransactionAfter = (instrumentId: string): boolean =>
     transactions.some((transaction) =>
@@ -79,16 +79,18 @@ export function buildReconciliation(
   const divergences: ReconciliationDivergence[] = [];
   for (const instrument of listInstruments(db)) {
     const legacyCents = legacyByInstrument.get(instrument.id) ?? 0n;
-    const ourCents = oursByInstrument.get(instrument.id) ?? 0n;
+    const marketValueCents = oursByInstrument.get(instrument.id) ?? null;
+    const ourCents = marketValueCents ?? 0n;
     legacyTotal += legacyCents;
     referenceTotal += legacyCents > 0n ? legacyCents : 0n;
     ourTotal += ourCents;
-    if (legacyCents === ourCents) continue;
+    const noQuote = marketValueCents === null && legacyCents !== 0n;
+    if (!noQuote && legacyCents === ourCents) continue;
     const diffCents = ourCents - legacyCents;
     divergences.push({
       instrumentId: instrument.id, name: instrument.name, kind: instrument.kind, benchmark: instrument.benchmark,
       legacyCents, ourCents, diffCents,
-      cause: classifyDivergence({
+      cause: noQuote ? "nao-explicada" : classifyDivergence({
         instrument, month, legacyCents, ourCents, diffCents, transactionAfterAsOf: hasTransactionAfter(instrument.id),
         currentMonth: today.slice(0, 7),
       }),

@@ -94,6 +94,52 @@ test("buildReconciliation soma referência com negativos zerados, classifica e c
   assert.equal(result.asOf, "2026-09-30");
 });
 
+const pgbl: InstrumentRow = {
+  ...base, id: "pgbl-1", legacyKey: "PGBL 1", name: "PGBL 1", kind: "pension", category: "pension_ipca",
+  ticker: null, benchmark: null, rateE6: null,
+};
+
+const buyPension = (instrumentId: string) => ({
+  instrumentId, tradeDate: "2026-09-01", kind: "BUY" as const,
+  quantityE8: 10_00000000n, grossCents: 100_000n, feesCents: 0n, note: null, legacyRow: null,
+});
+
+test("buildReconciliation: posição sem cotação com legado não zero vira não explicada", () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  const pgblNeg = { ...pgbl, id: "pgbl-neg", legacyKey: "PGBL NEG", name: "PGBL NEG" };
+  const pgblUm = { ...pgbl, id: "pgbl-um", legacyKey: "PGBL UM", name: "PGBL UM" };
+  insertInstruments(db, [pgblNeg, pgblUm]);
+  insertTransactions(db, [buyPension(pgblNeg.id), buyPension(pgblUm.id)]);
+  insertLegacySnapshots(db, [
+    { month: "2026-09-01", instrumentId: pgblNeg.id, valueCents: -3_520n, sharesE8: null },
+    { month: "2026-09-01", instrumentId: pgblUm.id, valueCents: 1n, sharesE8: null },
+  ]);
+
+  const result = buildReconciliation(db, { month: "2026-09", asOf: "2026-09-30" });
+  assert.deepEqual(
+    result.divergences.map((divergence) => [divergence.instrumentId, divergence.cause, divergence.ourCents, divergence.diffCents]),
+    [
+      ["pgbl-neg", "nao-explicada", 0n, 3_520n],
+      ["pgbl-um", "nao-explicada", 0n, -1n],
+    ],
+  );
+  assert.equal(result.unexplained, 2);
+  assert.equal(result.totals.ourCents, 0n);
+});
+
+test("buildReconciliation: posição sem cotação com legado zero não gera divergência", () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  insertInstruments(db, [pgbl]);
+  insertTransactions(db, [buyPension(pgbl.id)]);
+  insertLegacySnapshots(db, [{ month: "2026-09-01", instrumentId: pgbl.id, valueCents: 0n, sharesE8: null }]);
+
+  const result = buildReconciliation(db, { month: "2026-09", asOf: "2026-09-30" });
+  assert.deepEqual(result.divergences, []);
+  assert.equal(result.unexplained, 0);
+});
+
 test("buildReconciliation resolve asOf default e devolve vazio sem dados", () => {
   const db = openDb(":memory:");
   migrate(db);
