@@ -80,3 +80,45 @@ test("instrumentValue: PGBL usa pensionQuotes e fica pendente sem cota", () => {
   assert.equal(value.quantityE8, 5_00000000n);
   assert.equal(instrumentValue({ ...input, pensionQuotes: [] }, "2026-01-05").marketValueCents, null);
 });
+
+test("RF encerrada zera resíduo (≤ R$ 0,01) e resgate parcial fica intacto", () => {
+  const rates = [rate("2026-01-02"), rate("2026-01-05")];
+  const base: PositionInput = {
+    kind: "fixed_income", benchmark: "CDI", rateE6: 1_000_000n,
+    transactions: [
+      { tradeDate: "2026-01-02", kind: "BUY", quantityE8: null, grossCents: 100_000n, feesCents: 0n },
+      { tradeDate: "2026-01-05", kind: "SELL", quantityE8: null, grossCents: 100_400n, feesCents: 0n },
+    ],
+    quotes: [], rates,
+  };
+  // compra capitalizada: 100000 × 1,001 × 1,001 = 100200; venda D+0: 100400 × 1,001 = 100500 → resíduo −300
+  assert.equal(instrumentValue(base, "2026-01-05").marketValueCents, 0n);
+
+  const tiny: PositionInput = {
+    ...base,
+    transactions: [base.transactions[0]!, { tradeDate: "2026-01-05", kind: "SELL", quantityE8: null, grossCents: 100_099n, feesCents: 0n }],
+  };
+  // venda 100099 × 1,001 = 100199,099 → 100199 → resíduo +1
+  assert.equal(instrumentValue(tiny, "2026-01-05").marketValueCents, 0n);
+
+  const partial: PositionInput = {
+    ...base,
+    transactions: [base.transactions[0]!, { tradeDate: "2026-01-05", kind: "SELL", quantityE8: null, grossCents: 40_000n, feesCents: 0n }],
+  };
+  // 100200 − 40040 = 60160 (posição segue aberta)
+  assert.equal(instrumentValue(partial, "2026-01-05").marketValueCents, 60_160n);
+});
+
+test("RV/PGBL com quantidade zero valem 0 mesmo sem cotação; posição aberta sem cotação fica null", () => {
+  const equity: PositionInput = {
+    kind: "equity", benchmark: null, rateE6: null,
+    transactions: [
+      { tradeDate: "2026-01-02", kind: "BUY", quantityE8: 10_00000000n, grossCents: 1_000n, feesCents: 0n },
+      { tradeDate: "2026-01-05", kind: "SELL", quantityE8: -10_00000000n, grossCents: 1_100n, feesCents: 0n },
+    ],
+    quotes: [], rates: [],
+  };
+  assert.equal(instrumentValue(equity, "2026-01-05").marketValueCents, 0n);
+  assert.equal(instrumentValue({ ...equity, kind: "pension" }, "2026-01-05").marketValueCents, 0n);
+  assert.equal(instrumentValue({ ...equity, transactions: [equity.transactions[0]!] }, "2026-01-05").marketValueCents, null);
+});

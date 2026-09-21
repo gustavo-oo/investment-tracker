@@ -99,12 +99,29 @@ export function pensionValueCents(
   };
 }
 
+/** Posição encerrada vale exatamente 0 (resíduo de arredondamento ≤ R$ 0,01 zerado). */
+function zeroClosedResidue(
+  kind: InstrumentKind,
+  quantityE8: bigint | null,
+  valueCents: bigint | null,
+  lastBalanceKind: TransactionKind | null,
+): bigint | null {
+  if (kind === "equity" || kind === "pension") {
+    if (quantityE8 === 0n) return 0n;
+    return valueCents;
+  }
+  if (valueCents === null) return null;
+  if ((lastBalanceKind === "SELL" || lastBalanceKind === "AMORTIZATION") && valueCents <= 1n) return 0n;
+  return valueCents;
+}
+
 /** Posição de um ativo em `asOf`, com investido/resgatado/taxas acumulados até a data. */
 export function instrumentValue(input: PositionInput, asOf: string): PositionValue {
   let investedCents = 0n;
   let redeemedCents = 0n;
   let feesCents = 0n;
   let quantityE8: bigint | null = null;
+  let lastBalanceKind: TransactionKind | null = null;
   const operations: Array<{ date: string; grossCents: bigint }> = [];
   for (const transaction of input.transactions) {
     if (transaction.tradeDate > asOf) continue;
@@ -115,16 +132,26 @@ export function instrumentValue(input: PositionInput, asOf: string): PositionVal
     if (transaction.kind === "SELL") redeemedCents += transaction.grossCents;
     operations.push({ date: transaction.tradeDate, grossCents: transaction.kind === "SELL" ? -transaction.grossCents : transaction.grossCents });
     if (transaction.quantityE8 !== null) quantityE8 = (quantityE8 ?? 0n) + transaction.quantityE8;
+    if (transaction.kind === "BUY" || transaction.kind === "SELL" || transaction.kind === "AMORTIZATION") lastBalanceKind = transaction.kind;
   }
   if (input.kind === "fixed_income") {
     const multiplierE6 = input.rateE6 ?? 1_000_000n;
     const { valueCents, lastRateDate } = rfValueCents(operations, input.rates, multiplierE6, asOf);
-    return { marketValueCents: valueCents, priceCents: null, priceDate: lastRateDate, quantityE8: null, investedCents, redeemedCents, feesCents };
+    return {
+      marketValueCents: zeroClosedResidue("fixed_income", null, valueCents, lastBalanceKind),
+      priceCents: null, priceDate: lastRateDate, quantityE8: null, investedCents, redeemedCents, feesCents,
+    };
   }
   if (input.kind === "pension") {
     const quota = pensionValueCents(quantityE8 ?? 0n, input.pensionQuotes ?? [], asOf);
-    return { marketValueCents: quota.valueCents, priceCents: quota.priceCents, priceDate: quota.priceDate, quantityE8, investedCents, redeemedCents, feesCents };
+    return {
+      marketValueCents: zeroClosedResidue("pension", quantityE8, quota.valueCents, lastBalanceKind),
+      priceCents: quota.priceCents, priceDate: quota.priceDate, quantityE8, investedCents, redeemedCents, feesCents,
+    };
   }
   const equity = equityValueCents(quantityE8 ?? 0n, input.quotes, asOf);
-  return { marketValueCents: equity.valueCents, priceCents: equity.priceCents, priceDate: equity.priceDate, quantityE8, investedCents, redeemedCents, feesCents };
+  return {
+    marketValueCents: zeroClosedResidue("equity", quantityE8, equity.valueCents, lastBalanceKind),
+    priceCents: equity.priceCents, priceDate: equity.priceDate, quantityE8, investedCents, redeemedCents, feesCents,
+  };
 }
