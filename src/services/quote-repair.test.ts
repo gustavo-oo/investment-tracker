@@ -16,10 +16,10 @@ const etf: InstrumentRow = {
 const TODAY = "2026-09-21";
 const now = () => new Date("2026-09-21T12:00:00-03:00");
 
-const flatQuotes = (count: number): QuoteRow[] =>
+const flatQuotes = (count: number, month = "2025-04"): QuoteRow[] =>
   Array.from({ length: count }, (_, index) => ({
     ticker: "B5P211",
-    date: `2025-04-${String(index + 1).padStart(2, "0")}`,
+    date: `${month}-${String(index + 1).padStart(2, "0")}`,
     closeCents: 7125n,
     source: "yahoo",
     settled: true,
@@ -71,12 +71,24 @@ test("reparo não apaga quando a AV não tem ponto na janela; erro não derruba 
   assert.equal(listAllQuotes(db).length, 8, "nada mudou");
 });
 
+test("trecho no mês corrente ignora ponto parcial da AV e nada é apagado", async () => {
+  const db = freshDb();
+  writeQuotes(db, flatQuotes(8, "2026-09"), TODAY);
+  const results = await repairConstantRuns(db, {
+    source: fakeMonthly([{ ticker: "B5P211", date: "2026-09-18", closeCents: 9_570n }]),
+    now,
+  });
+  assert.equal(results[0]?.skipped, true);
+  assert.equal(listAllQuotes(db).length, 8, "as 8 linhas continuam lá");
+  assert.deepEqual(listAllQuotes(db).map((quote) => quote.source), Array(8).fill("yahoo"));
+});
+
 test("repairWindow força a janela mesmo sem trecho constante", async () => {
   const db = freshDb();
   writeQuotes(db, [{ ticker: "B5P211", date: "2025-04-01", closeCents: 1n, source: "yahoo", settled: true }], TODAY);
   const result = await repairWindow(db, {
     source: fakeMonthly([{ ticker: "B5P211", date: "2025-04-30", closeCents: 9_570n }]),
-    ticker: "B5P211", from: "2025-04-01", to: "2025-04-30",
+    ticker: "B5P211", from: "2025-04-01", to: "2025-04-30", today: TODAY,
   });
   assert.deepEqual(result, { ticker: "B5P211", from: "2025-04-01", to: "2025-04-30", deleted: 1, inserted: 1 });
 });
