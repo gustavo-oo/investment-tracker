@@ -1,12 +1,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createFundQuotaSource, createIndexSource, createQuoteSources } from "./index.ts";
+import { createFundQuotaSource, createIndexSource, createMonthlyQuoteSource, createQuoteSources } from "./index.ts";
 
-test("registro inclui AV só com chave e BCB como fonte de índices", () => {
+test("registro inclui AV só com chave e BCB como fonte de índices", async () => {
   assert.deepEqual(createQuoteSources({}).map((source) => source.id), ["yahoo"]);
   assert.deepEqual(createQuoteSources({ alphaVantageApiKey: "chave" }).map((source) => source.id), ["yahoo", "alphavantage"]);
   assert.equal(createIndexSource({}).id, "bcb");
   assert.equal(createFundQuotaSource({}).id, "cvm-swb");
+  assert.equal(createMonthlyQuoteSource({}).id, "alphavantage");
+  assert.equal(await createMonthlyQuoteSource({}).available(), false);
 });
 
 test("createFundQuotaSource reusa o singleton sem deps e cria instância nova com fetchImpl injetado", () => {

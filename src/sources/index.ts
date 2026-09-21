@@ -2,7 +2,7 @@ import { createAlphaVantageSource } from "./alphavantage.ts";
 import { createBcbSource } from "./bcb.ts";
 import { createCvmSwbSource } from "./cvm-swb.ts";
 import { createYahooSource } from "./yahoo.ts";
-import type { FetchLike, FundQuotaSource, IndexSource, QuoteSource } from "./types.ts";
+import type { FetchLike, FundQuotaSource, IndexSource, MonthlyQuoteSource, QuoteSource } from "./types.ts";
 
 export type SourceDeps = { fetchImpl?: FetchLike; alphaVantageApiKey?: string };
 
@@ -16,6 +16,11 @@ export function createQuoteSources(deps: SourceDeps = {}): QuoteSource[] {
 
 export function createIndexSource(deps: SourceDeps = {}): IndexSource {
   return createBcbSource(deps);
+}
+
+/** Fonte mensal para o reparo de histórico (Alpha Vantage; indisponível sem chave). */
+export function createMonthlyQuoteSource(deps: SourceDeps = {}): MonthlyQuoteSource {
+  return createAlphaVantageSource({ apiKey: deps.alphaVantageApiKey ?? "", fetchImpl: deps.fetchImpl });
 }
 
 let defaultFundQuotaSource: FundQuotaSource | undefined;

@@ -13,7 +13,8 @@
     "start": "node src/server.ts",
     "test": "node --test \"src/**/*.test.ts\"",
     "typecheck": "tsc --noEmit && tsc -p web/tsconfig.json --noEmit",
-    "import": "node src/import/cli.ts"
+    "import": "node src/import/cli.ts",
+    "backfill": "node --env-file-if-exists=.env src/backfill-cli.ts"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^9.6.0",

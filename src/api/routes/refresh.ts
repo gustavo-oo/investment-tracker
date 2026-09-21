@@ -12,6 +12,7 @@ export function registerRefreshRoutes(app: FastifyInstance, db: Db, deps: Refres
           id: summary.id, fetched: summary.fetched, inserted: summary.inserted,
           updated: summary.updated, skipped: summary.skipped, errors: summary.errors,
         })),
+        repairs: result.repairs,
       };
     } catch (error) {
       if (error instanceof RefreshBusyError) return reply.code(409).send({ error: error.message });

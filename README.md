@@ -6,6 +6,8 @@ Substitui a planilha Google + Apps Script por um app local (Node + SQLite).
 
     npm install
     npm run import     # lê data/csv e popula data/investments.db
+    # reparo de cotações: automático após o refresh; para forçar uma janela:
+    # npm run backfill -- --ticker B5P211 --from 2025-04-23 --to 2026-01-07
     npm run dev        # API em http://localhost:3000
     # cotações/índices: job roda no processo (10 min no pregão; índices + previdência às 7h);
     # ALPHAVANTAGE_API_KEY no .env habilita o fallback do Yahoo.
@@ -23,6 +25,9 @@ Testes: `npm test` · Tipos: `npm run typecheck` · Build da UI: `npm run build:
 A UI é servida pelo próprio container em `http://<host>:3000`.
 
 Atualizar: `git pull && docker compose up -d --build`. Backup: copiar `data/`.
+Reparo de cotações corrompidas é automático após o refresh (trechos de fechamento
+constante ≥ 7 dias → série mensal da Alpha Vantage). Quem copia `data/` não precisa
+rodar nada; `npm run backfill` só é necessário para forçar uma janela ou reconstruir o banco.
 Se o volume der erro de permissão, ajuste o dono de `./data` para o uid do container (1000).
 `env_file.required` exige Docker Compose ≥ 2.24; em versões antigas, crie o `.env` (`cp .env.example .env`).
 
@@ -37,7 +42,7 @@ Se o volume der erro de permissão, ajuste o dono de `./data` para o uid do cont
 | `GET /api/portfolio` | posições + totais (RF capitalizada, RV = cotas × fechamento) |
 | `GET /api/history?from=YYYY-MM&to=YYYY-MM` | evolução mensal (default: 12 meses) |
 | `GET /api/allocation?by=category\|broker\|objective` | alocação por critério |
-| `POST /api/refresh?full=1&source=yahoo\|alphavantage\|bcb\|cvm-swb` | coleta manual (todas as fontes sem `source`); `full=1` refaz a janela |
+| `POST /api/refresh?full=1&source=yahoo\|alphavantage\|bcb\|cvm-swb` | coleta manual (todas as fontes sem `source`); `full=1` refaz a janela; resposta inclui `repairs` |
 | `GET /api/health` | status + contagens + fontes (última coleta/erro, stale) |
 
 ## Estrutura
