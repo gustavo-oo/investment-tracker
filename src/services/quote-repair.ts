@@ -8,7 +8,9 @@ export type QuoteRepairResult = {
   ticker: string; from: string; to: string; deleted: number; inserted: number; skipped?: boolean; error?: string;
 };
 
-export type QuoteRepairDeps = { source: MonthlyQuoteSource; now?: () => Date };
+export type QuoteRepairDeps = { source: MonthlyQuoteSource; now?: () => Date; attempts?: Map<string, string> };
+
+const defaultAttempts = new Map<string, string>();
 
 /** Substitui a janela pela série mensal; sem meses fechados que contêm a janela não apaga nada. */
 export async function repairWindow(
@@ -42,6 +44,7 @@ export async function repairConstantRuns(db: Db, deps: QuoteRepairDeps): Promise
   if (!(await deps.source.available())) return [];
   const today = toBrDate((deps.now ?? (() => new Date()))());
   const currentMonth = today.slice(0, 7);
+  const attempts = deps.attempts ?? defaultAttempts;
   const quotes = listAllQuotes(db);
   const tickers = listInstruments(db)
     .filter((instrument) => instrument.kind === "equity" && instrument.ticker !== null)
@@ -50,9 +53,12 @@ export async function repairConstantRuns(db: Db, deps: QuoteRepairDeps): Promise
   for (const ticker of tickers) {
     for (const run of findConstantRuns(quotes.filter((quote) => quote.ticker === ticker), { today })) {
       if (run.from.slice(0, 7) === currentMonth) continue;
+      const key = `${ticker}:${run.from}:${run.to}`;
+      if (attempts.get(key) === today) continue;
       try {
         results.push(await repairWindow(db, { source: deps.source, ticker, from: run.from, to: run.to, today }));
       } catch (error) {
+        attempts.set(key, today);
         results.push({
           ticker, from: run.from, to: run.to, deleted: 0, inserted: 0,
           error: error instanceof Error ? error.message : String(error),

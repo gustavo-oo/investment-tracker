@@ -89,6 +89,22 @@ test("trecho no mês corrente é pulado sem consultar a fonte e nada é apagado"
   assert.deepEqual(listAllQuotes(db).map((quote) => quote.source), Array(8).fill("yahoo"));
 });
 
+test("falha de reparo não retenta no mesmo dia com o mesmo mapa de tentativas", async () => {
+  const db = freshDb();
+  writeQuotes(db, flatQuotes(8), TODAY);
+  let fetches = 0;
+  const failing: MonthlyQuoteSource = {
+    id: "alphavantage",
+    available: async () => true,
+    fetchMonthly: async () => { fetches += 1; throw new Error("av fora do ar"); },
+  };
+  const attempts = new Map<string, string>();
+  const first = await repairConstantRuns(db, { source: failing, now, attempts });
+  assert.match(first[0]?.error ?? "", /av fora do ar/);
+  assert.deepEqual(await repairConstantRuns(db, { source: failing, now, attempts }), []);
+  assert.equal(fetches, 1, "não consulta a fonte de novo no mesmo dia");
+  assert.equal(attempts.get("B5P211:2025-04-01:2025-04-08"), TODAY);
+});
 test("trecho que começa em mês fechado e cruza o mês corrente segue reparando", async () => {
   const db = freshDb();
   writeQuotes(db, [
