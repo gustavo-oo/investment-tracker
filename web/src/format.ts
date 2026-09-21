@@ -12,9 +12,9 @@ const formatadorDataHora = new Intl.DateTimeFormat("pt-BR", {
   timeZone: "America/Sao_Paulo",
 });
 
-export function formataDataHora(sqliteUtc: string): string {
-  const parsed = new Date(`${sqliteUtc.replace(" ", "T")}Z`);
-  return Number.isNaN(parsed.getTime()) ? sqliteUtc : formatadorDataHora.format(parsed);
+export function formataDataHora(valor: string): string {
+  const parsed = new Date(/[TZ]/.test(valor) ? valor : `${valor.replace(" ", "T")}Z`);
+  return Number.isNaN(parsed.getTime()) ? valor : formatadorDataHora.format(parsed);
 }
 
 const NOMES_MES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
@@ -79,4 +79,18 @@ export function mesDeslocado(mes: string, delta: number): string {
   const [ano = 0, numero = 1] = mes.split("-").map(Number);
   const total = ano * 12 + (numero - 1) + delta;
   return `${String(Math.floor(total / 12)).padStart(4, "0")}-${String(((total % 12) + 12) % 12 + 1).padStart(2, "0")}`;
+}
+
+export function formataPercentualSinal(valor: number): string {
+  const sinal = valor > 0 ? "+" : "";
+  return `${sinal}${valor.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
+}
+
+export function formataPontosPercentuais(valor: number): string {
+  const sinal = valor > 0 ? "+" : "";
+  return `${sinal}${valor.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} p.p.`;
+}
+
+export function formataJanela(from: string, to: string): string {
+  return `${formataMes(from)} → ${formataMes(to)}`;
 }

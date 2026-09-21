@@ -113,6 +113,22 @@ export type RefreshResult = {
   repairs: Array<{ ticker: string; from: string; to: string; deleted: number; inserted: number; skipped?: boolean; error?: string }>;
 };
 
+export type PerformanceMonth = {
+  month: string; portfolioPct: number | null; cdiPct: number | null; ipcaPct: number | null;
+  diffCdiPp: number | null; rendimentoCents: number; investedCents: number; redeemedCents: number;
+};
+
+export type Performance = {
+  from: string; to: string; months: PerformanceMonth[];
+  accumulated: { portfolioPct: number; cdiPct: number; ipcaPct: number; diffCdiPp: number; diffIpcaPp: number };
+  monthsBeaten: number; monthsTotal: number; mwr: { periodPct: number | null; months: number };
+};
+
+export type Transaction = {
+  tradeDate: string; kind: string; quantityE8: number | null;
+  grossCents: number; feesCents: number; note: string | null; legacyRow: number | null;
+};
+
 async function apiErrorMessage(response: Response, body: unknown): Promise<string> {
   if (body && typeof body === "object" && typeof (body as { error?: unknown }).error === "string") {
     return String((body as { error: string }).error);
@@ -120,8 +136,8 @@ async function apiErrorMessage(response: Response, body: unknown): Promise<strin
   return errorMessage(response, body);
 }
 
-async function getJson<T>(url: string): Promise<T> {
-  const response = await fetch(url);
+async function getJson<T>(url: string, signal?: AbortSignal): Promise<T> {
+  const response = await fetch(url, { signal });
   if (!response.ok) {
     const body = await response.json().catch(() => null);
     throw new Error(await apiErrorMessage(response, body));
@@ -129,11 +145,14 @@ async function getJson<T>(url: string): Promise<T> {
   return (await response.json()) as T;
 }
 
-export const getPortfolio = (): Promise<Portfolio> => getJson("/api/portfolio");
-export const getHealth = (): Promise<Health> => getJson("/api/health");
-export const getAllocation = (by: AllocationBy): Promise<Allocation> => getJson(`/api/allocation?by=${by}`);
-export const getReconciliation = (month: string): Promise<Reconciliation> => getJson(`/api/reconciliation?month=${month}`);
-export const getHistory = (from: string, to: string): Promise<HistoryPoint[]> => getJson(`/api/history?from=${from}&to=${to}`);
+export const getPortfolio = (signal?: AbortSignal): Promise<Portfolio> => getJson("/api/portfolio", signal);
+export const getHealth = (signal?: AbortSignal): Promise<Health> => getJson("/api/health", signal);
+export const getAllocation = (by: AllocationBy, signal?: AbortSignal): Promise<Allocation> => getJson(`/api/allocation?by=${by}`, signal);
+export const getReconciliation = (month: string, signal?: AbortSignal): Promise<Reconciliation> => getJson(`/api/reconciliation?month=${month}`, signal);
+export const getHistory = (from: string, to: string, signal?: AbortSignal): Promise<HistoryPoint[]> => getJson(`/api/history?from=${from}&to=${to}`, signal);
+export const getPerformance = (from: string, to: string, signal?: AbortSignal): Promise<Performance> => getJson(`/api/performance?from=${from}&to=${to}`, signal);
+export const getTransactions = (id: string, signal?: AbortSignal): Promise<Transaction[]> =>
+  getJson(`/api/instruments/${encodeURIComponent(id)}/transactions`, signal);
 
 export async function postRefresh(): Promise<RefreshResult> {
   const response = await fetch("/api/refresh", { method: "POST" });
