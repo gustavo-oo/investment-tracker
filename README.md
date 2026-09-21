@@ -40,7 +40,8 @@ Se o volume der erro de permissão, ajuste o dono de `./data` para o uid do cont
 | `GET /api/instruments` | lista de ativos |
 | `GET /api/instruments/:id/transactions` | movimentos do ativo |
 | `GET /api/portfolio` | posições + totais (RF capitalizada, RV = cotas × fechamento) |
-| `GET /api/history?from=YYYY-MM&to=YYYY-MM` | evolução mensal (default: 12 meses) |
+| `GET /api/history?from=YYYY-MM&to=YYYY-MM` | evolução mensal (default: 12 meses); clampa a janela no primeiro mês com retorno (mai/2025 nos dados atuais) |
+| `GET /api/performance?from=YYYY-MM&to=YYYY-MM` | retorno mensal/acumulado da carteira, diferença em p.p. contra CDI/IPCA e MWR (mesma janela clampada do `/api/history`) |
 | `GET /api/allocation?by=category\|broker\|objective` | alocação por critério |
 | `GET /api/reconciliation?month=YYYY-MM&asOf=YYYY-MM-DD` | reconciliação do mês contra o legado (totais e divergências com causa) |
 | `POST /api/refresh?full=1&source=yahoo\|alphavantage\|bcb\|cvm-swb` | coleta manual (todas as fontes sem `source`); `full=1` refaz a janela; resposta inclui `repairs` |

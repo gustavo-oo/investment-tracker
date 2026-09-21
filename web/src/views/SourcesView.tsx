@@ -102,15 +102,19 @@ export function SourcesView({ reloadToken }: { reloadToken: number }) {
                   <tr><th scope="col">Fonte</th><th scope="col">Última tentativa</th><th scope="col">Último sucesso</th><th scope="col">Estado</th><th scope="col">Último erro</th></tr>
                 </thead>
                 <tbody>
-                  {health.sources.map((source) => (
-                    <tr key={source.id}>
-                      <td>{source.id}</td>
-                      <td>{source.lastAttemptAt === null ? "—" : formataDataHora(source.lastAttemptAt)}</td>
-                      <td>{source.lastSuccessAt === null ? "—" : formataDataHora(source.lastSuccessAt)}</td>
-                      <td>{source.stale ? <span className="badge badge-warn">desatualizado</span> : <span className="badge badge-ok">ok</span>}</td>
-                      <td>{source.lastError ?? "—"}</td>
-                    </tr>
-                  ))}
+                  {health.sources.map((source) => {
+                    const falhaRecente = source.lastErrorAt !== null
+                      && (source.lastSuccessAt === null || source.lastErrorAt > source.lastSuccessAt);
+                    return (
+                      <tr key={source.id}>
+                        <td>{source.id}</td>
+                        <td>{source.lastAttemptAt === null ? "—" : formataDataHora(source.lastAttemptAt)}</td>
+                        <td>{source.lastSuccessAt === null ? "—" : formataDataHora(source.lastSuccessAt)}</td>
+                        <td>{source.stale ? <span className="badge badge-warn">desatualizado</span> : <span className="badge badge-ok">ok</span>}</td>
+                        <td>{source.stale || falhaRecente ? source.lastError ?? "—" : "—"}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

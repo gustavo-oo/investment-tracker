@@ -148,7 +148,7 @@ export function OverviewView({ reloadToken, onAbrirPosicoes, onAbrirFontes }: {
                 <li className="alloc-row" key={bloco.kind}>
                   <button type="button" className="alloc-line botao-linha" onClick={() => onAbrirPosicoes(bloco.kind)}>
                     <span className="alloc-name">{NOMES_KIND[bloco.kind] ?? bloco.kind}</span>
-                    <span className="alloc-value">{formataBRL(bloco.valor)} · {bloco.pct.toFixed(1)}% · {bloco.quantidade} ativos</span>
+                    <span className="alloc-value">{formataBRL(bloco.valor)} · {bloco.pct.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% · {bloco.quantidade} ativos</span>
                   </button>
                   <span className="alloc-bar"><span className="alloc-bar-fill" style={{ width: `${Math.min(100, bloco.pct)}%` }} /></span>
                 </li>
@@ -197,7 +197,7 @@ export function OverviewView({ reloadToken, onAbrirPosicoes, onAbrirFontes }: {
                   <li className="alloc-row" key={grupo.key}>
                     <div className="alloc-line">
                       <span className="alloc-name">{alocacaoBy === "category" ? formataCategoria(grupo.key) : grupo.key}</span>
-                      <span className="alloc-value">{formataBRL(grupo.marketValueCents)} · {grupo.pct.toFixed(1)}%</span>
+                      <span className="alloc-value">{formataBRL(grupo.marketValueCents)} · {grupo.pct.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%</span>
                     </div>
                     <span className="alloc-bar"><span className="alloc-bar-fill" style={{ width: `${Math.min(100, grupo.pct)}%` }} /></span>
                   </li>

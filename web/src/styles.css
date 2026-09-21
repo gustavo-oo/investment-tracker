@@ -538,12 +538,6 @@ tbody tr:last-child td {
   color: var(--text-3);
 }
 
-.grid-3 {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
-}
-
 .chart {
   margin-top: 8px;
 }
@@ -569,10 +563,6 @@ tbody tr:last-child td {
 @media (max-width: 900px) {
   .stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .grid-3 {
-    grid-template-columns: 1fr;
   }
 }
 
