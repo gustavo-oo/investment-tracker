@@ -43,6 +43,11 @@ test("classifyDivergence segue a ordem das regras", () => {
     classify({ month: "2024-12", legacyCents: 100_000n, ourCents: 200_000n, diffCents: 100_000n }),
     "nao-explicada",
   );
+  // fronteira exata de 0,5% entra como data-de-referencia; 1¢ acima não
+  assert.equal(classify({ month: "2024-12", legacyCents: 100_000n, ourCents: 100_500n, diffCents: 500n }), "data-de-referencia");
+  assert.equal(classify({ month: "2024-12", legacyCents: 100_000n, ourCents: 100_501n, diffCents: 501n }), "nao-explicada");
+  // resíduo-zerado exige ourCents = 0: com valor nosso o legado de 1¢ vira não explicada
+  assert.equal(classify({ month: "2024-12", ourCents: 5n, legacyCents: 1n, diffCents: 4n }), "nao-explicada");
 });
 
 test("classifyDivergence: cotação de RV/PGBL no mês corrente tem causa própria", () => {
@@ -64,6 +69,15 @@ test("classifyDivergence: cotação de RV/PGBL no mês corrente tem causa própr
   // RF no mês corrente não usa a regra de cotação (benchmark fora de CDI/SELIC para não casar as regras do legado)
   assert.equal(
     classify({ instrument: { ...cdi, benchmark: "IPCA" }, month: "2026-09", currentMonth: "2026-09", legacyCents: 100_000n, ourCents: 101_340n, diffCents: 1_340n }),
+    "nao-explicada",
+  );
+  // fronteira exata de 5% entra como cotação fora da janela; 1¢ acima não
+  assert.equal(
+    classify({ instrument: etfAberto, month: "2026-09", currentMonth: "2026-09", legacyCents: 100_000n, ourCents: 105_000n, diffCents: 5_000n }),
+    "cotacao-fora-da-janela",
+  );
+  assert.equal(
+    classify({ instrument: etfAberto, month: "2026-09", currentMonth: "2026-09", legacyCents: 100_000n, ourCents: 105_001n, diffCents: 5_001n }),
     "nao-explicada",
   );
 });
@@ -126,6 +140,7 @@ test("buildReconciliation: posição sem cotação com legado não zero vira nã
   );
   assert.equal(result.unexplained, 2);
   assert.equal(result.totals.ourCents, 0n);
+  assert.equal(result.totals.referenceCents, 0n, "resíduo positivo de 1¢ do legado não entra na referência");
 });
 
 test("buildReconciliation: posição sem cotação com legado zero não gera divergência", () => {

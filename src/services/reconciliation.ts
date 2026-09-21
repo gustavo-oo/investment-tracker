@@ -82,7 +82,7 @@ export function buildReconciliation(
     const marketValueCents = oursByInstrument.get(instrument.id) ?? null;
     const ourCents = marketValueCents ?? 0n;
     legacyTotal += legacyCents;
-    referenceTotal += legacyCents > 0n ? legacyCents : 0n;
+    referenceTotal += legacyCents > 1n ? legacyCents : 0n;
     ourTotal += ourCents;
     const noQuote = marketValueCents === null && legacyCents !== 0n;
     if (!noQuote && legacyCents === ourCents) continue;
