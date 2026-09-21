@@ -5,6 +5,7 @@ import type { Db } from "./db/index.ts";
 import { registerHealthRoutes } from "./api/routes/health.ts";
 import { registerImportRoutes } from "./api/routes/import.ts";
 import { registerInstrumentsRoutes } from "./api/routes/instruments.ts";
+import { registerPerformanceRoutes } from "./api/routes/performance.ts";
 import { registerPortfolioRoutes } from "./api/routes/portfolio.ts";
 import { registerReconciliationRoutes } from "./api/routes/reconciliation.ts";
 import { registerRefreshRoutes } from "./api/routes/refresh.ts";
@@ -18,6 +19,7 @@ export function buildApp(options: {
   registerImportRoutes(app, options.db, options.csvDir);
   registerHealthRoutes(app, options.db);
   registerPortfolioRoutes(app, options.db);
+  registerPerformanceRoutes(app, options.db);
   registerReconciliationRoutes(app, options.db);
   registerRefreshRoutes(app, options.db, options.refreshDeps);
 

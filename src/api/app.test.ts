@@ -388,3 +388,25 @@ test("GET /api/reconciliation devolve totais e divergências classificadas", asy
 
   await app.close();
 });
+
+test("GET /api/performance valida a janela e devolve números", async () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  seedPortfolio(db);
+  const app = buildApp({ db, csvDir: csvDirFixture(), logger: false });
+
+  const res = await app.inject({ method: "GET", url: "/api/performance?from=2026-08&to=2026-09" });
+  assert.equal(res.statusCode, 200);
+  const body = res.json();
+  assert.equal(body.from, "2026-08");
+  assert.equal(body.to, "2026-09");
+  assert.equal(body.monthsTotal, 2);
+  assert.equal(typeof body.months[1].rendimentoCents, "number", "bigint convertido na borda");
+  assert.equal(typeof body.mwr.months, "number");
+
+  assert.equal((await app.inject({ method: "GET", url: "/api/performance?from=2026-13" })).statusCode, 400);
+  assert.equal((await app.inject({ method: "GET", url: "/api/performance?from=2026-10&to=2026-09" })).statusCode, 400);
+  assert.equal((await app.inject({ method: "GET", url: "/api/performance?from=26-10" })).statusCode, 400);
+
+  await app.close();
+});
