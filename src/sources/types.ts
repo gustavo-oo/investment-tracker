@@ -22,3 +22,9 @@ export type FundQuotaSource = {
   id: string;
   fetchDaily(symbols: string[], from: string, to: string): Promise<FundQuota[]>;
 };
+
+export type MonthlyQuoteSource = {
+  id: string;
+  available(): Promise<boolean>;
+  fetchMonthly(symbols: string[], from: string, to: string): Promise<Quote[]>;
+};
