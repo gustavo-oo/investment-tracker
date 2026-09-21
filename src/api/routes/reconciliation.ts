@@ -1,11 +1,8 @@
 import type { FastifyInstance } from "fastify";
 import type { Db } from "../../db/index.ts";
-import { toBrDate } from "../../domain/dates.ts";
+import { isDate, isMonth, toBrDate } from "../../domain/dates.ts";
 import { toNumberSafe } from "../../domain/money.ts";
 import { buildReconciliation } from "../../services/reconciliation.ts";
-
-const isMonth = (value: unknown): value is string => typeof value === "string" && /^\d{4}-(0[1-9]|1[0-2])$/.test(value);
-const isDate = (value: unknown): value is string => typeof value === "string" && /^\d{4}-(0[1-9]|1[0-2])-\d{2}$/.test(value);
 
 export function registerReconciliationRoutes(app: FastifyInstance, db: Db): void {
   app.get<{ Querystring: { month?: string; asOf?: string } }>("/api/reconciliation", (request, reply) => {

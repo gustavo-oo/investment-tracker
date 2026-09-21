@@ -31,3 +31,18 @@ export function monthRange(from: string, to: string): string[] {
   }
   return months;
 }
+
+const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+const DATE_RE = /^\d{4}-(0[1-9]|1[0-2])-\d{2}$/;
+
+/** "YYYY-MM" válido. */
+export function isMonth(value: unknown): value is string {
+  return typeof value === "string" && MONTH_RE.test(value);
+}
+
+/** "YYYY-MM-DD" válido no calendário (rejeita 2026-09-31 e 2026-02-29). */
+export function isDate(value: unknown): value is string {
+  if (typeof value !== "string" || !DATE_RE.test(value)) return false;
+  const [year = 0, month = 1, day = 0] = value.split("-").map(Number);
+  return day >= 1 && day <= new Date(Date.UTC(year, month, 0)).getUTCDate();
+}
