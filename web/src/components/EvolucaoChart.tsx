@@ -1,6 +1,6 @@
 import { useState } from "react";
 import {
-  Area, Bar, CartesianGrid, Cell, ComposedChart, LabelList, Legend, Line, LineChart,
+  Area, Bar, CartesianGrid, ComposedChart, LabelList, Legend, Line, LineChart,
   ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import type { HistoryPoint, Performance, PerformanceMonth } from "../api.ts";
@@ -11,8 +11,8 @@ type SubAba = "mes" | "acumulado";
 
 type Mes = PerformanceMonth & { patrimonioCents: number };
 type LinhaRs = { rotulo: string; patrimonioCents: number; aporteCents: number; resgateCents: number; rendimentoCents: number; variacaoCents: number };
-type LinhaPct = { rotulo: string; carteira: number | null; cdi: number | null; ipca: number | null };
-type LinhaAcumulada = { rotulo: string; carteira: number; cdi: number; ipca: number };
+type LinhaPct = { rotulo: string; carteira: number | null; cdi: number | null; ipca: number | null; real: number | null };
+type LinhaAcumulada = { rotulo: string; carteira: number; cdi: number; ipca: number; real: number };
 
 const acumula = (pcts: Array<number | null>): number => {
   let fator = 1;
@@ -65,7 +65,7 @@ function visaoRs(meses: Mes[], trimestral: boolean): LinhaRs[] {
 function visaoPct(meses: Mes[], trimestral: boolean): LinhaPct[] {
   if (!trimestral) {
     return meses.map((mes) => ({
-      rotulo: formataMes(mes.month), carteira: mes.portfolioPct, cdi: mes.cdiPct, ipca: mes.ipcaPct,
+      rotulo: formataMes(mes.month), carteira: mes.portfolioPct, cdi: mes.cdiPct, ipca: mes.ipcaPct, real: mes.realPct,
     }));
   }
   const linhas: LinhaPct[] = [];
@@ -76,6 +76,7 @@ function visaoPct(meses: Mes[], trimestral: boolean): LinhaPct[] {
       carteira: acumula(grupo.map((mes) => mes.portfolioPct)),
       cdi: acumula(grupo.map((mes) => mes.cdiPct)),
       ipca: acumula(grupo.map((mes) => mes.ipcaPct)),
+      real: acumula(grupo.map((mes) => mes.realPct)),
     });
   }
   return linhas;
@@ -83,12 +84,16 @@ function visaoPct(meses: Mes[], trimestral: boolean): LinhaPct[] {
 
 function visaoAcumulada(meses: Mes[]): LinhaAcumulada[] {
   const linhas: LinhaAcumulada[] = [];
-  let carteira = 1, cdi = 1, ipca = 1;
+  let carteira = 1, cdi = 1, ipca = 1, real = 1;
   for (const mes of meses) {
     if (mes.portfolioPct !== null) carteira *= 1 + mes.portfolioPct / 100;
     if (mes.cdiPct !== null) cdi *= 1 + mes.cdiPct / 100;
     if (mes.ipcaPct !== null) ipca *= 1 + mes.ipcaPct / 100;
-    linhas.push({ rotulo: formataMes(mes.month), carteira: (carteira - 1) * 100, cdi: (cdi - 1) * 100, ipca: (ipca - 1) * 100 });
+    if (mes.realPct !== null) real *= 1 + mes.realPct / 100;
+    linhas.push({
+      rotulo: formataMes(mes.month), carteira: (carteira - 1) * 100, cdi: (cdi - 1) * 100,
+      ipca: (ipca - 1) * 100, real: (real - 1) * 100,
+    });
   }
   return linhas;
 }
@@ -108,15 +113,17 @@ function TooltipRs({ active, payload }: { active?: boolean; payload?: Array<{ pa
   );
 }
 
-function TooltipPct({ active, payload }: { active?: boolean; payload?: Array<{ payload: LinhaPct }> }) {
+function TooltipPct({ active, payload }: { active?: boolean; payload?: Array<{ payload: LinhaPct | LinhaAcumulada }> }) {
   if (!active || !payload || payload.length === 0) return null;
   const linha = payload[0]!.payload;
+  const mostra = (valor: number | null): string => (valor === null ? "—" : formataPercentualSinal(valor));
   return (
     <div className="chart-tooltip">
       <p className="chart-tooltip-title">{linha.rotulo}</p>
-      <p>Carteira: {linha.carteira === null ? "—" : formataPercentualSinal(linha.carteira)}</p>
-      <p>CDI: {linha.cdi === null ? "—" : formataPercentualSinal(linha.cdi)}</p>
-      <p>IPCA: {linha.ipca === null ? "—" : formataPercentualSinal(linha.ipca)}</p>
+      <p>Carteira: {mostra(linha.carteira)}</p>
+      <p>CDI: {mostra(linha.cdi)}</p>
+      <p>IPCA: {mostra(linha.ipca)}</p>
+      <p>Líquido (Carteira − IPCA): <strong>{mostra(linha.real)}</strong></p>
     </div>
   );
 }
@@ -175,21 +182,17 @@ export function EvolucaoChart({ history, performance, altura = 280, resumo = tru
             <Bar yAxisId="fluxo" dataKey="resgateCents" name="Resgate" fill="var(--danger)" />
           </ComposedChart>
         ) : subAba === "mes" ? (
-          <ComposedChart data={linhasPct} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
+          <LineChart data={linhasPct} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} />
             <XAxis dataKey="rotulo" tickLine={false} axisLine={false} fontSize={12} />
             <YAxis tickLine={false} axisLine={false} fontSize={12} width={52} tickFormatter={formataEixoPct} />
             <ReferenceLine y={0} stroke="var(--border-strong)" />
             <Tooltip content={<TooltipPct />} />
             <Legend />
-            <Bar dataKey="carteira" name="Carteira">
-              {linhasPct.map((linha, index) => (
-                <Cell key={index} fill={linha.carteira !== null && linha.cdi !== null && linha.carteira < linha.cdi ? "var(--danger)" : "var(--accent)"} />
-              ))}
-            </Bar>
-            <Bar dataKey="cdi" name="CDI" fill="var(--sand)" />
-            <Bar dataKey="ipca" name="IPCA" fill="var(--olive)" />
-          </ComposedChart>
+            <Line type="monotone" dataKey="carteira" name="Carteira" stroke="var(--accent)" strokeWidth={2} dot={{ r: 2 }} />
+            <Line type="monotone" dataKey="cdi" name="CDI" stroke="var(--sand)" strokeWidth={1.5} dot={{ r: 2 }} />
+            <Line type="monotone" dataKey="ipca" name="IPCA" stroke="var(--olive)" strokeWidth={1.5} dot={{ r: 2 }} />
+          </LineChart>
         ) : (
           <LineChart data={linhasAcumuladas} margin={{ top: 8, right: 44, bottom: 0, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} />
