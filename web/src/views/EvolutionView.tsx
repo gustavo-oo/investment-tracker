@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { CaretDown, CaretUp } from "@phosphor-icons/react";
 import { Bar, CartesianGrid, ComposedChart, Legend, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { getHistory, getPerformance, type HistoryPoint, type Performance } from "../api.ts";
 import { formataBRL, formataJanela, formataMes, formataPercentualSinal, formataPontosPercentuais, mesDeslocado } from "../format.ts";
@@ -123,7 +124,10 @@ export function EvolutionView({ reloadToken }: { reloadToken: number }) {
                       <td className="num">{formataBRL(mes.redeemedCents)}</td>
                       <td className={`num ${mes.rendimentoCents >= 0 ? "rendimento-positivo" : "rendimento-negativo"}`}>
                         <span className="valores">
-                          <strong>{formataBRL(mes.rendimentoCents)}</strong>
+                          <span className="delta-inline">
+                            {mes.rendimentoCents >= 0 ? <CaretUp size={11} aria-hidden="true" /> : <CaretDown size={11} aria-hidden="true" />}
+                            {formataBRL(mes.rendimentoCents)}
+                          </span>
                           {mes.portfolioPct !== null && <span className="valor-fraco">{formataPercentualSinal(mes.portfolioPct)}</span>}
                         </span>
                       </td>

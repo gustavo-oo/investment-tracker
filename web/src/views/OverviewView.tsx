@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { ChartPie, Coins, WarningCircle } from "@phosphor-icons/react";
+import { ChartPie, TrendDown, TrendUp, WarningCircle } from "@phosphor-icons/react";
 import {
   getAllocation, getHealth, getHistory, getPerformance, getPortfolio,
   type Allocation, type AllocationBy, type Health, type HistoryPoint, type Performance, type Portfolio, type PortfolioPosition,
 } from "../api.ts";
-import { formataBRL, formataCategoria, formataJanela, formataPercentualSinal, mesDeslocado } from "../format.ts";
+import { formataBRL, formataCategoria, formataJanela, formataPercentualSinal, formataPontosPercentuais, mesDeslocado } from "../format.ts";
 import { EvolucaoChart } from "../components/EvolucaoChart.tsx";
 
 type Periodo = "1a" | "5a" | "tudo";
@@ -93,7 +93,6 @@ export function OverviewView({ reloadToken, onAbrirPosicoes, onAbrirFontes }: {
     const valor = posicoes.reduce((total, posicao) => total + (posicao.marketValueCents ?? 0), 0);
     return { kind, valor, quantidade: posicoes.length, pct: portfolio.totals.marketValueCents > 0 ? (valor / portfolio.totals.marketValueCents) * 100 : 0 };
   });
-  const stale = health.sources.filter((source) => source.stale).length;
 
   return (
     <div className="page">
@@ -128,10 +127,12 @@ export function OverviewView({ reloadToken, onAbrirPosicoes, onAbrirFontes }: {
               <p className="section-hint">{formataJanela(performance.from, performance.to)}</p>
             </div>
             <p className="stat-value grande">{formataBRL(portfolio.totals.marketValueCents)}</p>
-            <div className="rendimento-linha">
-              <span className="stat-label">Rendimento</span>
-              <span className="stat-value pequeno">{formataBRL(rendimento)}</span>
-              <span className="stat-note">{formataPercentualSinal(rendimentoPct)} sobre o capital</span>
+            <div className="delta-linha">
+              <span className={rendimentoPct >= 0 ? "delta delta-positivo" : "delta delta-negativo"}>
+                {rendimentoPct >= 0 ? <TrendUp size={13} aria-hidden="true" /> : <TrendDown size={13} aria-hidden="true" />}
+                {formataPercentualSinal(rendimentoPct)}
+              </span>
+              <span className="stat-note">rendimento de {formataBRL(rendimento)} sobre o capital</span>
             </div>
           </section>
 
@@ -151,11 +152,13 @@ export function OverviewView({ reloadToken, onAbrirPosicoes, onAbrirFontes }: {
               {porKind.map((bloco) => (
                 <li className="alloc-row" key={bloco.kind}>
                   <button type="button" className="alloc-line botao-linha" onClick={() => onAbrirPosicoes(bloco.kind)}>
-                    <span className="alloc-name">{NOMES_KIND[bloco.kind] ?? bloco.kind}</span>
-                    <span className="alloc-value">
-                      <strong>{formataBRL(bloco.valor)}</strong>
-                      <span className="valor-fraco">{bloco.pct.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%</span>
-                      <span className="valor-fraco">{bloco.quantidade} {bloco.quantidade === 1 ? "ativo" : "ativos"}</span>
+                    <span className="alloc-name">
+                      {NOMES_KIND[bloco.kind] ?? bloco.kind}
+                      <span className="alloc-contagem">{bloco.quantidade} {bloco.quantidade === 1 ? "ativo" : "ativos"}</span>
+                    </span>
+                    <span className="alloc-valores">
+                      <span className="alloc-pct">{bloco.pct.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%</span>
+                      <span className="alloc-absoluto">{formataBRL(bloco.valor)}</span>
                     </span>
                   </button>
                   <span className="alloc-bar"><span className="alloc-bar-fill" style={{ width: `${Math.min(100, bloco.pct)}%` }} /></span>
@@ -167,26 +170,32 @@ export function OverviewView({ reloadToken, onAbrirPosicoes, onAbrirFontes }: {
           <section className="card">
             <div className="section-head">
               <h2 className="section-title">Meu dinheiro rendeu</h2>
-              <p className="section-hint">Cada aporte pesa pelo tempo investido (MWR).</p>
+              <p className="section-hint">Janela {formataJanela(performance.from, performance.to)}. Cada aporte pesa pelo tempo investido (MWR).</p>
             </div>
-            <div className="stats">
-              <div className="stat">
-                <span className="stat-label">No período</span>
-                <span className="stat-value">{performance.mwr.periodPct === null ? "—" : formataPercentualSinal(performance.mwr.periodPct)}</span>
-                <span className="stat-note">{formataJanela(performance.from, performance.to)}</span>
-              </div>
-              <div className="stat">
-                <span className="stat-label">CDI</span>
-                <span className="stat-value">{formataPercentualSinal(performance.accumulated.cdiPct)}</span>
-              </div>
-              <div className="stat">
-                <span className="stat-label">IPCA</span>
-                <span className="stat-value">{formataPercentualSinal(performance.accumulated.ipcaPct)}</span>
-              </div>
-              <div className="stat">
-                <span className="stat-label">12 meses</span>
-                <span className="stat-value">{performance12m.mwr.periodPct === null ? "—" : formataPercentualSinal(performance12m.mwr.periodPct)}</span>
-              </div>
+            <table className="tabela-comparativa">
+              <tbody>
+                <tr>
+                  <th scope="row">Carteira</th>
+                  <td className="num">{formataPercentualSinal(performance.accumulated.portfolioPct)}</td>
+                </tr>
+                <tr>
+                  <th scope="row">CDI</th>
+                  <td className="num">{formataPercentualSinal(performance.accumulated.cdiPct)}</td>
+                </tr>
+                <tr>
+                  <th scope="row">IPCA</th>
+                  <td className="num">{formataPercentualSinal(performance.accumulated.ipcaPct)}</td>
+                </tr>
+                <tr className="linha-destaque">
+                  <th scope="row">Diferença vs CDI</th>
+                  <td className="num">{formataPontosPercentuais(performance.accumulated.diffCdiPp)}</td>
+                </tr>
+              </tbody>
+            </table>
+            <div className="rodape-notas">
+              <span>{performance.monthsBeaten} de {performance.monthsTotal} meses acima do CDI</span>
+              <span>MWR {performance.mwr.periodPct === null ? "—" : formataPercentualSinal(performance.mwr.periodPct)}</span>
+              <span>12 meses {performance12m.mwr.periodPct === null ? "—" : formataPercentualSinal(performance12m.mwr.periodPct)}</span>
             </div>
           </section>
 
@@ -209,9 +218,9 @@ export function OverviewView({ reloadToken, onAbrirPosicoes, onAbrirFontes }: {
                   <li className="alloc-row" key={grupo.key}>
                     <div className="alloc-line">
                       <span className="alloc-name">{alocacaoBy === "category" ? formataCategoria(grupo.key) : grupo.key}</span>
-                      <span className="alloc-value">
-                        <strong>{formataBRL(grupo.marketValueCents)}</strong>
-                        <span className="valor-fraco">{grupo.pct.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%</span>
+                      <span className="alloc-valores">
+                        <span className="alloc-pct">{grupo.pct.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%</span>
+                        <span className="alloc-absoluto">{formataBRL(grupo.marketValueCents)}</span>
                       </span>
                     </div>
                     <span className="alloc-bar"><span className="alloc-bar-fill" style={{ width: `${Math.min(100, grupo.pct)}%` }} /></span>
@@ -223,11 +232,13 @@ export function OverviewView({ reloadToken, onAbrirPosicoes, onAbrirFontes }: {
 
           <section className="card">
             <div className="section-head"><h2 className="section-title">Fontes</h2></div>
-            <p className="section-hint fontes-resumo">
-              <Coins size={14} aria-hidden="true" />
-              <span>{health.sources.length - stale} fontes ok</span>
-              {stale > 0 && <span className="badge badge-warn">{stale} desatualizada{stale === 1 ? "" : "s"}</span>}
-            </p>
+            <div className="fontes-badges">
+              {health.sources.map((source) => (
+                <span key={source.id} className={source.stale ? "badge badge-warn" : "badge badge-ok"}>
+                  {source.id} {source.stale ? "desatualizado" : "ok"}
+                </span>
+              ))}
+            </div>
             <button type="button" className="btn btn-secondary" onClick={onAbrirFontes}>Ver fontes</button>
           </section>
         </div>

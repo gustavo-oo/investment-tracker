@@ -623,10 +623,6 @@ tbody tr:last-child td {
   font-weight: 500;
 }
 
-.alloc-value {
-  color: var(--text-2);
-}
-
 .alloc-bar {
   display: block;
   height: 6px;
@@ -677,7 +673,8 @@ tbody tr:last-child td {
 .dot { width: 8px; height: 8px; margin-left: auto; border-radius: 50%; background: var(--warn); }
 .sidebar-foot { display: flex; flex-direction: column; gap: 8px; margin-top: auto; }
 .sidebar-recado { font-size: 12px; color: var(--text-2); }
-.colunas { display: grid; grid-template-columns: 1.7fr 1fr; gap: 16px; align-items: start; }
+.colunas { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.colunas > * { min-width: 0; }
 .chart-controles { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .chip {
   padding: 5px 10px; border: 1px solid var(--border); border-radius: var(--radius-pill);
@@ -708,7 +705,6 @@ tbody tr:last-child td {
 
 .valores,
 .resumo-itens,
-.fontes-resumo,
 .tags {
   display: inline-flex;
   align-items: baseline;
@@ -721,31 +717,106 @@ tbody tr:last-child td {
   font-weight: 400;
 }
 
-.rendimento-linha {
+.delta-linha {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 10px;
   flex-wrap: wrap;
-  margin-top: 6px;
+  margin-top: 8px;
 }
 
-.rendimento-linha .stat-value,
-.rendimento-linha .stat-note {
-  margin-top: 0;
-}
-
-.stat-value.pequeno {
-  font-size: 20px;
-}
-
-.alloc-value {
+.delta {
   display: inline-flex;
-  align-items: baseline;
-  gap: 10px;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
-.alloc-value strong {
+.delta-positivo {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.delta-negativo {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.delta-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.tabela-comparativa {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 4px;
+}
+
+.tabela-comparativa th {
+  padding: 7px 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-2);
+  text-align: left;
+}
+
+.tabela-comparativa td {
+  padding: 7px 0;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.tabela-comparativa tr + tr th,
+.tabela-comparativa tr + tr td {
+  border-top: 1px solid var(--border);
+}
+
+.tabela-comparativa .linha-destaque th,
+.tabela-comparativa .linha-destaque td {
+  border-top: 1px solid var(--border-strong);
   color: var(--text);
+  font-weight: 600;
+}
+
+.rodape-notas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.alloc-valores {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+}
+
+.alloc-pct {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.alloc-absoluto {
+  font-size: 12px;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.alloc-contagem {
+  margin-left: 6px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-3);
 }
 
 .tags {
@@ -766,4 +837,10 @@ tbody tr:last-child td {
 .lista-erros li,
 .lista-reparos li {
   margin: 2px 0;
+}
+
+.fontes-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { MagnifyingGlass, Table, X } from "@phosphor-icons/react";
+import { CaretDown, CaretUp, MagnifyingGlass, Table, X } from "@phosphor-icons/react";
 import { getPortfolio, getTransactions, type PortfolioPosition, type Transaction } from "../api.ts";
 import { formataBRL, formataCategoria, formataData, formataMes, formataPercentualSinal, formataQuantidade } from "../format.ts";
 
@@ -152,6 +152,7 @@ export function PositionsView({ reloadToken, filtroInicial }: {
                 <th scope="col" className="num">Valor</th>
                 <th scope="col" className="num">%</th>
                 <th scope="col" className="num">Rendimento</th>
+                <th scope="col" className="num">Rend. %</th>
               </tr>
             </thead>
             <tbody>
@@ -168,11 +169,14 @@ export function PositionsView({ reloadToken, filtroInicial }: {
                     <td className="num">{total > 0 && posicao.marketValueCents !== null ? formataPercentualSinal((posicao.marketValueCents / total) * 100) : "—"}</td>
                     <td className={`num ${rendimento.cents === null ? "" : rendimento.cents >= 0 ? "rendimento-positivo" : "rendimento-negativo"}`}>
                       {rendimento.cents === null ? "—" : (
-                        <span className="valores">
-                          <strong>{formataBRL(rendimento.cents)}</strong>
-                          {rendimento.pct !== null && <span className="valor-fraco">{formataPercentualSinal(rendimento.pct)}</span>}
+                        <span className="delta-inline">
+                          {rendimento.cents >= 0 ? <CaretUp size={11} aria-hidden="true" /> : <CaretDown size={11} aria-hidden="true" />}
+                          {formataBRL(rendimento.cents)}
                         </span>
                       )}
+                    </td>
+                    <td className={`num ${rendimento.pct === null ? "" : rendimento.pct >= 0 ? "rendimento-positivo" : "rendimento-negativo"}`}>
+                      {rendimento.pct === null ? "—" : formataPercentualSinal(rendimento.pct)}
                     </td>
                   </tr>
                 );
