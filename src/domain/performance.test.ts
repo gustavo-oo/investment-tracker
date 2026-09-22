@@ -54,4 +54,8 @@ test("xirrPct acha a TIR anual (ACT/365) e devolve null sem raiz", () => {
   assert.equal(xirrPct(100_000n, "2025-01-01", [], 5_000n, "2026-01-01"), null);
   // nada investido → null
   assert.equal(xirrPct(0n, "2025-01-01", [], 0n, "2026-01-01"), null);
+  // resgate no meio do caminho (fluxo negativo): 100k −20k em 01/07 → 90k em 01/01
+  assert.equal(xirrPct(100_000n, "2025-01-01", [{ date: "2025-07-01", cents: -20_000n }], 90_000n, "2026-01-01"), 11.0889);
+  // perda simples em 365 dias
+  assert.equal(xirrPct(100_000n, "2025-01-01", [], 90_000n, "2026-01-01"), -10);
 });

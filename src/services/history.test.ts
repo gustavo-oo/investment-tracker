@@ -85,3 +85,22 @@ test("resolveHistoryWindow sem transações clampa no piso da série", () => {
   const now = () => new Date("2026-09-18T12:00:00-03:00");
   assert.deepEqual(resolveHistoryWindow(db, { from: "2000-01", to: "2026-09" }, { now }), { from: "2025-06", to: "2026-09" });
 });
+
+test("resolveHistoryWindow devolve janela vazia quando o pedido é anterior ao piso da série", () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  const now = () => new Date("2026-09-18T12:00:00-03:00");
+  assert.deepEqual(resolveHistoryWindow(db, { from: "2000-01", to: "2025-05" }, { now }), { from: "2025-05", to: "2025-05" });
+});
+
+test("history ignora fluxos que não são BUY/SELL", () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  insertInstruments(db, [cdb]);
+  insertTransactions(db, [
+    { instrumentId: cdb.id, tradeDate: "2026-01-02", kind: "BUY", quantityE8: null, grossCents: 100_000n, feesCents: 5_000n, note: null, legacyRow: null },
+    { instrumentId: cdb.id, tradeDate: "2026-01-15", kind: "DIVIDEND", quantityE8: null, grossCents: 7_000n, feesCents: 0n, note: null, legacyRow: null },
+  ]);
+  const points = buildHistory(db, { from: "2026-01", to: "2026-01" }, { now: () => new Date("2026-09-18T12:00:00-03:00") });
+  assert.deepEqual(points[0]?.flows, [{ date: "2026-01-02", cents: 105_000n }], "dividendo não vira fluxo negativo");
+});

@@ -40,7 +40,8 @@ export function resolveHistoryWindow(
   const first = firstMonthWithReturn(db, to);
   const floor = first !== null && first > SERIES_START_MONTH ? first : SERIES_START_MONTH;
   const from = requestedFrom < floor ? floor : requestedFrom;
-  return { from, to };
+  // janela inteira antes do piso: clampa from em to para manter from <= to e devolver série vazia
+  return from > to ? { from: to, to } : { from, to };
 }
 
 function firstMonthWithReturn(db: Db, limit: string): string | null {
@@ -91,10 +92,11 @@ export function buildHistory(db: Db, options: HistoryOptions = {}, deps: { now?:
       redeemedCents += sumMonth(instrumentTransactions, month, "SELL");
       for (const transaction of instrumentTransactions) {
         if (transaction.tradeDate.slice(0, 7) !== month) continue;
-        flows.push({
-          date: transaction.tradeDate,
-          cents: transaction.kind === "BUY" ? transaction.grossCents + transaction.feesCents : -transaction.grossCents,
-        });
+        if (transaction.kind === "BUY") {
+          flows.push({ date: transaction.tradeDate, cents: transaction.grossCents + transaction.feesCents });
+        } else if (transaction.kind === "SELL") {
+          flows.push({ date: transaction.tradeDate, cents: -transaction.grossCents });
+        }
       }
     }
     return { month, asOf, marketValueCents, investedCents, redeemedCents, flows, cdiPct: cdiMonthPct(cdiRates, month), ipcaPct: ipcaMonthPct(ipcaRates, month) };
