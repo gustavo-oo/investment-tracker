@@ -93,6 +93,22 @@ test("resolveHistoryWindow devolve janela vazia quando o pedido é anterior ao p
   assert.deepEqual(resolveHistoryWindow(db, { from: "2000-01", to: "2025-05" }, { now }), { from: "2025-05", to: "2025-05" });
 });
 
+test("history congela mês posterior ao vencimento", () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  const cdbVencido: InstrumentRow = { ...cdb, maturityDate: "2026-01-05" };
+  insertInstruments(db, [cdbVencido]);
+  insertTransactions(db, [{ instrumentId: cdbVencido.id, tradeDate: "2026-01-02", kind: "BUY", quantityE8: null, grossCents: 100_000n, feesCents: 0n, note: null, legacyRow: null }]);
+  writeIndexRates(db, [
+    { series: "CDI", date: "2026-01-02", valueE12: 1_000_000_000n },
+    { series: "CDI", date: "2026-01-05", valueE12: 1_000_000_000n },
+    { series: "CDI", date: "2026-02-10", valueE12: 1_000_000_000n },
+  ]);
+  const points = buildHistory(db, { from: "2026-01", to: "2026-02" }, { now: () => new Date("2026-02-20T12:00:00-03:00") });
+  assert.equal(points[0]?.marketValueCents, 100_200n); // 02→05/01
+  assert.equal(points[1]?.marketValueCents, 100_200n, "fevereiro não capitaliza");
+});
+
 test("history ignora fluxos que não são BUY/SELL", () => {
   const db = openDb(":memory:");
   migrate(db);

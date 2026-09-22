@@ -66,6 +66,27 @@ test("buildPortfolio aceita asOf explícito (reconciliação)", () => {
   assert.equal(buildPortfolio(db, { asOf: "2026-09-20" }).positions[0]?.marketValueCents, 20_000n);
 });
 
+const cdbVencido: InstrumentRow = { ...cdb, id: "cdb-vencido", legacyKey: "CDB Vencido", name: "CDB Vencido", maturityDate: "2026-09-17" };
+
+test("portfolio congela título vencido e expõe pendingRedemption", () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  insertInstruments(db, [cdbVencido]);
+  insertTransactions(db, [{ instrumentId: cdbVencido.id, tradeDate: "2026-09-15", kind: "BUY", quantityE8: null, grossCents: 100_000n, feesCents: 0n, note: null, legacyRow: null }]);
+  writeIndexRates(db, [
+    { series: "CDI", date: "2026-09-15", valueE12: 1_000_000_000n },
+    { series: "CDI", date: "2026-09-16", valueE12: 1_000_000_000n },
+    { series: "CDI", date: "2026-09-17", valueE12: 1_000_000_000n },
+    { series: "CDI", date: "2026-09-18", valueE12: 1_000_000_000n },
+  ]);
+  const portfolio = buildPortfolio(db, { now: NOW }); // NOW = 2026-09-18
+  const posicao = portfolio.positions[0];
+  assert.equal(posicao?.marketValueCents, 100_300n); // 15→17/09; 18/09 não entra
+  assert.equal(posicao?.priceDate, "2026-09-17");
+  assert.equal(posicao?.maturityDate, "2026-09-17");
+  assert.equal(posicao?.pendingRedemption, true);
+});
+
 test("PGBL sem cota fica null + stale", () => {
   const db = openDb(":memory:");
   migrate(db);
