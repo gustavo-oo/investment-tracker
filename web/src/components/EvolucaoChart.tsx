@@ -189,7 +189,7 @@ export function EvolucaoChart({ history, performance, altura = 280, resumo = tru
           <button type="button" className={aba === "pct" ? "chip active" : "chip"} onClick={() => setAba("pct")}>%</button>
         </div>
         <span className="chart-divisor" aria-hidden="true" />
-        <div className={aba === "pct" ? "chart-grupo" : "chart-grupo invisivel"}>
+        <div className="chart-grupo">
           <button type="button" className={subAba === "mes" ? "chip active" : "chip"} onClick={() => setSubAba("mes")}>Mês a mês</button>
           <button type="button" className={subAba === "acumulado" ? "chip active" : "chip"} onClick={() => setSubAba("acumulado")}>Acumulado</button>
         </div>
@@ -199,19 +199,28 @@ export function EvolucaoChart({ history, performance, altura = 280, resumo = tru
       <div className={flexivel ? "chart-canvas" : undefined}>
         <ResponsiveContainer width="100%" height={altura}>
         {aba === "rs" ? (
-          <ComposedChart data={linhasRs} barGap={-16} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} />
-            <XAxis dataKey="rotulo" tickLine={false} axisLine={false} fontSize={12} />
-            <YAxis yAxisId="valor" tickLine={false} axisLine={false} fontSize={12} width={76} tickFormatter={formataEixoRs} />
-            <YAxis yAxisId="fluxo" orientation="right" tickLine={false} axisLine={false} fontSize={11} width={68}
-              tickFormatter={formataEixoRs} domain={[-maxFluxo, maxFluxo]} />
-            <ReferenceLine yAxisId="fluxo" y={0} stroke="var(--border-strong)" />
-            <Tooltip content={<TooltipRs />} />
-            <Legend />
-            <Area yAxisId="valor" type="monotone" dataKey="patrimonioCents" name="Patrimônio" stroke="var(--accent)" fill="var(--accent-soft)" strokeWidth={2} />
-            <Bar yAxisId="fluxo" dataKey="aporteCents" name="Aporte" fill="var(--sand)" barSize={16} />
-            <Bar yAxisId="fluxo" dataKey="resgateNegCents" name="Resgate" fill="var(--danger)" barSize={16} />
-          </ComposedChart>
+          subAba === "mes" ? (
+            <ComposedChart data={linhasRs} barGap={-16} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="rotulo" tickLine={false} axisLine={false} fontSize={12} />
+              <YAxis tickLine={false} axisLine={false} fontSize={12} width={76} tickFormatter={formataEixoRs}
+                domain={[-maxFluxo, maxFluxo]} />
+              <ReferenceLine y={0} stroke="var(--border-strong)" />
+              <Tooltip content={<TooltipRs />} />
+              <Legend />
+              <Bar dataKey="aporteCents" name="Aporte" fill="var(--sand)" barSize={16} />
+              <Bar dataKey="resgateNegCents" name="Resgate" fill="var(--danger)" barSize={16} />
+            </ComposedChart>
+          ) : (
+            <ComposedChart data={linhasRs} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="rotulo" tickLine={false} axisLine={false} fontSize={12} />
+              <YAxis tickLine={false} axisLine={false} fontSize={12} width={76} tickFormatter={formataEixoRs} />
+              <Tooltip content={<TooltipRs />} />
+              <Legend />
+              <Area type="monotone" dataKey="patrimonioCents" name="Patrimônio" stroke="var(--accent)" fill="var(--accent-soft)" strokeWidth={2} />
+            </ComposedChart>
+          )
         ) : subAba === "mes" ? (
           <LineChart data={linhasPct} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} />

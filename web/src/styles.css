@@ -694,7 +694,6 @@ tbody tr:last-child td {
 .chart-controles { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .chart-controles-grafico { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
 .chart-grupo { display: flex; gap: 6px; align-items: center; }
-.chart-grupo.invisivel { visibility: hidden; }
 .chart-divisor { width: 1px; height: 20px; background: var(--border); }
 .chip {
   padding: 5px 10px; border: 1px solid var(--border); border-radius: var(--radius-pill);
