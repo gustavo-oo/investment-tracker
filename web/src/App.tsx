@@ -53,7 +53,7 @@ export function App() {
     return () => clearInterval(id);
   }, [carregaHealth]);
 
-  function abrirPosicoes(classe: Classe) {
+  function abrirPosicoes(classe: Classe | null) {
     setFiltroPosicoes(classe);
     setView("posicoes");
   }

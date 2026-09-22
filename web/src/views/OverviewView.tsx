@@ -5,7 +5,7 @@ import {
   type Allocation, type AllocationBy, type HistoryPoint, type Performance, type Portfolio,
 } from "../api.ts";
 import {
-  formataBRL, formataCategoria, formataJanela, formataMes, formataPercentual, formataPercentualSinal, formataPontosPercentuais, mesDeslocado,
+  formataBRL, formataCategoria, formataData, formataJanela, formataMes, formataPercentual, formataPercentualSinal, formataPontosPercentuais, mesDeslocado,
 } from "../format.ts";
 import { ORDEM_CLASSE, ROTULO_CLASSE, classeDe, type Classe } from "../classes.ts";
 import { EvolucaoChart } from "../components/EvolucaoChart.tsx";
@@ -40,7 +40,7 @@ function inicioDoPeriodo(periodo: Periodo, mes: string): string {
 
 export function OverviewView({ reloadToken, onAbrirPosicoes }: {
   reloadToken: number;
-  onAbrirPosicoes: (classe: Classe) => void;
+  onAbrirPosicoes: (classe: Classe | null) => void;
 }) {
   const [periodo, setPeriodo] = useState<Periodo>("1a");
   const [alocacaoBy, setAlocacaoBy] = useState<AllocationBy>("category");
@@ -116,6 +116,13 @@ export function OverviewView({ reloadToken, onAbrirPosicoes }: {
   const somaAportes = performanceTudo.months.reduce((total, mes) => total + mes.investedCents, 0);
   const somaResgates = performanceTudo.months.reduce((total, mes) => total + mes.redeemedCents, 0);
 
+  const vencidos = portfolio.positions.filter((posicao) => posicao.pendingRedemption);
+  const totalVencido = vencidos.reduce((soma, posicao) => soma + (posicao.marketValueCents ?? 0), 0);
+  const vencimentoMaisAntigo = vencidos.reduce<string | null>((maisAntigo, posicao) => {
+    if (posicao.maturityDate === null) return maisAntigo;
+    return maisAntigo === null || posicao.maturityDate < maisAntigo ? posicao.maturityDate : maisAntigo;
+  }, null);
+
   return (
     <div className="page">
       <div className="page-head">
@@ -128,6 +135,24 @@ export function OverviewView({ reloadToken, onAbrirPosicoes }: {
         <div className="callout callout-error" role="alert">
           <WarningCircle size={17} aria-hidden="true" />
           <div><p className="callout-title">Falha ao atualizar</p><p>{erro}</p></div>
+        </div>
+      )}
+
+      {vencidos.length > 0 && (
+        <div className="callout callout-warn" role="status">
+          <WarningCircle size={17} aria-hidden="true" />
+          <div>
+            <p className="callout-title">
+              {vencidos.length === 1 ? "1 título vencido sem resgate lançado" : `${vencidos.length} títulos vencidos sem resgate lançado`}
+            </p>
+            <p>
+              {formataBRL(totalVencido)} congelados desde {vencimentoMaisAntigo === null ? "o vencimento" : formataData(vencimentoMaisAntigo)}.
+              Lance o resgate para zerar a posição.
+            </p>
+          </div>
+          <button type="button" className="btn btn-secondary callout-acao" onClick={() => onAbrirPosicoes(null)}>
+            Ver posições
+          </button>
         </div>
       )}
 

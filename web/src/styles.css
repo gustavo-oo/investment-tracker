@@ -352,6 +352,12 @@ button {
   color: var(--warn);
 }
 
+.callout-acao {
+  margin-left: auto;
+  flex: none;
+  align-self: center;
+}
+
 .callout-error {
   background: var(--danger-soft);
   border-color: color-mix(in srgb, var(--danger) 30%, transparent);
