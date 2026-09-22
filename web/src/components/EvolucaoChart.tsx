@@ -25,6 +25,17 @@ const rotuloTrimestre = (mes: string): string => {
   return `T${Math.ceil(Number(mesNumero) / 3)}/${ano.slice(2)}`;
 };
 
+const formataEixoRs = (cents: number): string => {
+  const reais = cents / 100;
+  const abs = Math.abs(reais);
+  if (abs >= 1_000_000) return `R$ ${(reais / 1_000_000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} mi`;
+  if (abs >= 1_000) return `R$ ${Math.round(reais / 1_000).toLocaleString("pt-BR")} mil`;
+  return `R$ ${reais.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}`;
+};
+
+const formataEixoPct = (valor: number): string =>
+  `${valor.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
+
 function visaoRs(meses: Mes[], trimestral: boolean): LinhaRs[] {
   const linhas = meses.map((mes) => ({
     rotulo: formataMes(mes.month), patrimonioCents: mes.patrimonioCents,
@@ -110,8 +121,8 @@ function TooltipPct({ active, payload }: { active?: boolean; payload?: Array<{ p
   );
 }
 
-export function EvolucaoChart({ history, performance, altura = 280 }: {
-  history: HistoryPoint[]; performance: Performance; altura?: number;
+export function EvolucaoChart({ history, performance, altura = 280, resumo = true }: {
+  history: HistoryPoint[]; performance: Performance; altura?: number | `${number}%`; resumo?: boolean;
 }) {
   const [aba, setAba] = useState<Aba>("rs");
   const [subAba, setSubAba] = useState<SubAba>("mes");
@@ -131,8 +142,10 @@ export function EvolucaoChart({ history, performance, altura = 280 }: {
     );
   }
 
+  const flexivel = typeof altura === "string";
+
   return (
-    <div>
+    <div className={flexivel ? "chart-flex" : undefined}>
       <div className="chart-controles">
         <button type="button" className={aba === "rs" ? "chip active" : "chip"} onClick={() => setAba("rs")}>R$</button>
         <button type="button" className={aba === "pct" ? "chip active" : "chip"} onClick={() => setAba("pct")}>%</button>
@@ -145,15 +158,16 @@ export function EvolucaoChart({ history, performance, altura = 280 }: {
         {trimestral && <span className="section-hint">por trimestre</span>}
       </div>
 
-      <ResponsiveContainer width="100%" height={altura}>
+      <div className={flexivel ? "chart-canvas" : undefined}>
+        <ResponsiveContainer width="100%" height={altura}>
         {aba === "rs" ? (
           <ComposedChart data={linhasRs} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} />
             <XAxis dataKey="rotulo" tickLine={false} axisLine={false} fontSize={12} />
-            <YAxis yAxisId="valor" tickLine={false} axisLine={false} fontSize={12} width={64}
-              tickFormatter={(valor: number) => formataBRL(valor)} />
-            <YAxis yAxisId="fluxo" orientation="right" tickLine={false} axisLine={false} fontSize={11} width={56}
-              tickFormatter={(valor: number) => formataBRL(valor)} />
+            <YAxis yAxisId="valor" tickLine={false} axisLine={false} fontSize={12} width={76}
+              tickFormatter={formataEixoRs} />
+            <YAxis yAxisId="fluxo" orientation="right" tickLine={false} axisLine={false} fontSize={11} width={68}
+              tickFormatter={formataEixoRs} />
             <Tooltip content={<TooltipRs />} />
             <Legend />
             <Area yAxisId="valor" type="monotone" dataKey="patrimonioCents" name="Patrimônio" stroke="var(--accent)" fill="var(--accent-soft)" strokeWidth={2} />
@@ -164,7 +178,7 @@ export function EvolucaoChart({ history, performance, altura = 280 }: {
           <ComposedChart data={linhasPct} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} />
             <XAxis dataKey="rotulo" tickLine={false} axisLine={false} fontSize={12} />
-            <YAxis tickLine={false} axisLine={false} fontSize={12} width={48} tickFormatter={(valor: number) => `${valor}%`} />
+            <YAxis tickLine={false} axisLine={false} fontSize={12} width={52} tickFormatter={formataEixoPct} />
             <ReferenceLine y={0} stroke="var(--border-strong)" />
             <Tooltip content={<TooltipPct />} />
             <Legend />
@@ -180,7 +194,7 @@ export function EvolucaoChart({ history, performance, altura = 280 }: {
           <LineChart data={linhasAcumuladas} margin={{ top: 8, right: 44, bottom: 0, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} />
             <XAxis dataKey="rotulo" tickLine={false} axisLine={false} fontSize={12} />
-            <YAxis tickLine={false} axisLine={false} fontSize={12} width={48} tickFormatter={(valor: number) => `${valor}%`} />
+            <YAxis tickLine={false} axisLine={false} fontSize={12} width={52} tickFormatter={formataEixoPct} />
             <ReferenceLine y={0} stroke="var(--border-strong)" strokeDasharray="3 3" />
             <Tooltip content={<TooltipPct />} />
             <Legend />
@@ -196,14 +210,17 @@ export function EvolucaoChart({ history, performance, altura = 280 }: {
           </LineChart>
         )}
       </ResponsiveContainer>
-
-      <div className="chart-foot">
-        <span>carteira <strong>{formataPercentualSinal(performance.accumulated.portfolioPct)}</strong></span>
-        <span>CDI {formataPercentualSinal(performance.accumulated.cdiPct)}</span>
-        <span>IPCA {formataPercentualSinal(performance.accumulated.ipcaPct)}</span>
-        <span>diferença vs CDI: {formataPontosPercentuais(performance.accumulated.diffCdiPp)}</span>
-        <span>bateu o CDI em {performance.monthsBeaten} de {performance.monthsTotal} meses</span>
       </div>
+
+      {resumo && (
+        <div className="chart-foot">
+          <span>carteira <strong>{formataPercentualSinal(performance.accumulated.portfolioPct)}</strong></span>
+          <span>CDI {formataPercentualSinal(performance.accumulated.cdiPct)}</span>
+          <span>IPCA {formataPercentualSinal(performance.accumulated.ipcaPct)}</span>
+          <span>diferença vs CDI: {formataPontosPercentuais(performance.accumulated.diffCdiPp)}</span>
+          <span>bateu o CDI em {performance.monthsBeaten} de {performance.monthsTotal} meses</span>
+        </div>
+      )}
     </div>
   );
 }
