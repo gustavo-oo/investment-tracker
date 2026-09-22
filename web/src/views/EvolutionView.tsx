@@ -4,6 +4,7 @@ import { Bar, CartesianGrid, ComposedChart, Legend, ReferenceLine, ResponsiveCon
 import { getHistory, getPerformance, type HistoryPoint, type Performance } from "../api.ts";
 import { formataBRL, formataJanela, formataMes, formataPercentualSinal, formataPontosPercentuais, mesDeslocado } from "../format.ts";
 import { EvolucaoChart } from "../components/EvolucaoChart.tsx";
+import { ExplicacaoRendimentos } from "../components/InfoPopover.tsx";
 
 type Periodo = "1a" | "5a" | "tudo";
 const PERIODOS: Array<{ id: Periodo; rotulo: string }> = [
@@ -97,11 +98,21 @@ export function EvolutionView({ reloadToken }: { reloadToken: number }) {
 
       <div className="stack">
         <section className="card">
+          <div className="section-head section-head-linha">
+            <div>
+              <h2 className="section-title">Evolução da carteira</h2>
+              <p className="section-hint">Carteira em TWR (sem o efeito dos aportes), contra CDI e IPCA.</p>
+            </div>
+            <ExplicacaoRendimentos />
+          </div>
           <EvolucaoChart history={history} performance={performance} altura={360} />
         </section>
 
         <section className="card">
-          <div className="section-head"><h2 className="section-title">Mês a mês</h2></div>
+          <div className="section-head">
+            <h2 className="section-title">Mês a mês</h2>
+            <p className="section-hint">Rendimento do mês em R$ e variação da carteira (TWR) contra CDI e IPCA.</p>
+          </div>
           <div className="table-wrap">
             <table>
               <thead>
