@@ -321,14 +321,15 @@ export function OverviewView({ reloadToken, onAbrirPosicoes }: {
             </div>
             <table className="tabela-modal">
               <thead>
-                <tr><th scope="col">Mês</th><th scope="col" className="num">Carteira</th><th scope="col" className="num">CDI</th></tr>
+                <tr><th scope="col">Mês</th><th scope="col" className="num">Carteira</th><th scope="col" className="num">CDI</th><th scope="col" className="num">IPCA</th></tr>
               </thead>
               <tbody>
-                {performanceTudo.months.map((mes) => (
+                {[...performanceTudo.months].reverse().map((mes) => (
                   <tr key={mes.month}>
                     <td>{formataMes(mes.month)}</td>
                     <td className="num">{mes.portfolioPct === null ? "—" : formataPercentualSinal(mes.portfolioPct)}</td>
                     <td className="num">{mes.cdiPct === null ? "—" : formataPercentualSinal(mes.cdiPct)}</td>
+                    <td className="num">{mes.ipcaPct === null ? "—" : formataPercentualSinal(mes.ipcaPct)}</td>
                   </tr>
                 ))}
               </tbody>
