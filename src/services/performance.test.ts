@@ -68,3 +68,20 @@ test("buildPerformance sem dados devolve meses nulos e MWR nulo", () => {
   assert.equal(result.accumulated.portfolioPct, 0);
   assert.equal(result.mwr.periodPct, null);
 });
+
+test("buildPerformance expõe o líquido (Carteira − IPCA) por mês", () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  insertInstruments(db, [cdb]);
+  insertTransactions(db, [buy("2026-04-23", 100_000n)]);
+  writeIndexRates(db, [
+    { series: "CDI", date: "2026-05-02", valueE12: 10_000_000_000n },
+    { series: "IPCA", date: "2026-05-01", valueE12: 3_000_000_000n },
+  ]);
+
+  const result = buildPerformance(db, { from: "2026-05", to: "2026-06" }, { now });
+  // maio: carteira +1,0000% e IPCA +0,3000% → (1,01 ÷ 1,003) − 1 = 0,6979%
+  assert.equal(result.months[0]?.realPct, 0.6979);
+  // junho: sem IPCA no mês → null
+  assert.equal(result.months[1]?.realPct, null);
+});
