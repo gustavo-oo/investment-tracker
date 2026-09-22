@@ -211,3 +211,18 @@ test("sentinela 9999-01-01 e vencimento futuro não congelam", () => {
   assert.equal(rf.marketValueCents, 100_200n); // 100000 × 1,001 × 1,001
   assert.equal(rf.pendingRedemption, false);
 });
+
+test("resgate lançado depois do vencimento zera a posição e limpa o pendente", () => {
+  const input: PositionInput = {
+    kind: "fixed_income", benchmark: "CDI", rateE6: 1_000_000n, maturityDate: "2026-01-05",
+    transactions: [
+      { tradeDate: "2026-01-02", kind: "BUY", quantityE8: null, grossCents: 100_000n, feesCents: 0n },
+      { tradeDate: "2026-01-07", kind: "SELL", quantityE8: null, grossCents: 100_200n, feesCents: 0n },
+    ],
+    quotes: [], rates: [rate("2026-01-02"), rate("2026-01-05"), rate("2026-01-07")],
+  };
+  const value = instrumentValue(input, "2026-01-07");
+  assert.equal(value.marketValueCents, 0n, "resgate pós-vencimento entra pelo bruto e zera");
+  assert.equal(value.pendingRedemption, false);
+  assert.equal(value.redeemedCents, 100_200n);
+});

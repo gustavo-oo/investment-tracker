@@ -121,7 +121,6 @@ function zeroClosedResidue(
 /** Posição de um ativo em `asOf`, com investido/resgatado/taxas acumulados até a data. */
 export function instrumentValue(input: PositionInput, asOf: string): PositionValue {
   const maturityDate = input.kind === "fixed_income" ? (input.maturityDate ?? null) : null;
-  const asOfEfetivo = maturityDate !== null && maturityDate < asOf ? maturityDate : asOf;
   let investedCents = 0n;
   let redeemedCents = 0n;
   let feesCents = 0n;
@@ -141,7 +140,8 @@ export function instrumentValue(input: PositionInput, asOf: string): PositionVal
   }
   if (input.kind === "fixed_income") {
     const multiplierE6 = input.rateE6 ?? 1_000_000n;
-    const { valueCents, lastRateDate } = rfValueCents(operations, input.rates, multiplierE6, asOfEfetivo);
+    const taxas = maturityDate === null ? input.rates : input.rates.filter((rate) => rate.date <= maturityDate);
+    const { valueCents, lastRateDate } = rfValueCents(operations, taxas, multiplierE6, asOf);
     const marketValueCents = zeroClosedResidue("fixed_income", null, valueCents, lastBalanceKind);
     return {
       marketValueCents,
