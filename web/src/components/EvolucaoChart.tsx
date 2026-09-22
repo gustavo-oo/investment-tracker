@@ -10,7 +10,8 @@ type Aba = "rs" | "pct";
 type SubAba = "mes" | "acumulado";
 
 type Mes = PerformanceMonth & { patrimonioCents: number };
-type LinhaRs = { rotulo: string; patrimonioCents: number; aporteCents: number; resgateCents: number; rendimentoCents: number; variacaoCents: number };
+type LinhaRsBase = { rotulo: string; patrimonioCents: number; aporteCents: number; resgateCents: number; variacaoCents: number };
+type LinhaRs = LinhaRsBase & { resgateNegCents: number; capitalCents: number };
 type LinhaPct = { rotulo: string; carteira: number | null; cdi: number | null; ipca: number | null; real: number | null };
 type LinhaAcumulada = { rotulo: string; carteira: number; cdi: number; ipca: number; real: number };
 
@@ -27,24 +28,35 @@ const rotuloTrimestre = (mes: string): string => {
 
 const formataEixoRs = (cents: number): string => {
   const reais = cents / 100;
+  const sinal = reais < 0 ? "−" : "";
   const abs = Math.abs(reais);
-  if (abs >= 1_000_000) return `R$ ${(reais / 1_000_000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} mi`;
-  if (abs >= 1_000) return `R$ ${Math.round(reais / 1_000).toLocaleString("pt-BR")} mil`;
-  return `R$ ${reais.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}`;
+  if (abs >= 1_000_000) return `${sinal}R$ ${(abs / 1_000_000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} mi`;
+  if (abs >= 1_000) return `${sinal}R$ ${Math.round(abs / 1_000).toLocaleString("pt-BR")} mil`;
+  return `${sinal}R$ ${abs.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}`;
 };
 
 const formataEixoPct = (valor: number): string =>
   `${valor.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
 
 function visaoRs(meses: Mes[], trimestral: boolean): LinhaRs[] {
-  const linhas = meses.map((mes) => ({
+  const linhas: LinhaRsBase[] = meses.map((mes) => ({
     rotulo: formataMes(mes.month), patrimonioCents: mes.patrimonioCents,
     aporteCents: mes.investedCents, resgateCents: mes.redeemedCents,
-    rendimentoCents: mes.rendimentoCents,
     variacaoCents: mes.rendimentoCents + mes.investedCents - mes.redeemedCents,
   }));
-  if (!trimestral) return linhas;
-  const grupos: LinhaRs[] = [];
+  if (linhas.length === 0) return [];
+  const agregadas = trimestral ? agrupaTrimestresRs(linhas, meses) : linhas;
+  // capital acumulado (só tooltip, sem linha): base da janela + aportes − resgates desde a primeira barra
+  const base = linhas[0]!.patrimonioCents - linhas[0]!.variacaoCents;
+  let capital = base;
+  return agregadas.map((linha) => {
+    capital += linha.aporteCents - linha.resgateCents;
+    return { ...linha, resgateNegCents: -linha.resgateCents, capitalCents: capital };
+  });
+}
+
+function agrupaTrimestresRs(linhas: LinhaRsBase[], meses: Mes[]): LinhaRsBase[] {
+  const grupos: LinhaRsBase[] = [];
   for (let inicio = 0; inicio < linhas.length; inicio += 3) {
     const grupo = linhas.slice(inicio, inicio + 3);
     // patrimônio imediatamente antes do grupo: o do mês anterior ou, no primeiro, o valor inicial derivado da variação
@@ -55,7 +67,6 @@ function visaoRs(meses: Mes[], trimestral: boolean): LinhaRs[] {
       rotulo: rotuloTrimestre(meses[inicio]!.month), patrimonioCents: grupo.at(-1)!.patrimonioCents,
       aporteCents: grupo.reduce((total, linha) => total + linha.aporteCents, 0),
       resgateCents: grupo.reduce((total, linha) => total + linha.resgateCents, 0),
-      rendimentoCents: grupo.reduce((total, linha) => total + linha.rendimentoCents, 0),
       variacaoCents: grupo.at(-1)!.patrimonioCents - anterior,
     });
   }
@@ -105,10 +116,9 @@ function TooltipRs({ active, payload }: { active?: boolean; payload?: Array<{ pa
     <div className="chart-tooltip">
       <p className="chart-tooltip-title">{linha.rotulo}</p>
       <p>Patrimônio: <strong>{formataBRL(linha.patrimonioCents)}</strong></p>
-      <p>Variação: {formataBRL(linha.variacaoCents)}</p>
+      <p>Capital acumulado: {formataBRL(linha.capitalCents)}</p>
       <p>Aporte: {formataBRL(linha.aporteCents)}</p>
       <p>Resgate: {formataBRL(linha.resgateCents)}</p>
-      <p>Rendimento: {formataBRL(linha.rendimentoCents)}</p>
     </div>
   );
 }
@@ -137,6 +147,7 @@ export function EvolucaoChart({ history, performance, altura = 280, resumo = tru
   const meses: Mes[] = performance.months.map((mes) => ({ ...mes, patrimonioCents: patrimonioPorMes.get(mes.month) ?? 0 }));
   const trimestral = meses.length > 24;
   const linhasRs = visaoRs(meses, trimestral);
+  const maxFluxo = Math.max(1, ...linhasRs.map((linha) => Math.max(linha.aporteCents, linha.resgateCents)));
   const linhasPct = visaoPct(meses, trimestral);
   const linhasAcumuladas = visaoAcumulada(meses);
 
@@ -168,18 +179,18 @@ export function EvolucaoChart({ history, performance, altura = 280, resumo = tru
       <div className={flexivel ? "chart-canvas" : undefined}>
         <ResponsiveContainer width="100%" height={altura}>
         {aba === "rs" ? (
-          <ComposedChart data={linhasRs} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
+          <ComposedChart data={linhasRs} barGap={-16} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} />
             <XAxis dataKey="rotulo" tickLine={false} axisLine={false} fontSize={12} />
-            <YAxis yAxisId="valor" tickLine={false} axisLine={false} fontSize={12} width={76}
-              tickFormatter={formataEixoRs} />
+            <YAxis yAxisId="valor" tickLine={false} axisLine={false} fontSize={12} width={76} tickFormatter={formataEixoRs} />
             <YAxis yAxisId="fluxo" orientation="right" tickLine={false} axisLine={false} fontSize={11} width={68}
-              tickFormatter={formataEixoRs} />
+              tickFormatter={formataEixoRs} domain={[-maxFluxo, maxFluxo]} />
+            <ReferenceLine yAxisId="fluxo" y={0} stroke="var(--border-strong)" />
             <Tooltip content={<TooltipRs />} />
             <Legend />
             <Area yAxisId="valor" type="monotone" dataKey="patrimonioCents" name="Patrimônio" stroke="var(--accent)" fill="var(--accent-soft)" strokeWidth={2} />
-            <Bar yAxisId="fluxo" dataKey="aporteCents" name="Aporte" fill="var(--sand)" />
-            <Bar yAxisId="fluxo" dataKey="resgateCents" name="Resgate" fill="var(--danger)" />
+            <Bar yAxisId="fluxo" dataKey="aporteCents" name="Aporte" fill="var(--sand)" barSize={16} />
+            <Bar yAxisId="fluxo" dataKey="resgateNegCents" name="Resgate" fill="var(--danger)" barSize={16} />
           </ComposedChart>
         ) : subAba === "mes" ? (
           <LineChart data={linhasPct} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
