@@ -120,7 +120,7 @@ export type PerformanceMonth = {
 
 export type Performance = {
   from: string; to: string; months: PerformanceMonth[];
-  accumulated: { portfolioPct: number; cdiPct: number; ipcaPct: number; diffCdiPp: number; diffIpcaPp: number };
+  accumulated: { portfolioPct: number; cdiPct: number; ipcaPct: number; diffCdiPp: number; diffIpcaPp: number; realPct: number };
   monthsBeaten: number; monthsTotal: number; mwr: { periodPct: number | null; months: number };
 };
 

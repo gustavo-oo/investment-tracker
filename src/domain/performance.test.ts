@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { accumulatePct, gapPp, monthlyPortfolioPct, monthsBeaten, xirrPct } from "./performance.ts";
+import { accumulatePct, gapPp, monthlyPortfolioPct, monthsBeaten, realReturnPct, xirrPct } from "./performance.ts";
 
 test("monthlyPortfolioPct desconta fluxos e devolve null sem base", () => {
   // sem fluxos: (103000 − 100000) / 100000 = 3%
@@ -43,6 +43,13 @@ test("monthsBeaten ignora empate e nulos; gapPp desconta", () => {
   ]), 1);
   assert.equal(gapPp(14.14, 14.01), 0.13);
   assert.equal(gapPp(1, 1.5), -0.5);
+});
+
+test("realReturnPct desconta a inflação composta", () => {
+  assert.equal(realReturnPct(10, 10), 0);
+  assert.equal(realReturnPct(0, 5), -4.7619);      // 1 ÷ 1,05 − 1
+  assert.equal(realReturnPct(10, -10), 22.2222);   // 1,1 ÷ 0,9 − 1
+  assert.equal(realReturnPct(19.3138, 4.63), 14.034); // janela real jun/2025–set/2026
 });
 
 test("xirrPct acha a TIR anual (ACT/365) e devolve null sem raiz", () => {

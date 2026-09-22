@@ -5,7 +5,7 @@ import {
   type Allocation, type AllocationBy, type HistoryPoint, type Performance, type Portfolio,
 } from "../api.ts";
 import {
-  formataBRL, formataCategoria, formataJanela, formataMes, formataPercentualSinal, formataPontosPercentuais, mesDeslocado,
+  formataBRL, formataCategoria, formataJanela, formataMes, formataPercentual, formataPercentualSinal, formataPontosPercentuais, mesDeslocado,
 } from "../format.ts";
 import { ORDEM_CLASSE, ROTULO_CLASSE, classeDe, type Classe } from "../classes.ts";
 import { EvolucaoChart } from "../components/EvolucaoChart.tsx";
@@ -19,11 +19,12 @@ const PERIODOS: Array<{ id: Periodo; rotulo: string }> = [
 const ALOCACOES: Array<{ by: AllocationBy; rotulo: string }> = [
   { by: "category", rotulo: "Categoria" }, { by: "broker", rotulo: "Corretora" }, { by: "objective", rotulo: "Objetivo" },
 ];
-type Detalhe = "capital" | "twr" | "mwr";
+type Detalhe = "capital" | "twr" | "mwr" | "real";
 const TITULOS: Record<Detalhe, string> = {
   capital: "Ganho sobre o capital",
   twr: "TWR — retorno ponderado pelo tempo",
   mwr: "MWR — retorno ponderado pelo dinheiro",
+  real: "Retorno acima da inflação",
 };
 type Dados = {
   portfolio: Portfolio; history: HistoryPoint[];
@@ -112,10 +113,13 @@ export function OverviewView({ reloadToken, onAbrirPosicoes }: {
     { rotulo: "IPCA", valor: performanceTudo.accumulated.ipcaPct },
   ];
   const maiorAbs = Math.max(...comparativo.map((linha) => Math.abs(linha.valor)), 1);
+  const ultimoMesIpca = [...performanceTudo.months].reverse().find((mes) => mes.ipcaPct !== null)?.month;
+  const rotuloIpca = ultimoMesIpca === undefined ? "IPCA do período" : `IPCA do período (até ${formataMes(ultimoMesIpca)})`;
   const metricas: Array<{ id: Detalhe; rotulo: string; valor: number | null; dica: string }> = [
     { id: "capital", rotulo: "Sobre o capital", valor: rendimentoPct, dica: "Ganho desde o início ÷ capital (aportes − resgates). Não considera o tempo de cada aporte." },
     { id: "twr", rotulo: "TWR (desde o início)", valor: performanceTudo.accumulated.portfolioPct, dica: "Retorno ponderado pelo tempo desde o início: ignora aportes e resgates; comparável com CDI e IPCA." },
     { id: "mwr", rotulo: "MWR (desde o início)", valor: mwrPct, dica: "Retorno ponderado pelo dinheiro desde o início: considera quando e quanto você aportou; é o ganho real do seu bolso." },
+    { id: "real", rotulo: "Acima da inflação", valor: performanceTudo.accumulated.realPct, dica: `Retorno real: o TWR descontada a inflação do período (${rotuloIpca.toLowerCase()}).` },
   ];
   const somaAportes = performanceTudo.months.reduce((total, mes) => total + mes.investedCents, 0);
   const somaResgates = performanceTudo.months.reduce((total, mes) => total + mes.redeemedCents, 0);
@@ -357,6 +361,27 @@ export function OverviewView({ reloadToken, onAbrirPosicoes }: {
               <span className="info-pop-valor">{mwrPct === null ? "—" : `${formataPercentualSinal(mwrPct)} em ${performanceTudo.mwr.months} meses`}</span>
             </div>
             <p className="info-pop-nota">O TWR ({formataPercentualSinal(performanceTudo.accumulated.portfolioPct)}) mostra se a estratégia foi bem; o MWR mostra o que o seu dinheiro ganhou de fato.</p>
+          </div>
+        )}
+
+        {detalhe === "real" && (
+          <div className="modal-conteudo">
+            <p className="info-pop-texto">Desde o início ({formataJanela(performanceTudo.from, performanceTudo.to)}). É o retorno real: o TWR (sem efeito dos aportes) descontada a inflação do período — quanto o dinheiro ganhou de poder de compra.</p>
+            <div className="info-pop-item">
+              <span className="info-pop-rotulo">TWR do período</span>
+              <span className="info-pop-valor">{formataPercentualSinal(performanceTudo.accumulated.portfolioPct)}</span>
+            </div>
+            <div className="info-pop-item">
+              <span className="info-pop-rotulo">{rotuloIpca}</span>
+              <span className="info-pop-valor">{formataPercentualSinal(performanceTudo.accumulated.ipcaPct)}</span>
+            </div>
+            <div className="info-pop-item">
+              <span className="info-pop-rotulo">Retorno acima da inflação</span>
+              <span className="info-pop-valor">
+                (1 + {formataPercentual(performanceTudo.accumulated.portfolioPct)}) ÷ (1 + {formataPercentual(performanceTudo.accumulated.ipcaPct)}) − 1 = {formataPercentualSinal(performanceTudo.accumulated.realPct)}
+              </span>
+            </div>
+            <p className="info-pop-nota">Diferença em pontos percentuais: {formataPontosPercentuais(performanceTudo.accumulated.diffIpcaPp)} — o retorno real é menor porque a inflação incide sobre o valor já corrigido (juros compostos).</p>
           </div>
         )}
       </Modal>

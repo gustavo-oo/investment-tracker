@@ -1,6 +1,6 @@
 import type { Db } from "../db/index.ts";
 import { addMonths, daysBetween } from "../domain/dates.ts";
-import { accumulatePct, gapPp, monthlyPortfolioPct, monthsBeaten, xirrPct, type DatedFlow } from "../domain/performance.ts";
+import { accumulatePct, gapPp, monthlyPortfolioPct, monthsBeaten, realReturnPct, xirrPct, type DatedFlow } from "../domain/performance.ts";
 import { buildHistory, resolveHistoryWindow, type HistoryOptions } from "./history.ts";
 
 export type PerformanceMonth = {
@@ -10,7 +10,7 @@ export type PerformanceMonth = {
 
 export type PerformanceResult = {
   from: string; to: string; months: PerformanceMonth[];
-  accumulated: { portfolioPct: number; cdiPct: number; ipcaPct: number; diffCdiPp: number; diffIpcaPp: number };
+  accumulated: { portfolioPct: number; cdiPct: number; ipcaPct: number; diffCdiPp: number; diffIpcaPp: number; realPct: number };
   monthsBeaten: number; monthsTotal: number;
   mwr: { periodPct: number | null; months: number };
 };
@@ -37,10 +37,11 @@ export function buildPerformance(db: Db, options: HistoryOptions = {}, deps: { n
     portfolioPct: accumulatePct(months.map((month) => month.portfolioPct)),
     cdiPct: accumulatePct(months.map((month) => month.cdiPct)),
     ipcaPct: accumulatePct(months.map((month) => month.ipcaPct)),
-    diffCdiPp: 0, diffIpcaPp: 0,
+    diffCdiPp: 0, diffIpcaPp: 0, realPct: 0,
   };
   accumulated.diffCdiPp = gapPp(accumulated.portfolioPct, accumulated.cdiPct);
   accumulated.diffIpcaPp = gapPp(accumulated.portfolioPct, accumulated.ipcaPct);
+  accumulated.realPct = realReturnPct(accumulated.portfolioPct, accumulated.ipcaPct);
 
   const lastPoint = points.at(-1);
   const datedFlows: DatedFlow[] = points.slice(1).flatMap((point) => point.flows);

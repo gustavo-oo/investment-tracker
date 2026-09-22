@@ -36,7 +36,7 @@ test("buildPerformance calcula meses, acumulado e MWR com fluxos datados", () =>
   ]);
   assert.equal(result.months[1]?.rendimentoCents, 1_010n);
   assert.equal(result.months[1]?.investedCents, 50_000n);
-  assert.deepEqual(result.accumulated, { portfolioPct: 1.7594, cdiPct: 2.01, ipcaPct: 0, diffCdiPp: -0.2506, diffIpcaPp: 1.7594 });
+  assert.deepEqual(result.accumulated, { portfolioPct: 1.7594, cdiPct: 2.01, ipcaPct: 0, diffCdiPp: -0.2506, diffIpcaPp: 1.7594, realPct: 1.7594 });
   assert.equal(result.monthsBeaten, 0);
   assert.deepEqual(result.mwr, { periodPct: 1.7283, months: 2 });
 });

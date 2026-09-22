@@ -39,6 +39,13 @@ export function gapPp(a: number, b: number): number {
   return Math.round((a - b) * 10_000) / 10_000;
 }
 
+/** Retorno real acima da inflação em % (4 casas): (1 + nominal) ÷ (1 + inflação) − 1. */
+export function realReturnPct(nominalPct: number, inflationPct: number): number {
+  const inflationFactor = 1 + inflationPct / 100;
+  if (inflationFactor <= 0) return nominalPct;
+  return Math.round(((1 + nominalPct / 100) / inflationFactor - 1) * 1_000_000) / 10_000;
+}
+
 /** Quantos meses da série bateram o CDI (empate não conta). */
 export function monthsBeaten(rows: Array<{ portfolioPct: number | null; cdiPct: number | null }>): number {
   return rows.filter((row) => row.portfolioPct !== null && row.cdiPct !== null && row.portfolioPct > row.cdiPct).length;
