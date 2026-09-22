@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ArrowsClockwise, ChartLine, ChartLineUp, Coins, FileArrowUp, Table } from "@phosphor-icons/react";
 import { getHealth, postRefresh, type Health } from "./api.ts";
 import { formataHora } from "./format.ts";
+import { Logo } from "./Logo.tsx";
 import type { Classe } from "./classes.ts";
 import { ImportView } from "./views/ImportView.tsx";
 import { OverviewView } from "./views/OverviewView.tsx";
@@ -83,7 +84,10 @@ export function App() {
   return (
     <div className="app">
       <aside className="sidebar">
-        <p className="brand">investment-tracker</p>
+        <p className="brand">
+          <Logo />
+          Meus Investimentos
+        </p>
         <nav className="nav" aria-label="Seções">
           {ITENS.map(({ id, rotulo, Icone }) => (
             <button
