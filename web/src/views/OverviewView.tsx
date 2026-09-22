@@ -112,17 +112,14 @@ export function OverviewView({ reloadToken, onAbrirPosicoes }: {
             <div className="section-head">
               <h2 className="section-title">Posição atual</h2>
             </div>
-            <p className="stat-value grande">{formataBRL(portfolio.totals.marketValueCents)}</p>
             <div className="delta-linha">
-              <span className={rendimentoPct >= 0 ? "delta delta-positivo" : "delta delta-negativo"}>
+              <p className="stat-value grande">{formataBRL(portfolio.totals.marketValueCents)}</p>
+              <span
+                className={rendimentoPct >= 0 ? "delta delta-positivo" : "delta delta-negativo"}
+                title={`Rendimento de ${formataBRL(rendimento)} desde o início`}
+              >
                 {rendimentoPct >= 0 ? <TrendUp size={13} aria-hidden="true" /> : <TrendDown size={13} aria-hidden="true" />}
-                {formataPercentualSinal(rendimentoPct)}
-              </span>
-              <span className="rendimento-bloco">
-                <span className="stat-label">Rendimento desde o início</span>
-                <span className={rendimento >= 0 ? "rendimento-valor rendimento-positivo" : "rendimento-valor rendimento-negativo"}>
-                  {formataBRL(rendimento)}
-                </span>
+                {formataPercentualSinal(rendimentoPct)} <span className="delta-contexto">desde o início</span>
               </span>
             </div>
           </section>

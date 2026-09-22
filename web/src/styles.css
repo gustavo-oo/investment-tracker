@@ -758,17 +758,14 @@ tbody tr:last-child td {
   gap: 3px;
 }
 
-.rendimento-bloco {
-  display: flex;
-  flex-direction: column;
+.delta-linha .stat-value.grande {
+  margin-top: 0;
+  font-size: 28px;
 }
 
-.rendimento-valor {
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-  font-size: 17px;
-  font-weight: 500;
-  letter-spacing: -0.01em;
+.delta-contexto {
+  font-weight: 400;
+  opacity: 0.8;
 }
 
 .tabela-comparativa {
