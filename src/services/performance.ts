@@ -4,7 +4,7 @@ import { accumulatePct, gapPp, monthlyPortfolioPct, monthsBeaten, realReturnPct,
 import { buildHistory, resolveHistoryWindow, type HistoryOptions } from "./history.ts";
 
 export type PerformanceMonth = {
-  month: string; portfolioPct: number | null; cdiPct: number | null; ipcaPct: number | null;
+  month: string; portfolioPct: number | null; cdiPct: number | null; ipcaPct: number | null; realPct: number | null;
   diffCdiPp: number | null; rendimentoCents: bigint; investedCents: bigint; redeemedCents: bigint;
 };
 
@@ -26,6 +26,7 @@ export function buildPerformance(db: Db, options: HistoryOptions = {}, deps: { n
     const portfolioPct = monthlyPortfolioPct(previous.marketValueCents, previous.asOf, point.marketValueCents, point.asOf, point.flows);
     months.push({
       month: point.month, portfolioPct, cdiPct: point.cdiPct, ipcaPct: point.ipcaPct,
+      realPct: portfolioPct === null || point.ipcaPct === null ? null : realReturnPct(portfolioPct, point.ipcaPct),
       diffCdiPp: portfolioPct === null || point.cdiPct === null ? null : gapPp(portfolioPct, point.cdiPct),
       rendimentoCents: point.marketValueCents - previous.marketValueCents - point.investedCents + point.redeemedCents,
       investedCents: point.investedCents, redeemedCents: point.redeemedCents,

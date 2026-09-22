@@ -18,6 +18,7 @@ export function registerPerformanceRoutes(app: FastifyInstance, db: Db): void {
       from: result.from, to: result.to,
       months: result.months.map((month) => ({
         month: month.month, portfolioPct: month.portfolioPct, cdiPct: month.cdiPct, ipcaPct: month.ipcaPct,
+        realPct: month.realPct,
         diffCdiPp: month.diffCdiPp,
         rendimentoCents: toNumberSafe(month.rendimentoCents),
         investedCents: toNumberSafe(month.investedCents),

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import {
-  Area, Bar, CartesianGrid, Cell, ComposedChart, LabelList, Legend, Line, LineChart,
+  Area, Bar, CartesianGrid, ComposedChart, LabelList, Legend, Line, LineChart,
   ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import type { HistoryPoint, Performance, PerformanceMonth } from "../api.ts";
@@ -10,9 +10,10 @@ type Aba = "rs" | "pct";
 type SubAba = "mes" | "acumulado";
 
 type Mes = PerformanceMonth & { patrimonioCents: number };
-type LinhaRs = { rotulo: string; patrimonioCents: number; aporteCents: number; resgateCents: number; rendimentoCents: number; variacaoCents: number };
-type LinhaPct = { rotulo: string; carteira: number | null; cdi: number | null; ipca: number | null };
-type LinhaAcumulada = { rotulo: string; carteira: number; cdi: number; ipca: number };
+type LinhaRsBase = { rotulo: string; patrimonioCents: number; aporteCents: number; resgateCents: number; variacaoCents: number };
+type LinhaRs = LinhaRsBase & { resgateNegCents: number; capitalCents: number };
+type LinhaPct = { rotulo: string; carteira: number | null; cdi: number | null; ipca: number | null; real: number | null };
+type LinhaAcumulada = { rotulo: string; carteira: number; cdi: number; ipca: number; real: number };
 
 const acumula = (pcts: Array<number | null>): number => {
   let fator = 1;
@@ -27,24 +28,35 @@ const rotuloTrimestre = (mes: string): string => {
 
 const formataEixoRs = (cents: number): string => {
   const reais = cents / 100;
+  const sinal = reais < 0 ? "−" : "";
   const abs = Math.abs(reais);
-  if (abs >= 1_000_000) return `R$ ${(reais / 1_000_000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} mi`;
-  if (abs >= 1_000) return `R$ ${Math.round(reais / 1_000).toLocaleString("pt-BR")} mil`;
-  return `R$ ${reais.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}`;
+  if (abs >= 1_000_000) return `${sinal}R$ ${(abs / 1_000_000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} mi`;
+  if (abs >= 1_000) return `${sinal}R$ ${Math.round(abs / 1_000).toLocaleString("pt-BR")} mil`;
+  return `${sinal}R$ ${abs.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}`;
 };
 
 const formataEixoPct = (valor: number): string =>
   `${valor.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
 
 function visaoRs(meses: Mes[], trimestral: boolean): LinhaRs[] {
-  const linhas = meses.map((mes) => ({
+  const linhas: LinhaRsBase[] = meses.map((mes) => ({
     rotulo: formataMes(mes.month), patrimonioCents: mes.patrimonioCents,
     aporteCents: mes.investedCents, resgateCents: mes.redeemedCents,
-    rendimentoCents: mes.rendimentoCents,
     variacaoCents: mes.rendimentoCents + mes.investedCents - mes.redeemedCents,
   }));
-  if (!trimestral) return linhas;
-  const grupos: LinhaRs[] = [];
+  if (linhas.length === 0) return [];
+  const agregadas = trimestral ? agrupaTrimestresRs(linhas, meses) : linhas;
+  // capital acumulado (só tooltip, sem linha): base da janela + aportes − resgates desde a primeira barra
+  const base = linhas[0]!.patrimonioCents - linhas[0]!.variacaoCents;
+  let capital = base;
+  return agregadas.map((linha) => {
+    capital += linha.aporteCents - linha.resgateCents;
+    return { ...linha, resgateNegCents: -linha.resgateCents, capitalCents: capital };
+  });
+}
+
+function agrupaTrimestresRs(linhas: LinhaRsBase[], meses: Mes[]): LinhaRsBase[] {
+  const grupos: LinhaRsBase[] = [];
   for (let inicio = 0; inicio < linhas.length; inicio += 3) {
     const grupo = linhas.slice(inicio, inicio + 3);
     // patrimônio imediatamente antes do grupo: o do mês anterior ou, no primeiro, o valor inicial derivado da variação
@@ -55,7 +67,6 @@ function visaoRs(meses: Mes[], trimestral: boolean): LinhaRs[] {
       rotulo: rotuloTrimestre(meses[inicio]!.month), patrimonioCents: grupo.at(-1)!.patrimonioCents,
       aporteCents: grupo.reduce((total, linha) => total + linha.aporteCents, 0),
       resgateCents: grupo.reduce((total, linha) => total + linha.resgateCents, 0),
-      rendimentoCents: grupo.reduce((total, linha) => total + linha.rendimentoCents, 0),
       variacaoCents: grupo.at(-1)!.patrimonioCents - anterior,
     });
   }
@@ -65,7 +76,7 @@ function visaoRs(meses: Mes[], trimestral: boolean): LinhaRs[] {
 function visaoPct(meses: Mes[], trimestral: boolean): LinhaPct[] {
   if (!trimestral) {
     return meses.map((mes) => ({
-      rotulo: formataMes(mes.month), carteira: mes.portfolioPct, cdi: mes.cdiPct, ipca: mes.ipcaPct,
+      rotulo: formataMes(mes.month), carteira: mes.portfolioPct, cdi: mes.cdiPct, ipca: mes.ipcaPct, real: mes.realPct,
     }));
   }
   const linhas: LinhaPct[] = [];
@@ -76,6 +87,7 @@ function visaoPct(meses: Mes[], trimestral: boolean): LinhaPct[] {
       carteira: acumula(grupo.map((mes) => mes.portfolioPct)),
       cdi: acumula(grupo.map((mes) => mes.cdiPct)),
       ipca: acumula(grupo.map((mes) => mes.ipcaPct)),
+      real: acumula(grupo.map((mes) => mes.realPct)),
     });
   }
   return linhas;
@@ -83,14 +95,35 @@ function visaoPct(meses: Mes[], trimestral: boolean): LinhaPct[] {
 
 function visaoAcumulada(meses: Mes[]): LinhaAcumulada[] {
   const linhas: LinhaAcumulada[] = [];
-  let carteira = 1, cdi = 1, ipca = 1;
+  let carteira = 1, cdi = 1, ipca = 1, real = 1;
   for (const mes of meses) {
     if (mes.portfolioPct !== null) carteira *= 1 + mes.portfolioPct / 100;
     if (mes.cdiPct !== null) cdi *= 1 + mes.cdiPct / 100;
     if (mes.ipcaPct !== null) ipca *= 1 + mes.ipcaPct / 100;
-    linhas.push({ rotulo: formataMes(mes.month), carteira: (carteira - 1) * 100, cdi: (cdi - 1) * 100, ipca: (ipca - 1) * 100 });
+    if (mes.realPct !== null) real *= 1 + mes.realPct / 100;
+    linhas.push({
+      rotulo: formataMes(mes.month), carteira: (carteira - 1) * 100, cdi: (cdi - 1) * 100,
+      ipca: (ipca - 1) * 100, real: (real - 1) * 100,
+    });
   }
   return linhas;
+}
+
+/** Desvios verticais (px) para rótulos finais próximos: agrupa valores a menos de 1,5 p.p. e empilha cada grupo com passo de 14 px. */
+function deslocamentosRotulos(valores: number[], limitePp = 1.5, passo = 14): number[] {
+  const ordem = valores.map((valor, indice) => ({ valor, indice })).sort((a, b) => b.valor - a.valor);
+  const desvios = valores.map(() => 0);
+  let inicio = 0;
+  while (inicio < ordem.length) {
+    let fim = inicio + 1;
+    while (fim < ordem.length && ordem[fim - 1]!.valor - ordem[fim]!.valor < limitePp) fim++;
+    const tamanho = fim - inicio;
+    for (let posicao = 0; posicao < tamanho; posicao++) {
+      desvios[ordem[inicio + posicao]!.indice] = (posicao - (tamanho - 1) / 2) * passo;
+    }
+    inicio = fim;
+  }
+  return desvios;
 }
 
 function TooltipRs({ active, payload }: { active?: boolean; payload?: Array<{ payload: LinhaRs }> }) {
@@ -100,23 +133,24 @@ function TooltipRs({ active, payload }: { active?: boolean; payload?: Array<{ pa
     <div className="chart-tooltip">
       <p className="chart-tooltip-title">{linha.rotulo}</p>
       <p>Patrimônio: <strong>{formataBRL(linha.patrimonioCents)}</strong></p>
-      <p>Variação: {formataBRL(linha.variacaoCents)}</p>
+      <p>Capital acumulado: {formataBRL(linha.capitalCents)}</p>
       <p>Aporte: {formataBRL(linha.aporteCents)}</p>
       <p>Resgate: {formataBRL(linha.resgateCents)}</p>
-      <p>Rendimento: {formataBRL(linha.rendimentoCents)}</p>
     </div>
   );
 }
 
-function TooltipPct({ active, payload }: { active?: boolean; payload?: Array<{ payload: LinhaPct }> }) {
+function TooltipPct({ active, payload }: { active?: boolean; payload?: Array<{ payload: LinhaPct | LinhaAcumulada }> }) {
   if (!active || !payload || payload.length === 0) return null;
   const linha = payload[0]!.payload;
+  const mostra = (valor: number | null): string => (valor === null ? "—" : formataPercentualSinal(valor));
   return (
     <div className="chart-tooltip">
       <p className="chart-tooltip-title">{linha.rotulo}</p>
-      <p>Carteira: {linha.carteira === null ? "—" : formataPercentualSinal(linha.carteira)}</p>
-      <p>CDI: {linha.cdi === null ? "—" : formataPercentualSinal(linha.cdi)}</p>
-      <p>IPCA: {linha.ipca === null ? "—" : formataPercentualSinal(linha.ipca)}</p>
+      <p>Carteira: {mostra(linha.carteira)}</p>
+      <p>CDI: {mostra(linha.cdi)}</p>
+      <p>IPCA: {mostra(linha.ipca)}</p>
+      <p>Líquido (Carteira − IPCA): <strong>{mostra(linha.real)}</strong></p>
     </div>
   );
 }
@@ -130,8 +164,11 @@ export function EvolucaoChart({ history, performance, altura = 280, resumo = tru
   const meses: Mes[] = performance.months.map((mes) => ({ ...mes, patrimonioCents: patrimonioPorMes.get(mes.month) ?? 0 }));
   const trimestral = meses.length > 24;
   const linhasRs = visaoRs(meses, trimestral);
+  const maxFluxo = Math.max(1, ...linhasRs.map((linha) => Math.max(linha.aporteCents, linha.resgateCents)));
   const linhasPct = visaoPct(meses, trimestral);
   const linhasAcumuladas = visaoAcumulada(meses);
+  const ultimos = linhasAcumuladas.at(-1);
+  const desviosRotulos = ultimos === undefined ? [0, 0, 0] : deslocamentosRotulos([ultimos.carteira, ultimos.cdi, ultimos.ipca]);
 
   if (meses.length === 0) {
     return (
@@ -146,50 +183,47 @@ export function EvolucaoChart({ history, performance, altura = 280, resumo = tru
 
   return (
     <div className={flexivel ? "chart-flex" : undefined}>
-      <div className="chart-controles">
-        <button type="button" className={aba === "rs" ? "chip active" : "chip"} onClick={() => setAba("rs")}>R$</button>
-        <button type="button" className={aba === "pct" ? "chip active" : "chip"} onClick={() => setAba("pct")}>%</button>
-        {aba === "pct" && (
-          <>
-            <button type="button" className={subAba === "mes" ? "chip active" : "chip"} onClick={() => setSubAba("mes")}>Mês a mês</button>
-            <button type="button" className={subAba === "acumulado" ? "chip active" : "chip"} onClick={() => setSubAba("acumulado")}>Acumulado</button>
-          </>
-        )}
+      <div className="chart-controles-grafico">
+        <div className="chart-grupo">
+          <button type="button" className={aba === "rs" ? "chip active" : "chip"} onClick={() => setAba("rs")}>R$</button>
+          <button type="button" className={aba === "pct" ? "chip active" : "chip"} onClick={() => setAba("pct")}>%</button>
+        </div>
+        <span className="chart-divisor" aria-hidden="true" />
+        <div className={aba === "pct" ? "chart-grupo" : "chart-grupo invisivel"}>
+          <button type="button" className={subAba === "mes" ? "chip active" : "chip"} onClick={() => setSubAba("mes")}>Mês a mês</button>
+          <button type="button" className={subAba === "acumulado" ? "chip active" : "chip"} onClick={() => setSubAba("acumulado")}>Acumulado</button>
+        </div>
         {trimestral && <span className="section-hint">por trimestre</span>}
       </div>
 
       <div className={flexivel ? "chart-canvas" : undefined}>
         <ResponsiveContainer width="100%" height={altura}>
         {aba === "rs" ? (
-          <ComposedChart data={linhasRs} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
+          <ComposedChart data={linhasRs} barGap={-16} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} />
             <XAxis dataKey="rotulo" tickLine={false} axisLine={false} fontSize={12} />
-            <YAxis yAxisId="valor" tickLine={false} axisLine={false} fontSize={12} width={76}
-              tickFormatter={formataEixoRs} />
+            <YAxis yAxisId="valor" tickLine={false} axisLine={false} fontSize={12} width={76} tickFormatter={formataEixoRs} />
             <YAxis yAxisId="fluxo" orientation="right" tickLine={false} axisLine={false} fontSize={11} width={68}
-              tickFormatter={formataEixoRs} />
+              tickFormatter={formataEixoRs} domain={[-maxFluxo, maxFluxo]} />
+            <ReferenceLine yAxisId="fluxo" y={0} stroke="var(--border-strong)" />
             <Tooltip content={<TooltipRs />} />
             <Legend />
             <Area yAxisId="valor" type="monotone" dataKey="patrimonioCents" name="Patrimônio" stroke="var(--accent)" fill="var(--accent-soft)" strokeWidth={2} />
-            <Bar yAxisId="fluxo" dataKey="aporteCents" name="Aporte" fill="var(--sand)" />
-            <Bar yAxisId="fluxo" dataKey="resgateCents" name="Resgate" fill="var(--danger)" />
+            <Bar yAxisId="fluxo" dataKey="aporteCents" name="Aporte" fill="var(--sand)" barSize={16} />
+            <Bar yAxisId="fluxo" dataKey="resgateNegCents" name="Resgate" fill="var(--danger)" barSize={16} />
           </ComposedChart>
         ) : subAba === "mes" ? (
-          <ComposedChart data={linhasPct} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
+          <LineChart data={linhasPct} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} />
             <XAxis dataKey="rotulo" tickLine={false} axisLine={false} fontSize={12} />
             <YAxis tickLine={false} axisLine={false} fontSize={12} width={52} tickFormatter={formataEixoPct} />
             <ReferenceLine y={0} stroke="var(--border-strong)" />
             <Tooltip content={<TooltipPct />} />
             <Legend />
-            <Bar dataKey="carteira" name="Carteira">
-              {linhasPct.map((linha, index) => (
-                <Cell key={index} fill={linha.carteira !== null && linha.cdi !== null && linha.carteira < linha.cdi ? "var(--danger)" : "var(--accent)"} />
-              ))}
-            </Bar>
-            <Bar dataKey="cdi" name="CDI" fill="var(--sand)" />
-            <Bar dataKey="ipca" name="IPCA" fill="var(--olive)" />
-          </ComposedChart>
+            <Line type="monotone" dataKey="carteira" name="Carteira" stroke="var(--accent)" strokeWidth={2} dot={{ r: 2 }} />
+            <Line type="monotone" dataKey="cdi" name="CDI" stroke="var(--sand)" strokeWidth={1.5} dot={{ r: 2 }} />
+            <Line type="monotone" dataKey="ipca" name="IPCA" stroke="var(--olive)" strokeWidth={1.5} dot={{ r: 2 }} />
+          </LineChart>
         ) : (
           <LineChart data={linhasAcumuladas} margin={{ top: 8, right: 44, bottom: 0, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -199,13 +233,13 @@ export function EvolucaoChart({ history, performance, altura = 280, resumo = tru
             <Tooltip content={<TooltipPct />} />
             <Legend />
             <Line type="monotone" dataKey="carteira" name="Carteira" stroke="var(--accent)" strokeWidth={2} dot={false}>
-              <LabelList dataKey="carteira" content={(props) => <RotuloFinal {...props} ultimo={linhasAcumuladas.length - 1} />} />
+              <LabelList dataKey="carteira" content={(props) => <RotuloFinal {...props} ultimo={linhasAcumuladas.length - 1} dy={desviosRotulos[0]} />} />
             </Line>
             <Line type="monotone" dataKey="cdi" name="CDI" stroke="var(--sand)" strokeWidth={1.5} dot={false}>
-              <LabelList dataKey="cdi" content={(props) => <RotuloFinal {...props} ultimo={linhasAcumuladas.length - 1} />} />
+              <LabelList dataKey="cdi" content={(props) => <RotuloFinal {...props} ultimo={linhasAcumuladas.length - 1} dy={desviosRotulos[1]} />} />
             </Line>
             <Line type="monotone" dataKey="ipca" name="IPCA" stroke="var(--olive)" strokeWidth={1.5} dot={false}>
-              <LabelList dataKey="ipca" content={(props) => <RotuloFinal {...props} ultimo={linhasAcumuladas.length - 1} />} />
+              <LabelList dataKey="ipca" content={(props) => <RotuloFinal {...props} ultimo={linhasAcumuladas.length - 1} dy={desviosRotulos[2]} />} />
             </Line>
           </LineChart>
         )}
@@ -225,10 +259,10 @@ export function EvolucaoChart({ history, performance, altura = 280, resumo = tru
   );
 }
 
-function RotuloFinal(props: { index?: number; x?: number | string; y?: number | string; value?: number | string | boolean | null; ultimo: number }) {
+function RotuloFinal(props: { index?: number; x?: number | string; y?: number | string; value?: number | string | boolean | null; ultimo: number; dy?: number }) {
   if (props.index !== props.ultimo) return null;
   return (
-    <text x={Number(props.x) + 6} y={Number(props.y)} fontSize={11} fill="var(--text-2)">
+    <text x={Number(props.x) + 6} y={Number(props.y) + (props.dy ?? 0)} fontSize={11} fill="var(--text-2)">
       {formataPercentual(Number(props.value))}
     </text>
   );
