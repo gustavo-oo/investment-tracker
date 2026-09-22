@@ -5,11 +5,12 @@ import {
 } from "@phosphor-icons/react";
 import {
   getAllocation, getHealth, getHistory, getPerformance, getPortfolio,
-  type Allocation, type AllocationBy, type Health, type HistoryPoint, type Performance, type Portfolio, type PortfolioPosition,
+  type Allocation, type AllocationBy, type Health, type HistoryPoint, type Performance, type Portfolio,
 } from "../api.ts";
 import {
   formataBRL, formataCategoria, formataHora, formataJanela, formataPercentualSinal, formataPontosPercentuais, mesDeslocado,
 } from "../format.ts";
+import { ORDEM_CLASSE, ROTULO_CLASSE, classeDe, type Classe } from "../classes.ts";
 import { EvolucaoChart } from "../components/EvolucaoChart.tsx";
 
 type Periodo = "1a" | "5a" | "tudo";
@@ -19,8 +20,6 @@ const PERIODOS: Array<{ id: Periodo; rotulo: string }> = [
 const ALOCACOES: Array<{ by: AllocationBy; rotulo: string }> = [
   { by: "category", rotulo: "Categoria" }, { by: "broker", rotulo: "Corretora" }, { by: "objective", rotulo: "Objetivo" },
 ];
-const NOMES_KIND: Record<string, string> = { fixed_income: "Renda fixa", equity: "Renda variável", pension: "Previdência" };
-const ORDEM_KIND: Array<PortfolioPosition["kind"]> = ["fixed_income", "equity", "pension"];
 const FONTES: Record<string, { rotulo: string; Icone: Icon }> = {
   yahoo: { rotulo: "Yahoo Finance", Icone: ChartLineUp },
   bcb: { rotulo: "Banco Central (SGS)", Icone: Bank },
@@ -42,7 +41,7 @@ function inicioDoPeriodo(periodo: Periodo, mes: string): string {
 
 export function OverviewView({ reloadToken, onAbrirPosicoes, onAbrirFontes }: {
   reloadToken: number;
-  onAbrirPosicoes: (kind: PortfolioPosition["kind"]) => void;
+  onAbrirPosicoes: (classe: Classe) => void;
   onAbrirFontes: () => void;
 }) {
   const [periodo, setPeriodo] = useState<Periodo>("1a");
@@ -103,10 +102,10 @@ export function OverviewView({ reloadToken, onAbrirPosicoes, onAbrirFontes }: {
   const capital = portfolio.totals.investedCents - portfolio.totals.redeemedCents;
   const rendimento = portfolio.totals.marketValueCents - capital;
   const rendimentoPct = capital > 0 ? (rendimento / capital) * 100 : 0;
-  const porKind = ORDEM_KIND.map((kind) => {
-    const posicoes = portfolio.positions.filter((posicao) => posicao.kind === kind);
+  const porClasse = ORDEM_CLASSE.map((classe) => {
+    const posicoes = portfolio.positions.filter((posicao) => classeDe(posicao) === classe);
     const valor = posicoes.reduce((total, posicao) => total + (posicao.marketValueCents ?? 0), 0);
-    return { kind, valor, quantidade: posicoes.length, pct: portfolio.totals.marketValueCents > 0 ? (valor / portfolio.totals.marketValueCents) * 100 : 0 };
+    return { classe, valor, quantidade: posicoes.length, pct: portfolio.totals.marketValueCents > 0 ? (valor / portfolio.totals.marketValueCents) * 100 : 0 };
   });
 
   return (
@@ -197,11 +196,11 @@ export function OverviewView({ reloadToken, onAbrirPosicoes, onAbrirFontes }: {
           <section className="card">
             <div className="section-head"><h2 className="section-title">Onde está o dinheiro</h2></div>
             <ul className="alloc-list">
-              {porKind.map((bloco) => (
-                <li className="alloc-row" key={bloco.kind}>
-                  <button type="button" className="alloc-line botao-linha" onClick={() => onAbrirPosicoes(bloco.kind)}>
+              {porClasse.map((bloco) => (
+                <li className="alloc-row" key={bloco.classe}>
+                  <button type="button" className="alloc-line botao-linha" onClick={() => onAbrirPosicoes(bloco.classe)}>
                     <span className="alloc-name">
-                      {NOMES_KIND[bloco.kind] ?? bloco.kind}
+                      {ROTULO_CLASSE[bloco.classe]}
                       <span className="alloc-contagem">{bloco.quantidade} {bloco.quantidade === 1 ? "ativo" : "ativos"}</span>
                     </span>
                     <span className="alloc-valores">

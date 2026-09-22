@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { ArrowsClockwise, ChartLine, ChartLineUp, Coins, FileArrowUp, Table } from "@phosphor-icons/react";
-import { getHealth, postRefresh, type Health, type PortfolioPosition } from "./api.ts";
+import { getHealth, postRefresh, type Health } from "./api.ts";
 import { formataHora } from "./format.ts";
+import type { Classe } from "./classes.ts";
 import { ImportView } from "./views/ImportView.tsx";
 import { OverviewView } from "./views/OverviewView.tsx";
 import { PositionsView } from "./views/PositionsView.tsx";
@@ -26,7 +27,7 @@ function ultimaColeta(health: Health | null): string | null {
 export function App() {
   const [view, setView] = useState<View>("visao-geral");
   const [health, setHealth] = useState<Health | null>(null);
-  const [filtroPosicoes, setFiltroPosicoes] = useState<PortfolioPosition["kind"] | null>(null);
+  const [filtroPosicoes, setFiltroPosicoes] = useState<Classe | null>(null);
   const [busy, setBusy] = useState(false);
   const [recado, setRecado] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
@@ -45,8 +46,8 @@ export function App() {
     return () => clearInterval(id);
   }, [carregaHealth]);
 
-  function abrirPosicoes(kind: PortfolioPosition["kind"]) {
-    setFiltroPosicoes(kind);
+  function abrirPosicoes(classe: Classe) {
+    setFiltroPosicoes(classe);
     setView("posicoes");
   }
 

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { CaretDown, CaretUp, MagnifyingGlass, Table, X } from "@phosphor-icons/react";
 import { getPortfolio, getTransactions, type PortfolioPosition, type Transaction } from "../api.ts";
 import { formataBRL, formataCategoria, formataData, formataMes, formataPercentualSinal, formataQuantidade } from "../format.ts";
+import { ORDEM_CLASSE, ROTULO_CLASSE, classeDe, type Classe } from "../classes.ts";
 
 type Ordem = "valor" | "nome" | "rendimento" | "rendimentoPct" | "pct";
 
@@ -17,16 +18,15 @@ function precoMedio(transacao: Transaction): string {
   return formataBRL(Math.round(transacao.grossCents / (transacao.quantityE8 / 1e8)));
 }
 
-const ROTULO_KIND: Record<string, string> = { fixed_income: "Renda fixa", equity: "Renda variável", pension: "Previdência" };
 const ROTULO_OPERACAO: Record<string, string> = { BUY: "Compra", SELL: "Venda", AMORTIZATION: "Amortização", INTEREST: "Juros", DIVIDEND: "Dividendo" };
 
 export function PositionsView({ reloadToken, filtroInicial }: {
-  reloadToken: number; filtroInicial: PortfolioPosition["kind"] | null;
+  reloadToken: number; filtroInicial: Classe | null;
 }) {
   const [posicoes, setPosicoes] = useState<PortfolioPosition[] | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [busca, setBusca] = useState("");
-  const [kind, setKind] = useState<PortfolioPosition["kind"] | "todos">(filtroInicial ?? "todos");
+  const [classe, setClasse] = useState<Classe | "todos">(filtroInicial ?? "todos");
   const [corretora, setCorretora] = useState("todas");
   const [objetivo, setObjetivo] = useState("todos");
   const [ordem, setOrdem] = useState<Ordem>("valor");
@@ -34,7 +34,7 @@ export function PositionsView({ reloadToken, filtroInicial }: {
   const [transacoes, setTransacoes] = useState<Transaction[] | null>(null);
 
   useEffect(() => {
-    setKind(filtroInicial ?? "todos");
+    setClasse(filtroInicial ?? "todos");
   }, [filtroInicial]);
 
   useEffect(() => {
@@ -67,7 +67,7 @@ export function PositionsView({ reloadToken, filtroInicial }: {
 
   const visiveis = (posicoes ?? [])
     .filter((posicao) => posicao.name.toLowerCase().includes(busca.trim().toLowerCase()))
-    .filter((posicao) => kind === "todos" || posicao.kind === kind)
+    .filter((posicao) => classe === "todos" || classeDe(posicao) === classe)
     .filter((posicao) => corretora === "todas" || (posicao.broker ?? "—") === corretora)
     .filter((posicao) => objetivo === "todos" || (posicao.objective ?? "—") === objetivo)
     .sort((a, b) => {
@@ -102,11 +102,9 @@ export function PositionsView({ reloadToken, filtroInicial }: {
         </label>
         <label className="campo">
           <span className="stat-label">Tipo</span>
-          <select value={kind} onChange={(evento) => setKind(evento.target.value as PortfolioPosition["kind"] | "todos")}>
+          <select value={classe} onChange={(evento) => setClasse(evento.target.value as Classe | "todos")}>
             <option value="todos">Todos</option>
-            <option value="fixed_income">Renda fixa</option>
-            <option value="equity">Renda variável</option>
-            <option value="pension">Previdência</option>
+            {ORDEM_CLASSE.map((valor) => <option key={valor} value={valor}>{ROTULO_CLASSE[valor]}</option>)}
           </select>
         </label>
         <label className="campo">
@@ -164,7 +162,7 @@ export function PositionsView({ reloadToken, filtroInicial }: {
                       {posicao.name}
                       {posicao.stale && <span className="badge badge-warn">desatualizado</span>}
                     </td>
-                    <td>{ROTULO_KIND[posicao.kind] ?? posicao.kind}</td>
+                    <td>{ROTULO_CLASSE[classeDe(posicao)]}</td>
                     <td className="num">{posicao.marketValueCents === null ? "—" : formataBRL(posicao.marketValueCents)}</td>
                     <td className="num">{total > 0 && posicao.marketValueCents !== null ? formataPercentualSinal((posicao.marketValueCents / total) * 100) : "—"}</td>
                     <td className={`num ${rendimento.cents === null ? "" : rendimento.cents >= 0 ? "rendimento-positivo" : "rendimento-negativo"}`}>
@@ -197,7 +195,7 @@ export function PositionsView({ reloadToken, filtroInicial }: {
           <p className="tags">
             <span className="chip">{formataCategoria(selecionada.category)}</span>
             <span className="chip">{selecionada.broker ?? "—"}</span>
-            <span className="chip">{ROTULO_KIND[selecionada.kind] ?? selecionada.kind}</span>
+            <span className="chip">{ROTULO_CLASSE[classeDe(selecionada)]}</span>
           </p>
           <div className="stats">
             <div className="stat"><span className="stat-label">Valor</span><span className="stat-value">{selecionada.marketValueCents === null ? "—" : formataBRL(selecionada.marketValueCents)}</span></div>
