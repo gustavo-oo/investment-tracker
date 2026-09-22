@@ -9,7 +9,6 @@ import {
 } from "../format.ts";
 import { ORDEM_CLASSE, ROTULO_CLASSE, classeDe, type Classe } from "../classes.ts";
 import { EvolucaoChart } from "../components/EvolucaoChart.tsx";
-import { ExplicacaoRendimentos } from "../components/InfoPopover.tsx";
 import { Modal } from "../components/Modal.tsx";
 
 type Periodo = "1a" | "5a" | "tudo";
@@ -28,7 +27,7 @@ const TITULOS: Record<Detalhe, string> = {
 };
 type Dados = {
   portfolio: Portfolio; history: HistoryPoint[];
-  performance: Performance; performanceTudo: Performance; performance12m: Performance; allocation: Allocation;
+  performance: Performance; performanceTudo: Performance; allocation: Allocation;
 };
 
 const INICIO_TUDO = "2000-01";
@@ -54,14 +53,13 @@ export function OverviewView({ reloadToken, onAbrirPosicoes }: {
       const portfolio = await getPortfolio(signal);
       const mes = portfolio.asOf.slice(0, 7);
       const from = inicioDoPeriodo(periodo, mes);
-      const [history, performance, performanceTudo, performance12m, allocation] = await Promise.all([
+      const [history, performance, performanceTudo, allocation] = await Promise.all([
         getHistory(from, mes, signal),
         getPerformance(from, mes, signal),
         getPerformance(INICIO_TUDO, mes, signal),
-        getPerformance(mesDeslocado(mes, -11), mes, signal),
         getAllocation(alocacaoBy, signal),
       ]);
-      setDados({ portfolio, history, performance, performanceTudo, performance12m, allocation });
+      setDados({ portfolio, history, performance, performanceTudo, allocation });
       setErro(null);
     } catch (cause) {
       if (cause instanceof DOMException && cause.name === "AbortError") return;
@@ -97,7 +95,7 @@ export function OverviewView({ reloadToken, onAbrirPosicoes }: {
     );
   }
 
-  const { portfolio, history, performance, performanceTudo, performance12m, allocation } = dados;
+  const { portfolio, history, performance, performanceTudo, allocation } = dados;
   const capital = portfolio.totals.investedCents - portfolio.totals.redeemedCents;
   const rendimento = portfolio.totals.marketValueCents - capital;
   const rendimentoPct = capital > 0 ? (rendimento / capital) * 100 : 0;
@@ -107,12 +105,6 @@ export function OverviewView({ reloadToken, onAbrirPosicoes }: {
     return { classe, valor, quantidade: posicoes.length, pct: portfolio.totals.marketValueCents > 0 ? (valor / portfolio.totals.marketValueCents) * 100 : 0 };
   });
   const mwrPct = performanceTudo.mwr.periodPct;
-  const comparativo = [
-    { rotulo: "Carteira (TWR)", valor: performanceTudo.accumulated.portfolioPct },
-    { rotulo: "CDI", valor: performanceTudo.accumulated.cdiPct },
-    { rotulo: "IPCA", valor: performanceTudo.accumulated.ipcaPct },
-  ];
-  const maiorAbs = Math.max(...comparativo.map((linha) => Math.abs(linha.valor)), 1);
   const ultimoMesIpca = [...performanceTudo.months].reverse().find((mes) => mes.ipcaPct !== null)?.month;
   const rotuloIpca = ultimoMesIpca === undefined ? "IPCA do período" : `IPCA do período (até ${formataMes(ultimoMesIpca)})`;
   const metricas: Array<{ id: Detalhe; rotulo: string; valor: number | null; dica: string }> = [
@@ -232,61 +224,6 @@ export function OverviewView({ reloadToken, onAbrirPosicoes }: {
           </section>
         </div>
       </div>
-
-      <section className="card card-rendimento">
-        <div className="section-head section-head-linha">
-          <div>
-            <h2 className="section-title">Meu dinheiro rendeu</h2>
-            <p className="section-hint">Desde o início: {formataJanela(performanceTudo.from, performanceTudo.to)}.</p>
-          </div>
-          <ExplicacaoRendimentos />
-        </div>
-
-        <div className="rendimento-grid">
-          <div className={mwrPct !== null && mwrPct < 0 ? "rendimento-real rendimento-real-negativo" : "rendimento-real"}>
-            <span className="stat-label">Seu rendimento real (MWR)</span>
-            <span className={mwrPct === null ? "stat-value" : mwrPct >= 0 ? "stat-value rendimento-positivo" : "stat-value rendimento-negativo"}>
-              {mwrPct === null ? "—" : formataPercentualSinal(mwrPct)}
-            </span>
-            <span className="stat-note">considera quando e quanto você aportou ou resgatou</span>
-          </div>
-
-          <div className="comparativo">
-            <span className="stat-label">Comparação com o mercado (TWR)</span>
-            <span className="stat-note">ignora aportes e resgates — mede a estratégia</span>
-            <table className="tabela-comparativa">
-              <tbody>
-                {comparativo.map((linha) => (
-                  <tr key={linha.rotulo}>
-                    <th scope="row">{linha.rotulo}</th>
-                    <td className="barra">
-                      <span className="comp-bar">
-                        <span
-                          className={linha.valor >= 0 ? "comp-bar-fill" : "comp-bar-fill negativa"}
-                          style={{ width: `${(Math.abs(linha.valor) / maiorAbs) * 100}%` }}
-                        />
-                      </span>
-                    </td>
-                    <td className="num">{formataPercentualSinal(linha.valor)}</td>
-                  </tr>
-                ))}
-                <tr className="linha-destaque">
-                  <th scope="row">Diferença vs CDI</th>
-                  <td className="barra" />
-                  <td className="num">{formataPontosPercentuais(performanceTudo.accumulated.diffCdiPp)}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div className="rodape-notas">
-          <span>{performanceTudo.monthsBeaten} de {performanceTudo.monthsTotal} meses acima do CDI</span>
-          {performance12m.from !== performanceTudo.from && (
-            <span>MWR 12 meses {performance12m.mwr.periodPct === null ? "—" : formataPercentualSinal(performance12m.mwr.periodPct)}</span>
-          )}
-        </div>
-      </section>
 
       <Modal aberto={detalhe !== null} titulo={detalhe === null ? "" : TITULOS[detalhe]} onFechar={() => setDetalhe(null)}>
         {detalhe === "capital" && (
