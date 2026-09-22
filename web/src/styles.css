@@ -699,9 +699,10 @@ tbody tr:last-child td {
 .colunas { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 16px; align-items: stretch; }
 .colunas > * { min-width: 0; }
 .chart-controles { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-.chart-controles-grafico { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
-.chart-grupo { display: flex; gap: 6px; align-items: center; }
-.chart-divisor { width: 1px; height: 20px; background: var(--border); }
+.chart-controles-grafico { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.chart-grupo { display: flex; gap: 2px; align-items: center; padding: 2px; background: var(--surface-2); border-radius: var(--radius-pill); }
+.chart-grupo .chip { border-color: transparent; padding: 3px 10px; font-size: 12px; }
+.chart-grupo .chip.active { background: var(--surface); }
 .chip {
   padding: 5px 10px; border: 1px solid var(--border); border-radius: var(--radius-pill);
   background: var(--surface); color: var(--text-2); font: inherit; font-size: 13px; cursor: pointer;

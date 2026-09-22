@@ -3,13 +3,9 @@ import { CaretDown, CaretUp } from "@phosphor-icons/react";
 import { Bar, CartesianGrid, ComposedChart, Legend, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { getHistory, getPerformance, type HistoryPoint, type Performance } from "../api.ts";
 import { formataBRL, formataJanela, formataMes, formataPercentualSinal, formataPontosPercentuais, mesDeslocado } from "../format.ts";
+import { type Periodo } from "../periodos.ts";
 import { EvolucaoChart } from "../components/EvolucaoChart.tsx";
 import { ExplicacaoRendimentos } from "../components/InfoPopover.tsx";
-
-type Periodo = "1a" | "5a" | "tudo";
-const PERIODOS: Array<{ id: Periodo; rotulo: string }> = [
-  { id: "1a", rotulo: "1 ano" }, { id: "5a", rotulo: "5 anos" }, { id: "tudo", rotulo: "Tudo" },
-];
 
 type LinhaCrescimento = { rotulo: string; aporteCents: number; rendimentoCents: number; resgateCents: number };
 
@@ -83,15 +79,6 @@ export function EvolutionView({ reloadToken }: { reloadToken: number }) {
           <h1 className="page-title">Evolução</h1>
           <p className="page-sub">Janela: {formataJanela(performance.from, performance.to)}.</p>
         </div>
-        <div className="page-head-actions">
-          <div className="chart-controles">
-            {PERIODOS.map((item) => (
-              <button key={item.id} type="button" className={periodo === item.id ? "chip active" : "chip"} onClick={() => setPeriodo(item.id)}>
-                {item.rotulo}
-              </button>
-            ))}
-          </div>
-        </div>
       </div>
 
       {erro !== null && <div className="callout callout-error" role="alert"><p>{erro}</p></div>}
@@ -105,7 +92,7 @@ export function EvolutionView({ reloadToken }: { reloadToken: number }) {
             </div>
             <ExplicacaoRendimentos />
           </div>
-          <EvolucaoChart history={history} performance={performance} altura={360} />
+          <EvolucaoChart history={history} performance={performance} altura={360} periodo={periodo} onPeriodo={setPeriodo} />
         </section>
 
         <section className="card">
