@@ -725,9 +725,9 @@ tbody tr:last-child td {
 
 .delta-linha {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
   margin-top: 8px;
 }
 
@@ -760,7 +760,6 @@ tbody tr:last-child td {
 
 .delta-linha .stat-value.grande {
   margin-top: 0;
-  font-size: 28px;
 }
 
 .delta-contexto {
