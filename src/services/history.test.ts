@@ -71,17 +71,17 @@ test("resolveHistoryWindow clampa no primeiro mês com retorno", () => {
   writeIndexRates(db, [{ series: "CDI", date: "2025-05-02", valueE12: 1_000_000_000n }]);
   const now = () => new Date("2026-09-18T12:00:00-03:00");
 
-  // abr/2025 é atividade inicial; mai/2025 é o primeiro mês com mês anterior > 0
-  assert.deepEqual(resolveHistoryWindow(db, { from: "2000-01", to: "2026-09" }, { now }), { from: "2025-05", to: "2026-09" });
+  // abr/2025 é atividade inicial; o piso da série é jun/2025 (migrações de abr–mai não contam como aporte)
+  assert.deepEqual(resolveHistoryWindow(db, { from: "2000-01", to: "2026-09" }, { now }), { from: "2025-06", to: "2026-09" });
   // pedido depois do clamp fica intacto
   assert.deepEqual(resolveHistoryWindow(db, { from: "2025-08", to: "2026-09" }, { now }), { from: "2025-08", to: "2026-09" });
   // default: to = mês corrente, from = to − 11
   assert.deepEqual(resolveHistoryWindow(db, {}, { now }), { from: "2025-10", to: "2026-09" });
 });
 
-test("resolveHistoryWindow sem transações mantém a janela pedida", () => {
+test("resolveHistoryWindow sem transações clampa no piso da série", () => {
   const db = openDb(":memory:");
   migrate(db);
   const now = () => new Date("2026-09-18T12:00:00-03:00");
-  assert.deepEqual(resolveHistoryWindow(db, { from: "2000-01", to: "2026-09" }, { now }), { from: "2000-01", to: "2026-09" });
+  assert.deepEqual(resolveHistoryWindow(db, { from: "2000-01", to: "2026-09" }, { now }), { from: "2025-06", to: "2026-09" });
 });

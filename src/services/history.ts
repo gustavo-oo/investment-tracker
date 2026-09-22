@@ -19,6 +19,9 @@ export type HistoryPoint = {
 
 export type HistoryOptions = { from?: string; to?: string };
 
+/** Início da série de retorno: abr–mai/2025 são lotes de migração de posições que já existiam, registrados pelo valor bruto do dia — não são aportes. */
+const SERIES_START_MONTH = "2025-06";
+
 function sumMonth(transactions: TransactionRow[], month: string, kind: "BUY" | "SELL"): bigint {
   return transactions
     .filter((transaction) => transaction.kind === kind && transaction.tradeDate.slice(0, 7) === month)
@@ -35,7 +38,8 @@ export function resolveHistoryWindow(
   const to = options.to ?? today.slice(0, 7);
   const requestedFrom = options.from ?? addMonths(to, -11);
   const first = firstMonthWithReturn(db, to);
-  const from = first !== null && requestedFrom < first ? first : requestedFrom;
+  const floor = first !== null && first > SERIES_START_MONTH ? first : SERIES_START_MONTH;
+  const from = requestedFrom < floor ? floor : requestedFrom;
   return { from, to };
 }
 

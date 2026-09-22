@@ -1,6 +1,6 @@
 import type { Db } from "../db/index.ts";
-import { addMonths } from "../domain/dates.ts";
-import { accumulatePct, gapPp, monthlyPortfolioPct, monthsBeaten, mwrPct } from "../domain/performance.ts";
+import { addMonths, daysBetween } from "../domain/dates.ts";
+import { accumulatePct, gapPp, monthlyPortfolioPct, monthsBeaten, xirrPct, type DatedFlow } from "../domain/performance.ts";
 import { buildHistory, resolveHistoryWindow, type HistoryOptions } from "./history.ts";
 
 export type PerformanceMonth = {
@@ -23,7 +23,7 @@ export function buildPerformance(db: Db, options: HistoryOptions = {}, deps: { n
   let previous = base;
   for (const point of points.slice(1)) {
     if (!previous) break;
-    const portfolioPct = monthlyPortfolioPct(previous.marketValueCents, point.marketValueCents, point.investedCents, point.redeemedCents);
+    const portfolioPct = monthlyPortfolioPct(previous.marketValueCents, previous.asOf, point.marketValueCents, point.asOf, point.flows);
     months.push({
       month: point.month, portfolioPct, cdiPct: point.cdiPct, ipcaPct: point.ipcaPct,
       diffCdiPp: portfolioPct === null || point.cdiPct === null ? null : gapPp(portfolioPct, point.cdiPct),
@@ -42,17 +42,18 @@ export function buildPerformance(db: Db, options: HistoryOptions = {}, deps: { n
   accumulated.diffCdiPp = gapPp(accumulated.portfolioPct, accumulated.cdiPct);
   accumulated.diffIpcaPp = gapPp(accumulated.portfolioPct, accumulated.ipcaPct);
 
-  const flows: bigint[] = [-(base?.marketValueCents ?? 0n)];
-  for (const month of months) flows.push(-(month.investedCents - month.redeemedCents));
   const lastPoint = points.at(-1);
-  if (lastPoint && flows.length > 0 && months.length > 0) {
-    flows[flows.length - 1] = flows[flows.length - 1]! + lastPoint.marketValueCents;
+  const datedFlows: DatedFlow[] = points.slice(1).flatMap((point) => point.flows);
+  let mwr: PerformanceResult["mwr"] = { periodPct: null, months: months.length };
+  if (base && lastPoint && months.length > 0) {
+    const annual = xirrPct(base.marketValueCents, base.asOf, datedFlows, lastPoint.marketValueCents, lastPoint.asOf);
+    if (annual !== null) {
+      mwr = {
+        periodPct: Math.round(((1 + annual / 100) ** (daysBetween(base.asOf, lastPoint.asOf) / 365) - 1) * 1_000_000) / 10_000,
+        months: months.length,
+      };
+    }
   }
-  const monthly = mwrPct(flows);
-  const mwr = {
-    periodPct: monthly === null ? null : Math.round(((1 + monthly / 100) ** months.length - 1) * 1_000_000) / 10_000,
-    months: months.length,
-  };
 
   return { from: window.from, to: window.to, months, accumulated, monthsBeaten: monthsBeaten(months), monthsTotal: months.length, mwr };
 }
