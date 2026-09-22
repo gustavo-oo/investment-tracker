@@ -116,7 +116,7 @@ export function OverviewView({ reloadToken, onAbrirPosicoes }: {
                   <Info size={16} aria-hidden="true" />
                 </button>
                 <span className="info-pop" role="tooltip">
-                  <span className="info-pop-titulo">Como calculamos</span>
+                  <span className="info-pop-titulo">Cálculo do rendimento</span>
                   <span className="info-pop-item">
                     <span className="info-pop-rotulo">Capital (aportes − resgates)</span>
                     <span className="info-pop-valor">
