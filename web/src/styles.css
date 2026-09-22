@@ -110,8 +110,14 @@ button {
 }
 
 .stack {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 16px;
+  min-width: 0;
+}
+
+.stack > * {
+  min-width: 0;
 }
 
 .card {
@@ -673,7 +679,7 @@ tbody tr:last-child td {
 .dot { width: 8px; height: 8px; margin-left: auto; border-radius: 50%; background: var(--warn); }
 .sidebar-foot { display: flex; flex-direction: column; gap: 8px; margin-top: auto; }
 .sidebar-recado { font-size: 12px; color: var(--text-2); }
-.colunas { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.colunas { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 16px; align-items: stretch; }
 .colunas > * { min-width: 0; }
 .chart-controles { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .chip {
@@ -754,6 +760,7 @@ tbody tr:last-child td {
 
 .tabela-comparativa {
   width: 100%;
+  min-width: 0;
   border-collapse: collapse;
   margin-top: 4px;
 }
@@ -764,6 +771,7 @@ tbody tr:last-child td {
   font-weight: 500;
   color: var(--text-2);
   text-align: left;
+  white-space: normal;
 }
 
 .tabela-comparativa td {
@@ -839,8 +847,107 @@ tbody tr:last-child td {
   margin: 2px 0;
 }
 
-.fontes-badges {
+.fontes-lista {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fonte-item {
   display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+}
+
+.fonte-icone {
+  display: inline-flex;
+  flex: none;
+  color: var(--text-2);
+}
+
+.fonte-info {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.fonte-nome {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.fonte-meta {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.fonte-estado {
+  flex: none;
+}
+
+.fonte-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.fonte-dot-ok {
+  background: var(--accent);
+}
+
+.fonte-dot-warn {
+  background: var(--warn);
+}
+
+.fontes-ver {
+  margin-top: 12px;
+}
+
+.section-head-linha {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
   flex-wrap: wrap;
-  gap: 6px;
+}
+
+.card-desempenho {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.grafico-area {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 320px;
+}
+
+.grafico-area > * {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.chart-flex {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.chart-canvas {
+  flex: 1;
+  min-height: 0;
+}
+
+.sub-bloco {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
 }

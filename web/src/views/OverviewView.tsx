@@ -1,10 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
-import { ChartPie, TrendDown, TrendUp, WarningCircle } from "@phosphor-icons/react";
+import {
+  Bank, ChartLineUp, ChartPie, CloudArrowDown, Database, TrendDown, TrendUp, Vault, WarningCircle,
+  type Icon,
+} from "@phosphor-icons/react";
 import {
   getAllocation, getHealth, getHistory, getPerformance, getPortfolio,
   type Allocation, type AllocationBy, type Health, type HistoryPoint, type Performance, type Portfolio, type PortfolioPosition,
 } from "../api.ts";
-import { formataBRL, formataCategoria, formataJanela, formataPercentualSinal, formataPontosPercentuais, mesDeslocado } from "../format.ts";
+import {
+  formataBRL, formataCategoria, formataHora, formataJanela, formataPercentualSinal, formataPontosPercentuais, mesDeslocado,
+} from "../format.ts";
 import { EvolucaoChart } from "../components/EvolucaoChart.tsx";
 
 type Periodo = "1a" | "5a" | "tudo";
@@ -16,6 +21,16 @@ const ALOCACOES: Array<{ by: AllocationBy; rotulo: string }> = [
 ];
 const NOMES_KIND: Record<string, string> = { fixed_income: "Renda fixa", equity: "Renda variável", pension: "Previdência" };
 const ORDEM_KIND: Array<PortfolioPosition["kind"]> = ["fixed_income", "equity", "pension"];
+const FONTES: Record<string, { rotulo: string; Icone: Icon }> = {
+  yahoo: { rotulo: "Yahoo Finance", Icone: ChartLineUp },
+  bcb: { rotulo: "Banco Central (SGS)", Icone: Bank },
+  "cvm-swb": { rotulo: "CVM — SWB", Icone: Vault },
+  alphavantage: { rotulo: "Alpha Vantage", Icone: CloudArrowDown },
+};
+
+function infoFonte(id: string): { rotulo: string; Icone: Icon } {
+  return FONTES[id] ?? { rotulo: id, Icone: Database };
+}
 
 type Dados = { portfolio: Portfolio; history: HistoryPoint[]; performance: Performance; performance12m: Performance; allocation: Allocation; health: Health };
 
@@ -99,16 +114,7 @@ export function OverviewView({ reloadToken, onAbrirPosicoes, onAbrirFontes }: {
       <div className="page-head">
         <div>
           <h1 className="page-title">Visão geral</h1>
-          <p className="page-sub">Posição em {portfolio.asOf}, com a última cotação disponível de cada fonte.</p>
-        </div>
-        <div className="page-head-actions">
-          <div className="chart-controles">
-            {PERIODOS.map((item) => (
-              <button key={item.id} type="button" className={periodo === item.id ? "chip active" : "chip"} onClick={() => setPeriodo(item.id)}>
-                {item.rotulo}
-              </button>
-            ))}
-          </div>
+          <p className="page-sub">Posição atual e desempenho no período, com a última cotação disponível de cada fonte.</p>
         </div>
       </div>
 
@@ -123,8 +129,8 @@ export function OverviewView({ reloadToken, onAbrirPosicoes, onAbrirFontes }: {
         <div className="stack">
           <section className="card">
             <div className="section-head">
-              <h2 className="section-title">Patrimônio</h2>
-              <p className="section-hint">{formataJanela(performance.from, performance.to)}</p>
+              <h2 className="section-title">Posição atual</h2>
+              <p className="section-hint">Patrimônio em {portfolio.asOf}, com a última cotação disponível de cada fonte. Rendimento acumulado desde o início.</p>
             </div>
             <p className="stat-value grande">{formataBRL(portfolio.totals.marketValueCents)}</p>
             <div className="delta-linha">
@@ -132,16 +138,58 @@ export function OverviewView({ reloadToken, onAbrirPosicoes, onAbrirFontes }: {
                 {rendimentoPct >= 0 ? <TrendUp size={13} aria-hidden="true" /> : <TrendDown size={13} aria-hidden="true" />}
                 {formataPercentualSinal(rendimentoPct)}
               </span>
-              <span className="stat-note">rendimento de {formataBRL(rendimento)} sobre o capital</span>
+              <span className="stat-note">rendimento de {formataBRL(rendimento)} desde o início</span>
             </div>
           </section>
 
-          <section className="card">
-            <div className="section-head">
-              <h2 className="section-title">Evolução</h2>
-              <p className="section-hint">Janela: {formataJanela(performance.from, performance.to)}.</p>
+          <section className="card card-desempenho">
+            <div className="section-head section-head-linha">
+              <div>
+                <h2 className="section-title">Desempenho no período</h2>
+                <p className="section-hint">Janela {formataJanela(performance.from, performance.to)}.</p>
+              </div>
+              <div className="chart-controles">
+                {PERIODOS.map((item) => (
+                  <button key={item.id} type="button" className={periodo === item.id ? "chip active" : "chip"} onClick={() => setPeriodo(item.id)}>
+                    {item.rotulo}
+                  </button>
+                ))}
+              </div>
             </div>
-            <EvolucaoChart history={history} performance={performance} />
+            <div className="grafico-area">
+              <EvolucaoChart history={history} performance={performance} altura="100%" resumo={false} />
+            </div>
+            <div className="sub-bloco">
+              <div className="section-head">
+                <h3 className="section-title">Meu dinheiro rendeu</h3>
+                <p className="section-hint">Cada aporte pesa pelo tempo investido (MWR).</p>
+              </div>
+              <table className="tabela-comparativa">
+                <tbody>
+                  <tr>
+                    <th scope="row">Carteira</th>
+                    <td className="num">{formataPercentualSinal(performance.accumulated.portfolioPct)}</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">CDI</th>
+                    <td className="num">{formataPercentualSinal(performance.accumulated.cdiPct)}</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">IPCA</th>
+                    <td className="num">{formataPercentualSinal(performance.accumulated.ipcaPct)}</td>
+                  </tr>
+                  <tr className="linha-destaque">
+                    <th scope="row">Diferença vs CDI</th>
+                    <td className="num">{formataPontosPercentuais(performance.accumulated.diffCdiPp)}</td>
+                  </tr>
+                </tbody>
+              </table>
+              <div className="rodape-notas">
+                <span>{performance.monthsBeaten} de {performance.monthsTotal} meses acima do CDI</span>
+                <span>MWR {performance.mwr.periodPct === null ? "—" : formataPercentualSinal(performance.mwr.periodPct)}</span>
+                <span>12 meses {performance12m.mwr.periodPct === null ? "—" : formataPercentualSinal(performance12m.mwr.periodPct)}</span>
+              </div>
+            </div>
           </section>
         </div>
 
@@ -165,38 +213,6 @@ export function OverviewView({ reloadToken, onAbrirPosicoes, onAbrirFontes }: {
                 </li>
               ))}
             </ul>
-          </section>
-
-          <section className="card">
-            <div className="section-head">
-              <h2 className="section-title">Meu dinheiro rendeu</h2>
-              <p className="section-hint">Janela {formataJanela(performance.from, performance.to)}. Cada aporte pesa pelo tempo investido (MWR).</p>
-            </div>
-            <table className="tabela-comparativa">
-              <tbody>
-                <tr>
-                  <th scope="row">Carteira</th>
-                  <td className="num">{formataPercentualSinal(performance.accumulated.portfolioPct)}</td>
-                </tr>
-                <tr>
-                  <th scope="row">CDI</th>
-                  <td className="num">{formataPercentualSinal(performance.accumulated.cdiPct)}</td>
-                </tr>
-                <tr>
-                  <th scope="row">IPCA</th>
-                  <td className="num">{formataPercentualSinal(performance.accumulated.ipcaPct)}</td>
-                </tr>
-                <tr className="linha-destaque">
-                  <th scope="row">Diferença vs CDI</th>
-                  <td className="num">{formataPontosPercentuais(performance.accumulated.diffCdiPp)}</td>
-                </tr>
-              </tbody>
-            </table>
-            <div className="rodape-notas">
-              <span>{performance.monthsBeaten} de {performance.monthsTotal} meses acima do CDI</span>
-              <span>MWR {performance.mwr.periodPct === null ? "—" : formataPercentualSinal(performance.mwr.periodPct)}</span>
-              <span>12 meses {performance12m.mwr.periodPct === null ? "—" : formataPercentualSinal(performance12m.mwr.periodPct)}</span>
-            </div>
           </section>
 
           <section className="card">
@@ -232,14 +248,27 @@ export function OverviewView({ reloadToken, onAbrirPosicoes, onAbrirFontes }: {
 
           <section className="card">
             <div className="section-head"><h2 className="section-title">Fontes</h2></div>
-            <div className="fontes-badges">
-              {health.sources.map((source) => (
-                <span key={source.id} className={source.stale ? "badge badge-warn" : "badge badge-ok"}>
-                  {source.id} {source.stale ? "desatualizado" : "ok"}
-                </span>
-              ))}
-            </div>
-            <button type="button" className="btn btn-secondary" onClick={onAbrirFontes}>Ver fontes</button>
+            <ul className="fontes-lista">
+              {health.sources.map((source) => {
+                const { rotulo, Icone } = infoFonte(source.id);
+                return (
+                  <li className="fonte-item" key={source.id}>
+                    <span className="fonte-icone"><Icone size={17} aria-hidden="true" /></span>
+                    <span className="fonte-info">
+                      <span className="fonte-nome">{rotulo}</span>
+                      <span className="fonte-meta">
+                        última coleta {source.lastSuccessAt === null ? "—" : formataHora(source.lastSuccessAt)}
+                      </span>
+                    </span>
+                    <span className={source.stale ? "badge badge-warn fonte-estado" : "badge badge-ok fonte-estado"}>
+                      <span className={source.stale ? "fonte-dot fonte-dot-warn" : "fonte-dot fonte-dot-ok"} aria-hidden="true" />
+                      {source.stale ? "desatualizada" : "ok"}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+            <button type="button" className="btn btn-secondary fontes-ver" onClick={onAbrirFontes}>Ver fontes</button>
           </section>
         </div>
       </div>
