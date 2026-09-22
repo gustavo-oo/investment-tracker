@@ -5,6 +5,7 @@ import {
 } from "recharts";
 import type { HistoryPoint, Performance, PerformanceMonth } from "../api.ts";
 import { formataBRL, formataMes, formataPercentual, formataPercentualSinal, formataPontosPercentuais } from "../format.ts";
+import { PERIODOS, type Periodo } from "../periodos.ts";
 
 type Aba = "rs" | "pct";
 type SubAba = "mes" | "acumulado";
@@ -155,8 +156,9 @@ function TooltipPct({ active, payload }: { active?: boolean; payload?: Array<{ p
   );
 }
 
-export function EvolucaoChart({ history, performance, altura = 280, resumo = true }: {
+export function EvolucaoChart({ history, performance, altura = 280, resumo = true, periodo, onPeriodo }: {
   history: HistoryPoint[]; performance: Performance; altura?: number | `${number}%`; resumo?: boolean;
+  periodo?: Periodo; onPeriodo?: (periodo: Periodo) => void;
 }) {
   const [aba, setAba] = useState<Aba>("rs");
   const [subAba, setSubAba] = useState<SubAba>("mes");
@@ -188,11 +190,19 @@ export function EvolucaoChart({ history, performance, altura = 280, resumo = tru
           <button type="button" className={aba === "rs" ? "chip active" : "chip"} onClick={() => setAba("rs")}>R$</button>
           <button type="button" className={aba === "pct" ? "chip active" : "chip"} onClick={() => setAba("pct")}>%</button>
         </div>
-        <span className="chart-divisor" aria-hidden="true" />
         <div className="chart-grupo">
           <button type="button" className={subAba === "mes" ? "chip active" : "chip"} onClick={() => setSubAba("mes")}>Mês a mês</button>
           <button type="button" className={subAba === "acumulado" ? "chip active" : "chip"} onClick={() => setSubAba("acumulado")}>Acumulado</button>
         </div>
+        {periodo !== undefined && onPeriodo !== undefined && (
+          <div className="chart-grupo">
+            {PERIODOS.map((item) => (
+              <button key={item.id} type="button" className={periodo === item.id ? "chip active" : "chip"} onClick={() => onPeriodo(item.id)}>
+                {item.rotulo}
+              </button>
+            ))}
+          </div>
+        )}
         {trimestral && <span className="section-hint">por trimestre</span>}
       </div>
 

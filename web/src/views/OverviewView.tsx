@@ -8,13 +8,10 @@ import {
   formataBRL, formataCategoria, formataData, formataJanela, formataMes, formataPercentual, formataPercentualSinal, formataPontosPercentuais, mesDeslocado,
 } from "../format.ts";
 import { ORDEM_CLASSE, ROTULO_CLASSE, classeDe, type Classe } from "../classes.ts";
+import { type Periodo } from "../periodos.ts";
 import { EvolucaoChart } from "../components/EvolucaoChart.tsx";
 import { Modal } from "../components/Modal.tsx";
 
-type Periodo = "1a" | "5a" | "tudo";
-const PERIODOS: Array<{ id: Periodo; rotulo: string }> = [
-  { id: "1a", rotulo: "1 ano" }, { id: "5a", rotulo: "5 anos" }, { id: "tudo", rotulo: "Tudo" },
-];
 const ALOCACOES: Array<{ by: AllocationBy; rotulo: string }> = [
   { by: "category", rotulo: "Categoria" }, { by: "broker", rotulo: "Corretora" }, { by: "objective", rotulo: "Objetivo" },
 ];
@@ -181,16 +178,9 @@ export function OverviewView({ reloadToken, onAbrirPosicoes }: {
                 <h2 className="section-title">Desempenho no período</h2>
                 <p className="section-hint">Janela {formataJanela(performance.from, performance.to)}.</p>
               </div>
-              <div className="chart-controles">
-                {PERIODOS.map((item) => (
-                  <button key={item.id} type="button" className={periodo === item.id ? "chip active" : "chip"} onClick={() => setPeriodo(item.id)}>
-                    {item.rotulo}
-                  </button>
-                ))}
-              </div>
             </div>
             <div className="grafico-area">
-              <EvolucaoChart history={history} performance={performance} altura="100%" resumo={false} />
+              <EvolucaoChart history={history} performance={performance} altura="100%" resumo={false} periodo={periodo} onPeriodo={setPeriodo} />
             </div>
           </section>
         </div>
