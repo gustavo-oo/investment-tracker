@@ -65,6 +65,7 @@ test("buildPerformance sem dados devolve meses nulos e MWR nulo", () => {
   const result = buildPerformance(db, { from: "2026-08", to: "2026-09" }, { now });
   assert.equal(result.monthsTotal, 2);
   assert.equal(result.months[0]?.portfolioPct, null);
+  assert.equal(result.months[0]?.realPct, null);
   assert.equal(result.accumulated.portfolioPct, 0);
   assert.equal(result.mwr.periodPct, null);
 });
