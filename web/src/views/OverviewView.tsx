@@ -85,7 +85,6 @@ export function OverviewView({ reloadToken, onAbrirPosicoes, onAbrirFontes }: {
         <div className="page-head">
           <div>
             <h1 className="page-title">Visão geral</h1>
-            <p className="page-sub">Patrimônio, evolução, alocação e fontes.</p>
           </div>
         </div>
         {erro !== null && (
@@ -113,7 +112,6 @@ export function OverviewView({ reloadToken, onAbrirPosicoes, onAbrirFontes }: {
       <div className="page-head">
         <div>
           <h1 className="page-title">Visão geral</h1>
-          <p className="page-sub">Posição atual e desempenho no período, com a última cotação disponível de cada fonte.</p>
         </div>
       </div>
 
@@ -129,7 +127,6 @@ export function OverviewView({ reloadToken, onAbrirPosicoes, onAbrirFontes }: {
           <section className="card">
             <div className="section-head">
               <h2 className="section-title">Posição atual</h2>
-              <p className="section-hint">Patrimônio em {portfolio.asOf}, com a última cotação disponível de cada fonte. Rendimento acumulado desde o início.</p>
             </div>
             <p className="stat-value grande">{formataBRL(portfolio.totals.marketValueCents)}</p>
             <div className="delta-linha">
@@ -137,7 +134,12 @@ export function OverviewView({ reloadToken, onAbrirPosicoes, onAbrirFontes }: {
                 {rendimentoPct >= 0 ? <TrendUp size={13} aria-hidden="true" /> : <TrendDown size={13} aria-hidden="true" />}
                 {formataPercentualSinal(rendimentoPct)}
               </span>
-              <span className="stat-note">rendimento de {formataBRL(rendimento)} desde o início</span>
+              <span className="rendimento-bloco">
+                <span className="stat-label">Rendimento desde o início</span>
+                <span className={rendimento >= 0 ? "rendimento-valor rendimento-positivo" : "rendimento-valor rendimento-negativo"}>
+                  {formataBRL(rendimento)}
+                </span>
+              </span>
             </div>
           </section>
 
