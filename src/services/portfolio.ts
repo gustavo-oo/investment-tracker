@@ -55,6 +55,7 @@ export function buildPortfolio(db: Db, deps: { now?: () => Date; asOf?: string }
     const instrumentRates = series === null ? [] : rates.filter((rate) => rate.series === series);
     const value = instrumentValue({
       kind: instrument.kind, benchmark: instrument.benchmark, rateE6: instrument.rateE6,
+      maturityDate: instrument.maturityDate,
       transactions: instrumentTransactions, quotes: instrumentQuotes, rates: instrumentRates,
       pensionQuotes: instrumentFundQuotas,
     }, asOf);

@@ -17,6 +17,7 @@ export type PositionInput = {
   kind: InstrumentKind;
   benchmark: string | null;
   rateE6: bigint | null;
+  maturityDate: string | null;
   transactions: PositionTransaction[];
   quotes: QuotePoint[];
   rates: RatePoint[];
@@ -31,6 +32,8 @@ export type PositionValue = {
   investedCents: bigint;
   redeemedCents: bigint;
   feesCents: bigint;
+  maturityDate: string | null;
+  pendingRedemption: boolean;
 };
 
 /** Fator diário (1 + taxa × multiplicador) em escala e12. */
@@ -117,6 +120,8 @@ function zeroClosedResidue(
 
 /** Posição de um ativo em `asOf`, com investido/resgatado/taxas acumulados até a data. */
 export function instrumentValue(input: PositionInput, asOf: string): PositionValue {
+  const maturityDate = input.kind === "fixed_income" ? (input.maturityDate ?? null) : null;
+  const asOfEfetivo = maturityDate !== null && maturityDate < asOf ? maturityDate : asOf;
   let investedCents = 0n;
   let redeemedCents = 0n;
   let feesCents = 0n;
@@ -136,10 +141,13 @@ export function instrumentValue(input: PositionInput, asOf: string): PositionVal
   }
   if (input.kind === "fixed_income") {
     const multiplierE6 = input.rateE6 ?? 1_000_000n;
-    const { valueCents, lastRateDate } = rfValueCents(operations, input.rates, multiplierE6, asOf);
+    const { valueCents, lastRateDate } = rfValueCents(operations, input.rates, multiplierE6, asOfEfetivo);
+    const marketValueCents = zeroClosedResidue("fixed_income", null, valueCents, lastBalanceKind);
     return {
-      marketValueCents: zeroClosedResidue("fixed_income", null, valueCents, lastBalanceKind),
+      marketValueCents,
       priceCents: null, priceDate: lastRateDate, quantityE8: null, investedCents, redeemedCents, feesCents,
+      maturityDate,
+      pendingRedemption: maturityDate !== null && maturityDate <= asOf && marketValueCents !== null && marketValueCents > 0n,
     };
   }
   if (input.kind === "pension") {
@@ -147,11 +155,13 @@ export function instrumentValue(input: PositionInput, asOf: string): PositionVal
     return {
       marketValueCents: zeroClosedResidue("pension", quantityE8, quota.valueCents, lastBalanceKind),
       priceCents: quota.priceCents, priceDate: quota.priceDate, quantityE8, investedCents, redeemedCents, feesCents,
+      maturityDate: null, pendingRedemption: false,
     };
   }
   const equity = equityValueCents(quantityE8 ?? 0n, input.quotes, asOf);
   return {
     marketValueCents: zeroClosedResidue("equity", quantityE8, equity.valueCents, lastBalanceKind),
     priceCents: equity.priceCents, priceDate: equity.priceDate, quantityE8, investedCents, redeemedCents, feesCents,
+    maturityDate: null, pendingRedemption: false,
   };
 }

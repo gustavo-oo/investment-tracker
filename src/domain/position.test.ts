@@ -33,7 +33,7 @@ test("RV usa último fechamento ≤ asOf e devolve null sem cota", () => {
 
 test("instrumentValue consolida invested/redeemed/fees e PGBL fica pendente sem cota", () => {
   const rf: PositionInput = {
-    kind: "fixed_income", benchmark: "CDI", rateE6: 1_000_000n,
+    kind: "fixed_income", benchmark: "CDI", rateE6: 1_000_000n, maturityDate: null,
     transactions: [
       { tradeDate: "2026-01-02", kind: "BUY", quantityE8: null, grossCents: 100_000n, feesCents: 5_000n },
       { tradeDate: "2026-01-05", kind: "SELL", quantityE8: null, grossCents: 40_000n, feesCents: 0n },
@@ -68,7 +68,7 @@ test("PGBL: cotas × última cota ≤ asOf, com precisão e12", () => {
 
 test("instrumentValue: PGBL usa pensionQuotes e fica pendente sem cota", () => {
   const input: PositionInput = {
-    kind: "pension", benchmark: null, rateE6: null,
+    kind: "pension", benchmark: null, rateE6: null, maturityDate: null,
     transactions: [{ tradeDate: "2026-01-02", kind: "BUY", quantityE8: 5_00000000n, grossCents: 50_000n, feesCents: 0n }],
     quotes: [], rates: [],
     pensionQuotes: [{ date: "2026-01-02", quotaE12: 1_200_000_000_000n }],
@@ -84,7 +84,7 @@ test("instrumentValue: PGBL usa pensionQuotes e fica pendente sem cota", () => {
 test("RF encerrada zera resíduo (≤ R$ 0,01) e resgate parcial fica intacto", () => {
   const rates = [rate("2026-01-02"), rate("2026-01-05")];
   const base: PositionInput = {
-    kind: "fixed_income", benchmark: "CDI", rateE6: 1_000_000n,
+    kind: "fixed_income", benchmark: "CDI", rateE6: 1_000_000n, maturityDate: null,
     transactions: [
       { tradeDate: "2026-01-02", kind: "BUY", quantityE8: null, grossCents: 100_000n, feesCents: 0n },
       { tradeDate: "2026-01-05", kind: "SELL", quantityE8: null, grossCents: 100_400n, feesCents: 0n },
@@ -122,7 +122,7 @@ test("RF encerrada zera resíduo (≤ R$ 0,01) e resgate parcial fica intacto", 
 
 test("RV/PGBL com quantidade zero valem 0 mesmo sem cotação; posição aberta sem cotação fica null", () => {
   const equity: PositionInput = {
-    kind: "equity", benchmark: null, rateE6: null,
+    kind: "equity", benchmark: null, rateE6: null, maturityDate: null,
     transactions: [
       { tradeDate: "2026-01-02", kind: "BUY", quantityE8: 10_00000000n, grossCents: 1_000n, feesCents: 0n },
       { tradeDate: "2026-01-05", kind: "SELL", quantityE8: -10_00000000n, grossCents: 1_100n, feesCents: 0n },
@@ -132,4 +132,82 @@ test("RV/PGBL com quantidade zero valem 0 mesmo sem cotação; posição aberta 
   assert.equal(instrumentValue(equity, "2026-01-05").marketValueCents, 0n);
   assert.equal(instrumentValue({ ...equity, kind: "pension" }, "2026-01-05").marketValueCents, 0n);
   assert.equal(instrumentValue({ ...equity, transactions: [equity.transactions[0]!] }, "2026-01-05").marketValueCents, null);
+});
+
+test("RF congela no vencimento: valor do vencimento, não capitaliza depois", () => {
+  const input: PositionInput = {
+    kind: "fixed_income", benchmark: "CDI", rateE6: 1_000_000n, maturityDate: "2026-01-05",
+    transactions: [{ tradeDate: "2026-01-02", kind: "BUY", quantityE8: null, grossCents: 100_000n, feesCents: 0n }],
+    quotes: [], rates: [rate("2026-01-02"), rate("2026-01-05"), rate("2026-01-06")],
+  };
+  const noDia = instrumentValue(input, "2026-01-05");
+  assert.equal(noDia.marketValueCents, 100_200n); // 100000 × 1,001 × 1,001
+  assert.equal(noDia.maturityDate, "2026-01-05");
+  assert.equal(noDia.pendingRedemption, true); // venceu hoje e tem saldo
+  const depois = instrumentValue(input, "2026-01-06");
+  assert.equal(depois.marketValueCents, 100_200n, "taxa de 06/01 não entra");
+  assert.equal(depois.priceDate, "2026-01-05", "última taxa ≤ vencimento");
+  assert.equal(depois.pendingRedemption, true);
+});
+
+test("RF sem vencimento segue capitalizando e não fica pendente", () => {
+  const input: PositionInput = {
+    kind: "fixed_income", benchmark: "CDI", rateE6: 1_000_000n, maturityDate: null,
+    transactions: [{ tradeDate: "2026-01-02", kind: "BUY", quantityE8: null, grossCents: 100_000n, feesCents: 0n }],
+    quotes: [], rates: [rate("2026-01-02"), rate("2026-01-05"), rate("2026-01-06")],
+  };
+  const value = instrumentValue(input, "2026-01-06");
+  assert.equal(value.marketValueCents, 100_300n);
+  assert.equal(value.maturityDate, null);
+  assert.equal(value.pendingRedemption, false);
+});
+
+test("resgate no vencimento zera e limpa o pendente; parcial mantém; poeira ≤ 1¢ zera", () => {
+  const rates = [rate("2026-01-02"), rate("2026-01-05"), rate("2026-01-06")];
+  const quitado: PositionInput = {
+    kind: "fixed_income", benchmark: "CDI", rateE6: 1_000_000n, maturityDate: "2026-01-05",
+    transactions: [
+      { tradeDate: "2026-01-02", kind: "BUY", quantityE8: null, grossCents: 100_000n, feesCents: 0n },
+      { tradeDate: "2026-01-05", kind: "SELL", quantityE8: null, grossCents: 100_200n, feesCents: 0n },
+    ],
+    quotes: [], rates,
+  };
+  const value = instrumentValue(quitado, "2026-01-06");
+  assert.equal(value.marketValueCents, 0n);
+  assert.equal(value.pendingRedemption, false);
+
+  const parcial: PositionInput = {
+    ...quitado,
+    transactions: [quitado.transactions[0]!, { tradeDate: "2026-01-05", kind: "SELL", quantityE8: null, grossCents: 40_000n, feesCents: 0n }],
+  };
+  assert.equal(instrumentValue(parcial, "2026-01-06").pendingRedemption, true);
+
+  const poeira: PositionInput = {
+    ...quitado,
+    transactions: [quitado.transactions[0]!, { tradeDate: "2026-01-05", kind: "SELL", quantityE8: null, grossCents: 100_099n, feesCents: 0n }],
+  };
+  const comPoeira = instrumentValue(poeira, "2026-01-06");
+  assert.equal(comPoeira.marketValueCents, 0n); // resíduo +1¢ zerado
+  assert.equal(comPoeira.pendingRedemption, false);
+});
+
+test("sentinela 9999-01-01 e vencimento futuro não congelam", () => {
+  const equity: PositionInput = {
+    kind: "equity", benchmark: null, rateE6: null, maturityDate: "9999-01-01",
+    transactions: [{ tradeDate: "2026-01-02", kind: "BUY", quantityE8: 10_00000000n, grossCents: 1_000n, feesCents: 0n }],
+    quotes: [{ date: "2026-01-06", closeCents: 1_100n }], rates: [],
+  };
+  const acao = instrumentValue(equity, "2026-01-06");
+  assert.equal(acao.marketValueCents, 11_000n);
+  assert.equal(acao.maturityDate, null);
+  assert.equal(acao.pendingRedemption, false);
+
+  const futuro: PositionInput = {
+    kind: "fixed_income", benchmark: "CDI", rateE6: 1_000_000n, maturityDate: "2026-02-01",
+    transactions: [{ tradeDate: "2026-01-02", kind: "BUY", quantityE8: null, grossCents: 100_000n, feesCents: 0n }],
+    quotes: [], rates: [rate("2026-01-02"), rate("2026-01-05")],
+  };
+  const rf = instrumentValue(futuro, "2026-01-05");
+  assert.equal(rf.marketValueCents, 100_200n); // 100000 × 1,001 × 1,001
+  assert.equal(rf.pendingRedemption, false);
 });
