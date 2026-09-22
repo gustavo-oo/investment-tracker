@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ChartPie, TrendDown, TrendUp, WarningCircle } from "@phosphor-icons/react";
+import { ChartPie, Info, TrendDown, TrendUp, WarningCircle } from "@phosphor-icons/react";
 import {
   getAllocation, getHistory, getPerformance, getPortfolio,
   type Allocation, type AllocationBy, type HistoryPoint, type Performance, type Portfolio,
@@ -109,8 +109,35 @@ export function OverviewView({ reloadToken, onAbrirPosicoes }: {
       <div className="colunas">
         <div className="stack">
           <section className="card">
-            <div className="section-head">
+            <div className="section-head section-head-linha">
               <h2 className="section-title">Posição atual</h2>
+              <span className="info">
+                <button type="button" className="info-btn" aria-label="Como a posição atual foi calculada">
+                  <Info size={16} aria-hidden="true" />
+                </button>
+                <span className="info-pop" role="tooltip">
+                  <span className="info-pop-titulo">Como calculamos</span>
+                  <span className="info-pop-item">
+                    <span className="info-pop-rotulo">Capital (aportes − resgates)</span>
+                    <span className="info-pop-valor">
+                      {formataBRL(portfolio.totals.investedCents)} − {formataBRL(portfolio.totals.redeemedCents)} = {formataBRL(capital)}
+                    </span>
+                  </span>
+                  <span className="info-pop-item">
+                    <span className="info-pop-rotulo">Rendimento (patrimônio − capital)</span>
+                    <span className="info-pop-valor">
+                      {formataBRL(portfolio.totals.marketValueCents)} − {formataBRL(capital)} = {formataBRL(rendimento)}
+                    </span>
+                  </span>
+                  <span className="info-pop-item">
+                    <span className="info-pop-rotulo">Rendimento %</span>
+                    <span className="info-pop-valor">
+                      {formataBRL(rendimento)} ÷ {formataBRL(capital)} = {formataPercentualSinal(rendimentoPct)}
+                    </span>
+                  </span>
+                  <span className="info-pop-nota">Acumulado desde o início da carteira. Para o retorno do período, com cada aporte pesado pelo tempo investido, veja Desempenho no período.</span>
+                </span>
+              </span>
             </div>
             <div className="delta-linha">
               <p className="stat-value grande">{formataBRL(portfolio.totals.marketValueCents)}</p>
