@@ -3,13 +3,16 @@ import { earliestTradeDate, listAllFundQuotas, listAllIndexRates, listAllQuotes,
 import { addMonths, monthEnd, monthRange, toBrDate } from "../domain/dates.ts";
 import { cdiMonthPct, ipcaMonthPct } from "../domain/evolution.ts";
 import { instrumentValue } from "../domain/position.ts";
+import type { DatedFlow } from "../domain/performance.ts";
 import type { TransactionRow } from "../db/repos.ts";
 
 export type HistoryPoint = {
   month: string;
+  asOf: string;
   marketValueCents: bigint;
   investedCents: bigint;
   redeemedCents: bigint;
+  flows: DatedFlow[];
   cdiPct: number | null;
   ipcaPct: number | null;
 };
@@ -65,6 +68,7 @@ export function buildHistory(db: Db, options: HistoryOptions = {}, deps: { now?:
     let marketValueCents = 0n;
     let investedCents = 0n;
     let redeemedCents = 0n;
+    const flows: DatedFlow[] = [];
     for (const instrument of instruments) {
       const instrumentTransactions = transactions.filter((transaction) => transaction.instrumentId === instrument.id);
       const instrumentQuotes = instrument.ticker === null ? [] : quotes.filter((quote) => quote.ticker === instrument.ticker);
@@ -81,7 +85,14 @@ export function buildHistory(db: Db, options: HistoryOptions = {}, deps: { now?:
       marketValueCents += value.marketValueCents ?? 0n;
       investedCents += sumMonth(instrumentTransactions, month, "BUY");
       redeemedCents += sumMonth(instrumentTransactions, month, "SELL");
+      for (const transaction of instrumentTransactions) {
+        if (transaction.tradeDate.slice(0, 7) !== month) continue;
+        flows.push({
+          date: transaction.tradeDate,
+          cents: transaction.kind === "BUY" ? transaction.grossCents + transaction.feesCents : -transaction.grossCents,
+        });
+      }
     }
-    return { month, marketValueCents, investedCents, redeemedCents, cdiPct: cdiMonthPct(cdiRates, month), ipcaPct: ipcaMonthPct(ipcaRates, month) };
+    return { month, asOf, marketValueCents, investedCents, redeemedCents, flows, cdiPct: cdiMonthPct(cdiRates, month), ipcaPct: ipcaMonthPct(ipcaRates, month) };
   });
 }

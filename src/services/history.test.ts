@@ -28,6 +28,8 @@ test("history inclui previdência com cota", () => {
   const points = buildHistory(db, { from: "2026-09", to: "2026-09" }, { now: () => new Date("2026-09-18T12:00:00-03:00") });
   assert.equal(points[0]?.marketValueCents, 610n);
   assert.equal(points[0]?.investedCents, 50_000n);
+  assert.equal(points[0]?.asOf, "2026-09-18", "mês corrente usa hoje como data de valorização");
+  assert.deepEqual(points[0]?.flows, [{ date: "2026-09-17", cents: 50_000n }]);
 });
 
 test("history devolve 12 meses com total, aportes e índices do mês", () => {
@@ -54,6 +56,9 @@ test("history devolve 12 meses com total, aportes e índices do mês", () => {
   const feb = points.find((point) => point.month === "2026-02");
   assert.equal(feb?.marketValueCents, 80_100n, "resgate de 20_000 sai do saldo capitalizado");
   assert.equal(feb?.redeemedCents, 20_000n);
+  assert.equal(jan?.asOf, "2026-01-31");
+  assert.deepEqual(jan?.flows, [{ date: "2026-01-02", cents: 105_000n }], "compra soma taxas no fluxo");
+  assert.deepEqual(feb?.flows, [{ date: "2026-02-10", cents: -20_000n }], "resgate entra negativo e sem taxas");
   const sep = points.find((point) => point.month === "2026-09");
   assert.equal(sep?.marketValueCents, 80_100n, "mês corrente usa hoje como asOf");
 });
