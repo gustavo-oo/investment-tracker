@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { accumulatePct, gapPp, monthlyPortfolioPct, monthsBeaten, mwrPct } from "./performance.ts";
+import { accumulatePct, gapPp, monthlyPortfolioPct, monthsBeaten, mwrPct, xirrPct } from "./performance.ts";
 
 test("monthlyPortfolioPct desconta aporte e resgate e devolve null com base 0", () => {
   // (103000 − 100000 − 2000 + 0) / 100000 = 1%
@@ -35,4 +35,15 @@ test("monthsBeaten ignora empate e nulos; gapPp desconta", () => {
   ]), 1);
   assert.equal(gapPp(14.14, 14.01), 0.13);
   assert.equal(gapPp(1, 1.5), -0.5);
+});
+
+test("xirrPct acha a TIR anual (ACT/365) e devolve null sem raiz", () => {
+  // 100000 → 110000 em 365 dias = 10% a.a.
+  assert.equal(xirrPct(100_000n, "2025-01-01", [], 110_000n, "2026-01-01"), 10);
+  // aporte de 50000 em 01/07 pesa no meio do caminho
+  assert.equal(xirrPct(100_000n, "2025-01-01", [{ date: "2025-07-01", cents: 50_000n }], 165_000n, "2026-01-01"), 12.0487);
+  // perda extrema fica fora do intervalo [−0,9; 10] → null
+  assert.equal(xirrPct(100_000n, "2025-01-01", [], 5_000n, "2026-01-01"), null);
+  // nada investido → null
+  assert.equal(xirrPct(0n, "2025-01-01", [], 0n, "2026-01-01"), null);
 });

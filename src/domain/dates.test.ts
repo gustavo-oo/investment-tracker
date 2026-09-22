@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { addMonths, isDate, isMonth, monthEnd, monthRange, toBrDate } from "./dates.ts";
+import { addMonths, daysBetween, isDate, isMonth, monthEnd, monthRange, toBrDate } from "./dates.ts";
 
 test("toBrDate devolve a data em America/Sao_Paulo", () => {
   assert.equal(toBrDate(new Date("2026-09-18T02:00:00Z")), "2026-09-17");
@@ -33,4 +33,11 @@ test("isMonth e isDate validam formato e calendário", () => {
   assert.equal(isDate("2026-09-00"), false);
   assert.equal(isDate("2026-1-01"), false);
   assert.equal(isDate(null), false);
+});
+
+test("daysBetween conta dias de calendário nos dois sentidos", () => {
+  assert.equal(daysBetween("2025-04-30", "2025-05-31"), 31);
+  assert.equal(daysBetween("2025-05-31", "2025-04-30"), -31);
+  assert.equal(daysBetween("2028-02-28", "2028-03-01"), 2);
+  assert.equal(daysBetween("2025-01-01", "2025-01-01"), 0);
 });

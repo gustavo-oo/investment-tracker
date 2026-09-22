@@ -32,6 +32,11 @@ export function monthRange(from: string, to: string): string[] {
   return months;
 }
 
+/** Dias de calendário de `b − a` (positivo se `b` é depois de `a`); UTC, sem fuso/DST. */
+export function daysBetween(a: string, b: string): number {
+  return Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86_400_000);
+}
+
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 const DATE_RE = /^\d{4}-(0[1-9]|1[0-2])-\d{2}$/;
 
