@@ -135,7 +135,7 @@ export function OverviewView({ reloadToken, onAbrirPosicoes }: {
                       {formataBRL(rendimento)} ÷ {formataBRL(capital)} = {formataPercentualSinal(rendimentoPct)}
                     </span>
                   </span>
-                  <span className="info-pop-nota">Acumulado desde o início da carteira. Para o retorno do período, com cada aporte pesado pelo tempo investido, veja Desempenho no período.</span>
+                  <span className="info-pop-nota">Acumulado desde o início da carteira: ganho ÷ capital (aportes − resgates). Para o retorno do período (Carteira em TWR e MWR), veja Desempenho no período.</span>
                 </span>
               </span>
             </div>
@@ -143,10 +143,10 @@ export function OverviewView({ reloadToken, onAbrirPosicoes }: {
               <p className="stat-value grande">{formataBRL(portfolio.totals.marketValueCents)}</p>
               <span
                 className={rendimentoPct >= 0 ? "delta delta-positivo" : "delta delta-negativo"}
-                title={`Rendimento de ${formataBRL(rendimento)} desde o início`}
+                title={`Rendimento de ${formataBRL(rendimento)} desde o início: ganho ÷ capital (aportes − resgates)`}
               >
                 {rendimentoPct >= 0 ? <TrendUp size={13} aria-hidden="true" /> : <TrendDown size={13} aria-hidden="true" />}
-                {formataPercentualSinal(rendimentoPct)} <span className="delta-contexto">desde o início</span>
+                {formataPercentualSinal(rendimentoPct)} <span className="delta-contexto">sobre o capital</span>
               </span>
             </div>
           </section>
@@ -171,12 +171,12 @@ export function OverviewView({ reloadToken, onAbrirPosicoes }: {
             <div className="sub-bloco">
               <div className="section-head">
                 <h3 className="section-title">Meu dinheiro rendeu</h3>
-                <p className="section-hint">Cada aporte pesa pelo tempo investido (MWR).</p>
+                <p className="section-hint">Carteira sem efeito dos aportes; MWR pondera aportes pelo tempo.</p>
               </div>
               <table className="tabela-comparativa">
                 <tbody>
                   <tr>
-                    <th scope="row">Carteira</th>
+                    <th scope="row">Carteira (TWR)</th>
                     <td className="num">{formataPercentualSinal(performance.accumulated.portfolioPct)}</td>
                   </tr>
                   <tr>
@@ -196,7 +196,9 @@ export function OverviewView({ reloadToken, onAbrirPosicoes }: {
               <div className="rodape-notas">
                 <span>{performance.monthsBeaten} de {performance.monthsTotal} meses acima do CDI</span>
                 <span>MWR {performance.mwr.periodPct === null ? "—" : formataPercentualSinal(performance.mwr.periodPct)}</span>
-                <span>12 meses {performance12m.mwr.periodPct === null ? "—" : formataPercentualSinal(performance12m.mwr.periodPct)}</span>
+                {performance12m.from !== performance.from && (
+                  <span>12 meses {performance12m.mwr.periodPct === null ? "—" : formataPercentualSinal(performance12m.mwr.periodPct)}</span>
+                )}
               </div>
             </div>
           </section>
