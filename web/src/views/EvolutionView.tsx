@@ -5,6 +5,7 @@ import { getHistory, getPerformance, type HistoryPoint, type Performance } from 
 import { formataBRL, formataJanela, formataMes, formataPercentualSinal, formataPontosPercentuais, mesDeslocado } from "../format.ts";
 import { type Periodo } from "../periodos.ts";
 import { EvolucaoChart } from "../components/EvolucaoChart.tsx";
+import { ControlesGrafico, type Aba, type SubAba } from "../components/ControlesGrafico.tsx";
 import { ExplicacaoRendimentos } from "../components/InfoPopover.tsx";
 
 type LinhaCrescimento = { rotulo: string; aporteCents: number; rendimentoCents: number; resgateCents: number };
@@ -33,6 +34,8 @@ function TooltipCrescimento({ active, payload }: { active?: boolean; payload?: A
 
 export function EvolutionView({ reloadToken }: { reloadToken: number }) {
   const [periodo, setPeriodo] = useState<Periodo>("1a");
+  const [aba, setAba] = useState<Aba>("rs");
+  const [subAba, setSubAba] = useState<SubAba>("mes");
   const [history, setHistory] = useState<HistoryPoint[] | null>(null);
   const [performance, setPerformance] = useState<Performance | null>(null);
   const [erro, setErro] = useState<string | null>(null);
@@ -90,9 +93,13 @@ export function EvolutionView({ reloadToken }: { reloadToken: number }) {
               <h2 className="section-title">Evolução da carteira</h2>
               <p className="section-hint">Carteira em TWR (sem o efeito dos aportes), contra CDI e IPCA.</p>
             </div>
-            <ExplicacaoRendimentos />
+            <div className="controles-cabecalho">
+              <ControlesGrafico aba={aba} onAba={setAba} subAba={subAba} onSubAba={setSubAba}
+                periodo={periodo} onPeriodo={setPeriodo} trimestral={performance.months.length > 24} />
+              <ExplicacaoRendimentos />
+            </div>
           </div>
-          <EvolucaoChart history={history} performance={performance} altura={360} periodo={periodo} onPeriodo={setPeriodo} />
+          <EvolucaoChart history={history} performance={performance} altura={360} aba={aba} subAba={subAba} />
         </section>
 
         <section className="card">

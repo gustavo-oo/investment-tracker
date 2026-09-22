@@ -699,9 +699,9 @@ tbody tr:last-child td {
 .colunas { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 16px; align-items: stretch; }
 .colunas > * { min-width: 0; }
 .chart-controles { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-.chart-controles-grafico { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.chart-controles-grafico { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .chart-grupo { display: flex; gap: 2px; align-items: center; padding: 2px; background: var(--surface-2); border-radius: var(--radius-pill); }
-.chart-grupo .chip { border-color: transparent; padding: 3px 10px; font-size: 12px; }
+.chart-grupo .chip { border-color: transparent; padding: 2px 8px; font-size: 11px; }
 .chart-grupo .chip.active { background: var(--surface); }
 .chip {
   padding: 5px 10px; border: 1px solid var(--border); border-radius: var(--radius-pill);
@@ -1031,7 +1031,11 @@ tbody tr:last-child td {
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
+  row-gap: 8px;
 }
+
+.section-head-linha > .chart-controles-grafico { margin-left: auto; }
+.controles-cabecalho { display: flex; align-items: center; gap: 8px; margin-left: auto; }
 
 .card-desempenho {
   display: flex;

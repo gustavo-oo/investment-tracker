@@ -10,6 +10,7 @@ import {
 import { ORDEM_CLASSE, ROTULO_CLASSE, classeDe, type Classe } from "../classes.ts";
 import { type Periodo } from "../periodos.ts";
 import { EvolucaoChart } from "../components/EvolucaoChart.tsx";
+import { ControlesGrafico, type Aba, type SubAba } from "../components/ControlesGrafico.tsx";
 import { Modal } from "../components/Modal.tsx";
 
 const ALOCACOES: Array<{ by: AllocationBy; rotulo: string }> = [
@@ -40,6 +41,8 @@ export function OverviewView({ reloadToken, onAbrirPosicoes }: {
   onAbrirPosicoes: (classe: Classe | null) => void;
 }) {
   const [periodo, setPeriodo] = useState<Periodo>("1a");
+  const [aba, setAba] = useState<Aba>("rs");
+  const [subAba, setSubAba] = useState<SubAba>("mes");
   const [alocacaoBy, setAlocacaoBy] = useState<AllocationBy>("category");
   const [dados, setDados] = useState<Dados | null>(null);
   const [erro, setErro] = useState<string | null>(null);
@@ -176,11 +179,13 @@ export function OverviewView({ reloadToken, onAbrirPosicoes }: {
             <div className="section-head section-head-linha">
               <div>
                 <h2 className="section-title">Desempenho no período</h2>
-                <p className="section-hint">Janela {formataJanela(performance.from, performance.to)}.</p>
+                <p className="section-hint">{formataJanela(performance.from, performance.to)}.</p>
               </div>
+              <ControlesGrafico aba={aba} onAba={setAba} subAba={subAba} onSubAba={setSubAba}
+                periodo={periodo} onPeriodo={setPeriodo} trimestral={performance.months.length > 24} />
             </div>
             <div className="grafico-area">
-              <EvolucaoChart history={history} performance={performance} altura="100%" resumo={false} periodo={periodo} onPeriodo={setPeriodo} />
+              <EvolucaoChart history={history} performance={performance} altura="100%" resumo={false} aba={aba} subAba={subAba} />
             </div>
           </section>
         </div>
