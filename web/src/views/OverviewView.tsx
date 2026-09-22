@@ -312,7 +312,7 @@ export function OverviewView({ reloadToken, onAbrirPosicoes }: {
 
         {detalhe === "twr" && (
           <div className="modal-conteudo">
-            <p className="info-pop-texto">Desde o início ({formataJanela(performanceTudo.from, performanceTudo.to)}). Encadeia o retorno de cada mês (juros compostos) e ignora aportes e resgates. Mede a qualidade da estratégia e é o número justo para comparar com CDI, IPCA e outros fundos.</p>
+            <p className="info-pop-texto">Desde o início ({formataJanela(performanceTudo.from, performanceTudo.to)}). Encadeia o retorno de cada mês (juros compostos) e ignora aportes e resgates: cada aporte/resgate pesa pelos dias em que ficou investido no mês. Mede a qualidade da estratégia e é o número justo para comparar com CDI, IPCA e outros fundos.</p>
             <div className="modal-numeros">
               <span>Carteira <strong>{formataPercentualSinal(performanceTudo.accumulated.portfolioPct)}</strong></span>
               <span>CDI <strong>{formataPercentualSinal(performanceTudo.accumulated.cdiPct)}</strong></span>
@@ -338,7 +338,7 @@ export function OverviewView({ reloadToken, onAbrirPosicoes }: {
 
         {detalhe === "mwr" && (
           <div className="modal-conteudo">
-            <p className="info-pop-texto">Desde o início ({formataJanela(performanceTudo.from, performanceTudo.to)}). É a TIR (taxa interna de retorno) dos fluxos: cada aporte é uma saída de caixa, cada resgate uma entrada, e o patrimônio no fim é o valor de volta. Dá mais peso aos momentos em que você colocou mais dinheiro — é o ganho real do seu bolso.</p>
+            <p className="info-pop-texto">Desde o início ({formataJanela(performanceTudo.from, performanceTudo.to)}). É a TIR (taxa interna de retorno) dos fluxos datados: cada aporte é uma saída de caixa e cada resgate uma entrada, na data em que aconteceram, e o patrimônio no fim é o valor de volta. Dá mais peso aos momentos em que você colocou mais dinheiro — é o ganho real do seu bolso.</p>
             <div className="info-pop-item">
               <span className="info-pop-rotulo">Aportes desde o início</span>
               <span className="info-pop-valor">{formataBRL(somaAportes)}</span>
