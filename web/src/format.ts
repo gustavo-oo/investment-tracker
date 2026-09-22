@@ -73,7 +73,7 @@ export function formataQuantidade(e8: number): string {
 }
 
 const ROTULO_CATEGORIA: Record<string, string> = {
-  cdb: "CDB", lca: "LCA", selic: "Tesouro Selic", etf_fixed: "ETF RF", etf_equity: "ETF RV", pension_ipca: "Previdência",
+  cdb: "CDB", lca: "LCA", selic: "Tesouro Selic", etf_fixed: "ETF Renda Fixa", etf_equity: "ETF Renda Variável", pension_ipca: "Previdência",
 };
 
 export function formataCategoria(categoria: string): string {

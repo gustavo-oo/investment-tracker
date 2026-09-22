@@ -5,8 +5,8 @@ export type Classe = "rf" | "rv" | "pension";
 export const ORDEM_CLASSE: Classe[] = ["rf", "rv", "pension"];
 
 export const ROTULO_CLASSE: Record<Classe, string> = {
-  rf: "Renda fixa",
-  rv: "Renda variável",
+  rf: "Renda Fixa",
+  rv: "Renda Variável",
   pension: "Previdência",
 };
 
