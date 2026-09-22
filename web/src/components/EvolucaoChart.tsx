@@ -109,6 +109,23 @@ function visaoAcumulada(meses: Mes[]): LinhaAcumulada[] {
   return linhas;
 }
 
+/** Desvios verticais (px) para rótulos finais próximos: agrupa valores a menos de 1,5 p.p. e empilha cada grupo com passo de 14 px. */
+function deslocamentosRotulos(valores: number[], limitePp = 1.5, passo = 14): number[] {
+  const ordem = valores.map((valor, indice) => ({ valor, indice })).sort((a, b) => b.valor - a.valor);
+  const desvios = valores.map(() => 0);
+  let inicio = 0;
+  while (inicio < ordem.length) {
+    let fim = inicio + 1;
+    while (fim < ordem.length && ordem[fim - 1]!.valor - ordem[fim]!.valor < limitePp) fim++;
+    const tamanho = fim - inicio;
+    for (let posicao = 0; posicao < tamanho; posicao++) {
+      desvios[ordem[inicio + posicao]!.indice] = (posicao - (tamanho - 1) / 2) * passo;
+    }
+    inicio = fim;
+  }
+  return desvios;
+}
+
 function TooltipRs({ active, payload }: { active?: boolean; payload?: Array<{ payload: LinhaRs }> }) {
   if (!active || !payload || payload.length === 0) return null;
   const linha = payload[0]!.payload;
@@ -150,6 +167,8 @@ export function EvolucaoChart({ history, performance, altura = 280, resumo = tru
   const maxFluxo = Math.max(1, ...linhasRs.map((linha) => Math.max(linha.aporteCents, linha.resgateCents)));
   const linhasPct = visaoPct(meses, trimestral);
   const linhasAcumuladas = visaoAcumulada(meses);
+  const ultimos = linhasAcumuladas.at(-1);
+  const desviosRotulos = ultimos === undefined ? [0, 0, 0] : deslocamentosRotulos([ultimos.carteira, ultimos.cdi, ultimos.ipca]);
 
   if (meses.length === 0) {
     return (
@@ -164,15 +183,16 @@ export function EvolucaoChart({ history, performance, altura = 280, resumo = tru
 
   return (
     <div className={flexivel ? "chart-flex" : undefined}>
-      <div className="chart-controles">
-        <button type="button" className={aba === "rs" ? "chip active" : "chip"} onClick={() => setAba("rs")}>R$</button>
-        <button type="button" className={aba === "pct" ? "chip active" : "chip"} onClick={() => setAba("pct")}>%</button>
-        {aba === "pct" && (
-          <>
-            <button type="button" className={subAba === "mes" ? "chip active" : "chip"} onClick={() => setSubAba("mes")}>Mês a mês</button>
-            <button type="button" className={subAba === "acumulado" ? "chip active" : "chip"} onClick={() => setSubAba("acumulado")}>Acumulado</button>
-          </>
-        )}
+      <div className="chart-controles-grafico">
+        <div className="chart-grupo">
+          <button type="button" className={aba === "rs" ? "chip active" : "chip"} onClick={() => setAba("rs")}>R$</button>
+          <button type="button" className={aba === "pct" ? "chip active" : "chip"} onClick={() => setAba("pct")}>%</button>
+        </div>
+        <span className="chart-divisor" aria-hidden="true" />
+        <div className={aba === "pct" ? "chart-grupo" : "chart-grupo invisivel"}>
+          <button type="button" className={subAba === "mes" ? "chip active" : "chip"} onClick={() => setSubAba("mes")}>Mês a mês</button>
+          <button type="button" className={subAba === "acumulado" ? "chip active" : "chip"} onClick={() => setSubAba("acumulado")}>Acumulado</button>
+        </div>
         {trimestral && <span className="section-hint">por trimestre</span>}
       </div>
 
@@ -213,13 +233,13 @@ export function EvolucaoChart({ history, performance, altura = 280, resumo = tru
             <Tooltip content={<TooltipPct />} />
             <Legend />
             <Line type="monotone" dataKey="carteira" name="Carteira" stroke="var(--accent)" strokeWidth={2} dot={false}>
-              <LabelList dataKey="carteira" content={(props) => <RotuloFinal {...props} ultimo={linhasAcumuladas.length - 1} />} />
+              <LabelList dataKey="carteira" content={(props) => <RotuloFinal {...props} ultimo={linhasAcumuladas.length - 1} dy={desviosRotulos[0]} />} />
             </Line>
             <Line type="monotone" dataKey="cdi" name="CDI" stroke="var(--sand)" strokeWidth={1.5} dot={false}>
-              <LabelList dataKey="cdi" content={(props) => <RotuloFinal {...props} ultimo={linhasAcumuladas.length - 1} />} />
+              <LabelList dataKey="cdi" content={(props) => <RotuloFinal {...props} ultimo={linhasAcumuladas.length - 1} dy={desviosRotulos[1]} />} />
             </Line>
             <Line type="monotone" dataKey="ipca" name="IPCA" stroke="var(--olive)" strokeWidth={1.5} dot={false}>
-              <LabelList dataKey="ipca" content={(props) => <RotuloFinal {...props} ultimo={linhasAcumuladas.length - 1} />} />
+              <LabelList dataKey="ipca" content={(props) => <RotuloFinal {...props} ultimo={linhasAcumuladas.length - 1} dy={desviosRotulos[2]} />} />
             </Line>
           </LineChart>
         )}
@@ -239,10 +259,10 @@ export function EvolucaoChart({ history, performance, altura = 280, resumo = tru
   );
 }
 
-function RotuloFinal(props: { index?: number; x?: number | string; y?: number | string; value?: number | string | boolean | null; ultimo: number }) {
+function RotuloFinal(props: { index?: number; x?: number | string; y?: number | string; value?: number | string | boolean | null; ultimo: number; dy?: number }) {
   if (props.index !== props.ultimo) return null;
   return (
-    <text x={Number(props.x) + 6} y={Number(props.y)} fontSize={11} fill="var(--text-2)">
+    <text x={Number(props.x) + 6} y={Number(props.y) + (props.dy ?? 0)} fontSize={11} fill="var(--text-2)">
       {formataPercentual(Number(props.value))}
     </text>
   );
