@@ -81,8 +81,8 @@ test("portfolio congela título vencido e expõe pendingRedemption", () => {
   ]);
   const portfolio = buildPortfolio(db, { now: NOW }); // NOW = 2026-09-18
   const posicao = portfolio.positions[0];
-  assert.equal(posicao?.marketValueCents, 100_300n); // 15→17/09; 18/09 não entra
-  assert.equal(posicao?.priceDate, "2026-09-17");
+  assert.equal(posicao?.marketValueCents, 100_200n); // 15 e 16/09; o dia do vencimento não entra
+  assert.equal(posicao?.priceDate, "2026-09-16");
   assert.equal(posicao?.maturityDate, "2026-09-17");
   assert.equal(posicao?.pendingRedemption, true);
 });

@@ -105,8 +105,8 @@ test("history congela mês posterior ao vencimento", () => {
     { series: "CDI", date: "2026-02-10", valueE12: 1_000_000_000n },
   ]);
   const points = buildHistory(db, { from: "2026-01", to: "2026-02" }, { now: () => new Date("2026-02-20T12:00:00-03:00") });
-  assert.equal(points[0]?.marketValueCents, 100_200n); // 02→05/01
-  assert.equal(points[1]?.marketValueCents, 100_200n, "fevereiro não capitaliza");
+  assert.equal(points[0]?.marketValueCents, 100_100n); // só 02/01 (o dia do vencimento não capitaliza)
+  assert.equal(points[1]?.marketValueCents, 100_100n, "fevereiro não capitaliza");
 });
 
 test("history ignora fluxos que não são BUY/SELL", () => {

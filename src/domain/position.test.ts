@@ -134,20 +134,32 @@ test("RV/PGBL com quantidade zero valem 0 mesmo sem cotação; posição aberta 
   assert.equal(instrumentValue({ ...equity, transactions: [equity.transactions[0]!] }, "2026-01-05").marketValueCents, null);
 });
 
-test("RF congela no vencimento: valor do vencimento, não capitaliza depois", () => {
+test("RF congela no último dia útil antes do vencimento (D−1)", () => {
   const input: PositionInput = {
     kind: "fixed_income", benchmark: "CDI", rateE6: 1_000_000n, maturityDate: "2026-01-05",
     transactions: [{ tradeDate: "2026-01-02", kind: "BUY", quantityE8: null, grossCents: 100_000n, feesCents: 0n }],
     quotes: [], rates: [rate("2026-01-02"), rate("2026-01-05"), rate("2026-01-06")],
   };
   const noDia = instrumentValue(input, "2026-01-05");
-  assert.equal(noDia.marketValueCents, 100_200n); // 100000 × 1,001 × 1,001
+  assert.equal(noDia.marketValueCents, 100_100n); // só a taxa de 02/01: o banco credita até D−1
   assert.equal(noDia.maturityDate, "2026-01-05");
-  assert.equal(noDia.pendingRedemption, true); // venceu hoje e tem saldo
+  assert.equal(noDia.pendingRedemption, true); // venceu e tem saldo
   const depois = instrumentValue(input, "2026-01-06");
-  assert.equal(depois.marketValueCents, 100_200n, "taxa de 06/01 não entra");
-  assert.equal(depois.priceDate, "2026-01-05", "última taxa ≤ vencimento");
+  assert.equal(depois.marketValueCents, 100_100n, "taxas de 05 e 06/01 não entram");
+  assert.equal(depois.priceDate, "2026-01-02", "última taxa antes do vencimento");
   assert.equal(depois.pendingRedemption, true);
+});
+
+test("congelamento em vencimento de segunda para no dia útil anterior", () => {
+  const input: PositionInput = {
+    kind: "fixed_income", benchmark: "CDI", rateE6: 1_000_000n, maturityDate: "2026-09-21",
+    transactions: [{ tradeDate: "2026-09-17", kind: "BUY", quantityE8: null, grossCents: 100_000n, feesCents: 0n }],
+    quotes: [], rates: [rate("2026-09-17"), rate("2026-09-18"), rate("2026-09-21")],
+  };
+  const noDia = instrumentValue(input, "2026-09-21");
+  assert.equal(noDia.marketValueCents, 100_200n); // 100000 × 1,001 × 1,001 (17 e 18/09)
+  assert.equal(noDia.priceDate, "2026-09-18");
+  assert.equal(instrumentValue(input, "2026-09-30").marketValueCents, 100_200n, "congelado segue em D−1");
 });
 
 test("RF sem vencimento segue capitalizando e não fica pendente", () => {

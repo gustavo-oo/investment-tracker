@@ -140,7 +140,7 @@ export function instrumentValue(input: PositionInput, asOf: string): PositionVal
   }
   if (input.kind === "fixed_income") {
     const multiplierE6 = input.rateE6 ?? 1_000_000n;
-    const taxas = maturityDate === null ? input.rates : input.rates.filter((rate) => rate.date <= maturityDate);
+    const taxas = maturityDate === null ? input.rates : input.rates.filter((rate) => rate.date < maturityDate);
     const { valueCents, lastRateDate } = rfValueCents(operations, taxas, multiplierE6, asOf);
     const marketValueCents = zeroClosedResidue("fixed_income", null, valueCents, lastBalanceKind);
     return {

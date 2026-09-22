@@ -273,7 +273,7 @@ test("GET /api/portfolio expõe maturityDate e pendingRedemption", async () => {
   const app = buildApp({ db, csvDir: csvDirFixture(), logger: false });
 
   const portfolio = (await app.inject({ method: "GET", url: "/api/portfolio" })).json();
-  assert.equal(portfolio.positions[0].marketValueCents, 100_300);
+  assert.equal(portfolio.positions[0].marketValueCents, 100_200);
   assert.equal(portfolio.positions[0].maturityDate, "2026-09-17");
   assert.equal(portfolio.positions[0].pendingRedemption, true);
 
