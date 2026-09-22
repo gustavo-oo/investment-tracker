@@ -161,6 +161,11 @@ export function PositionsView({ reloadToken, filtroInicial }: {
                     <td>
                       {posicao.name}
                       {posicao.stale && <span className="badge badge-warn">desatualizado</span>}
+                      {posicao.pendingRedemption && (
+                        <span className="badge badge-warn">
+                          {posicao.maturityDate === null ? "vencido · resgate pendente" : `vencido em ${formataData(posicao.maturityDate)} · resgate pendente`}
+                        </span>
+                      )}
                     </td>
                     <td>{ROTULO_CLASSE[classeDe(posicao)]}</td>
                     <td className="num">{posicao.marketValueCents === null ? "—" : formataBRL(posicao.marketValueCents)}</td>

@@ -76,6 +76,7 @@ export type PortfolioPosition = {
   broker: string | null; objective: string | null; benchmark: string | null; rateE6: number | null;
   quantityE8: number | null; priceCents: number | null; priceDate: string | null; priceSource: string | null;
   marketValueCents: number | null; investedCents: number; redeemedCents: number; feesCents: number; stale: boolean;
+  maturityDate: string | null; pendingRedemption: boolean;
 };
 
 export type Portfolio = {
