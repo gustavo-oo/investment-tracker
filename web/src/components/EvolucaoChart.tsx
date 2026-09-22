@@ -186,18 +186,18 @@ export function EvolucaoChart({ history, performance, altura = 280, resumo = tru
   return (
     <div className={flexivel ? "chart-flex" : undefined}>
       <div className="chart-controles-grafico">
-        <div className="chart-grupo">
-          <button type="button" className={aba === "rs" ? "chip active" : "chip"} onClick={() => setAba("rs")}>R$</button>
-          <button type="button" className={aba === "pct" ? "chip active" : "chip"} onClick={() => setAba("pct")}>%</button>
+        <div className="chart-grupo" role="group" aria-label="Visão">
+          <button type="button" className={aba === "rs" ? "chip active" : "chip"} aria-pressed={aba === "rs"} onClick={() => setAba("rs")}>R$</button>
+          <button type="button" className={aba === "pct" ? "chip active" : "chip"} aria-pressed={aba === "pct"} onClick={() => setAba("pct")}>%</button>
         </div>
-        <div className="chart-grupo">
-          <button type="button" className={subAba === "mes" ? "chip active" : "chip"} onClick={() => setSubAba("mes")}>Mês a mês</button>
-          <button type="button" className={subAba === "acumulado" ? "chip active" : "chip"} onClick={() => setSubAba("acumulado")}>Acumulado</button>
+        <div className="chart-grupo" role="group" aria-label="Granularidade">
+          <button type="button" className={subAba === "mes" ? "chip active" : "chip"} aria-pressed={subAba === "mes"} onClick={() => setSubAba("mes")}>Mês a mês</button>
+          <button type="button" className={subAba === "acumulado" ? "chip active" : "chip"} aria-pressed={subAba === "acumulado"} onClick={() => setSubAba("acumulado")}>Acumulado</button>
         </div>
         {periodo !== undefined && onPeriodo !== undefined && (
-          <div className="chart-grupo">
+          <div className="chart-grupo" role="group" aria-label="Período">
             {PERIODOS.map((item) => (
-              <button key={item.id} type="button" className={periodo === item.id ? "chip active" : "chip"} onClick={() => onPeriodo(item.id)}>
+              <button key={item.id} type="button" className={periodo === item.id ? "chip active" : "chip"} aria-pressed={periodo === item.id} onClick={() => onPeriodo(item.id)}>
                 {item.rotulo}
               </button>
             ))}
