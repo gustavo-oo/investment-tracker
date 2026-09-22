@@ -226,3 +226,13 @@ test("resgate lançado depois do vencimento zera a posição e limpa o pendente"
   assert.equal(value.pendingRedemption, false);
   assert.equal(value.redeemedCents, 100_200n);
 });
+
+test("taxa entre asOf e vencimento não entra quando asOf < vencimento", () => {
+  const input: PositionInput = {
+    kind: "fixed_income", benchmark: "CDI", rateE6: 1_000_000n, maturityDate: "2026-01-10",
+    transactions: [{ tradeDate: "2026-01-02", kind: "BUY", quantityE8: null, grossCents: 100_000n, feesCents: 0n }],
+    quotes: [], rates: [rate("2026-01-02"), rate("2026-01-05"), rate("2026-01-07")],
+  };
+  assert.equal(instrumentValue(input, "2026-01-05").marketValueCents, 100_200n, "taxa de 07/01 fica fora (asOf)");
+  assert.equal(instrumentValue(input, "2026-01-10").marketValueCents, 100_300n, "no vencimento, 07/01 entra");
+});
