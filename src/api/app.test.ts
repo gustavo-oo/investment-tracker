@@ -259,6 +259,27 @@ test("rotas de portfolio, history e allocation respondem em centavos", async () 
   await app.close();
 });
 
+test("GET /api/portfolio expõe maturityDate e pendingRedemption", async () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  const cdbVencido: InstrumentRow = { ...cdbInstrument, id: "cdb-vencido", legacyKey: "CDB Vencido", name: "CDB Vencido", maturityDate: "2026-09-17" };
+  insertInstruments(db, [cdbVencido]);
+  insertTransactions(db, [{ instrumentId: cdbVencido.id, tradeDate: "2026-09-15", kind: "BUY", quantityE8: null, grossCents: 100_000n, feesCents: 0n, note: null, legacyRow: null }]);
+  writeIndexRates(db, [
+    { series: "CDI", date: "2026-09-15", valueE12: 1_000_000_000n },
+    { series: "CDI", date: "2026-09-16", valueE12: 1_000_000_000n },
+    { series: "CDI", date: "2026-09-17", valueE12: 1_000_000_000n },
+  ]);
+  const app = buildApp({ db, csvDir: csvDirFixture(), logger: false });
+
+  const portfolio = (await app.inject({ method: "GET", url: "/api/portfolio" })).json();
+  assert.equal(portfolio.positions[0].marketValueCents, 100_300);
+  assert.equal(portfolio.positions[0].maturityDate, "2026-09-17");
+  assert.equal(portfolio.positions[0].pendingRedemption, true);
+
+  await app.close();
+});
+
 test("portfolio com PGBL calcula pela cota CVM e health lista cvm-swb", async () => {
   const db = openDb(":memory:");
   migrate(db);

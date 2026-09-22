@@ -27,6 +27,7 @@ export function registerPortfolioRoutes(app: FastifyInstance, db: Db): void {
         marketValueCents: position.marketValueCents === null ? null : toNumberSafe(position.marketValueCents),
         investedCents: toNumberSafe(position.investedCents), redeemedCents: toNumberSafe(position.redeemedCents),
         feesCents: toNumberSafe(position.feesCents), stale: position.stale,
+        maturityDate: position.maturityDate, pendingRedemption: position.pendingRedemption,
       })),
       sources: portfolio.sources,
     };
