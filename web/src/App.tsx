@@ -24,6 +24,13 @@ function ultimaColeta(health: Health | null): string | null {
   return health.sources.map((source) => source.lastSuccessAt).filter((value): value is string => value !== null).sort().at(-1) ?? null;
 }
 
+const ROTULO_FONTE_CURTO: Record<string, string> = {
+  yahoo: "Yahoo",
+  bcb: "BCB",
+  "cvm-swb": "CVM",
+  alphavantage: "Alpha Vantage",
+};
+
 export function App() {
   const [view, setView] = useState<View>("visao-geral");
   const [health, setHealth] = useState<Health | null>(null);
@@ -94,6 +101,20 @@ export function App() {
         </nav>
         <div className="sidebar-foot">
           <span className="updated">{ultima ? `atualizado às ${formataHora(ultima)}` : "sem coleta registrada"}</span>
+          {health !== null && health.sources.length > 0 && (
+            <ul className="sidebar-fontes" aria-label="Fontes de dados">
+              {health.sources.map((source) => {
+                const rotulo = ROTULO_FONTE_CURTO[source.id] ?? source.id;
+                const hora = source.lastSuccessAt === null ? "sem coleta" : formataHora(source.lastSuccessAt);
+                return (
+                  <li key={source.id} className={source.stale ? "fonte-mini fonte-mini-warn" : "fonte-mini"}>
+                    <span className={source.stale ? "fonte-dot fonte-dot-warn" : "fonte-dot fonte-dot-ok"} aria-hidden="true" />
+                    <span title={`${rotulo}: ${source.stale ? "desatualizada" : "ok"}, última coleta ${hora}`}>{rotulo}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
           <button className="btn btn-secondary" type="button" disabled={busy} onClick={() => void atualizar()}>
             <ArrowsClockwise size={15} />
             {busy ? "Atualizando..." : "Atualizar cotações"}
@@ -103,7 +124,7 @@ export function App() {
       </aside>
       <main className="content">
         {view === "visao-geral" && (
-          <OverviewView reloadToken={reloadToken} onAbrirPosicoes={abrirPosicoes} onAbrirFontes={() => setView("fontes")} />
+          <OverviewView reloadToken={reloadToken} onAbrirPosicoes={abrirPosicoes} />
         )}
         {view === "posicoes" && <PositionsView reloadToken={reloadToken} filtroInicial={filtroPosicoes} />}
         {view === "evolucao" && <EvolutionView reloadToken={reloadToken} />}

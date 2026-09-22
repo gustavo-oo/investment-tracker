@@ -1,14 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
+import { ChartPie, TrendDown, TrendUp, WarningCircle } from "@phosphor-icons/react";
 import {
-  Bank, ChartLineUp, ChartPie, CloudArrowDown, Database, TrendDown, TrendUp, Vault, WarningCircle,
-  type Icon,
-} from "@phosphor-icons/react";
-import {
-  getAllocation, getHealth, getHistory, getPerformance, getPortfolio,
-  type Allocation, type AllocationBy, type Health, type HistoryPoint, type Performance, type Portfolio,
+  getAllocation, getHistory, getPerformance, getPortfolio,
+  type Allocation, type AllocationBy, type HistoryPoint, type Performance, type Portfolio,
 } from "../api.ts";
 import {
-  formataBRL, formataCategoria, formataHora, formataJanela, formataPercentualSinal, formataPontosPercentuais, mesDeslocado,
+  formataBRL, formataCategoria, formataJanela, formataPercentualSinal, formataPontosPercentuais, mesDeslocado,
 } from "../format.ts";
 import { ORDEM_CLASSE, ROTULO_CLASSE, classeDe, type Classe } from "../classes.ts";
 import { EvolucaoChart } from "../components/EvolucaoChart.tsx";
@@ -20,18 +17,7 @@ const PERIODOS: Array<{ id: Periodo; rotulo: string }> = [
 const ALOCACOES: Array<{ by: AllocationBy; rotulo: string }> = [
   { by: "category", rotulo: "Categoria" }, { by: "broker", rotulo: "Corretora" }, { by: "objective", rotulo: "Objetivo" },
 ];
-const FONTES: Record<string, { rotulo: string; Icone: Icon }> = {
-  yahoo: { rotulo: "Yahoo Finance", Icone: ChartLineUp },
-  bcb: { rotulo: "Banco Central (SGS)", Icone: Bank },
-  "cvm-swb": { rotulo: "CVM — SWB", Icone: Vault },
-  alphavantage: { rotulo: "Alpha Vantage", Icone: CloudArrowDown },
-};
-
-function infoFonte(id: string): { rotulo: string; Icone: Icon } {
-  return FONTES[id] ?? { rotulo: id, Icone: Database };
-}
-
-type Dados = { portfolio: Portfolio; history: HistoryPoint[]; performance: Performance; performance12m: Performance; allocation: Allocation; health: Health };
+type Dados = { portfolio: Portfolio; history: HistoryPoint[]; performance: Performance; performance12m: Performance; allocation: Allocation };
 
 function inicioDoPeriodo(periodo: Periodo, mes: string): string {
   if (periodo === "1a") return mesDeslocado(mes, -11);
@@ -39,10 +25,9 @@ function inicioDoPeriodo(periodo: Periodo, mes: string): string {
   return "2000-01";
 }
 
-export function OverviewView({ reloadToken, onAbrirPosicoes, onAbrirFontes }: {
+export function OverviewView({ reloadToken, onAbrirPosicoes }: {
   reloadToken: number;
   onAbrirPosicoes: (classe: Classe) => void;
-  onAbrirFontes: () => void;
 }) {
   const [periodo, setPeriodo] = useState<Periodo>("1a");
   const [alocacaoBy, setAlocacaoBy] = useState<AllocationBy>("category");
@@ -54,14 +39,13 @@ export function OverviewView({ reloadToken, onAbrirPosicoes, onAbrirFontes }: {
       const portfolio = await getPortfolio(signal);
       const mes = portfolio.asOf.slice(0, 7);
       const from = inicioDoPeriodo(periodo, mes);
-      const [history, performance, performance12m, allocation, health] = await Promise.all([
+      const [history, performance, performance12m, allocation] = await Promise.all([
         getHistory(from, mes, signal),
         getPerformance(from, mes, signal),
         getPerformance(mesDeslocado(mes, -11), mes, signal),
         getAllocation(alocacaoBy, signal),
-        getHealth(signal),
       ]);
-      setDados({ portfolio, history, performance, performance12m, allocation, health });
+      setDados({ portfolio, history, performance, performance12m, allocation });
       setErro(null);
     } catch (cause) {
       if (cause instanceof DOMException && cause.name === "AbortError") return;
@@ -97,7 +81,7 @@ export function OverviewView({ reloadToken, onAbrirPosicoes, onAbrirFontes }: {
     );
   }
 
-  const { portfolio, history, performance, performance12m, allocation, health } = dados;
+  const { portfolio, history, performance, performance12m, allocation } = dados;
   const capital = portfolio.totals.investedCents - portfolio.totals.redeemedCents;
   const rendimento = portfolio.totals.marketValueCents - capital;
   const rendimentoPct = capital > 0 ? (rendimento / capital) * 100 : 0;
@@ -245,31 +229,6 @@ export function OverviewView({ reloadToken, onAbrirPosicoes, onAbrirFontes }: {
                 ))}
               </ul>
             )}
-          </section>
-
-          <section className="card">
-            <div className="section-head"><h2 className="section-title">Fontes</h2></div>
-            <ul className="fontes-lista">
-              {health.sources.map((source) => {
-                const { rotulo, Icone } = infoFonte(source.id);
-                return (
-                  <li className="fonte-item" key={source.id}>
-                    <span className="fonte-icone"><Icone size={17} aria-hidden="true" /></span>
-                    <span className="fonte-info">
-                      <span className="fonte-nome">{rotulo}</span>
-                      <span className="fonte-meta">
-                        última coleta {source.lastSuccessAt === null ? "—" : formataHora(source.lastSuccessAt)}
-                      </span>
-                    </span>
-                    <span className={source.stale ? "badge badge-warn fonte-estado" : "badge badge-ok fonte-estado"}>
-                      <span className={source.stale ? "fonte-dot fonte-dot-warn" : "fonte-dot fonte-dot-ok"} aria-hidden="true" />
-                      {source.stale ? "desatualizada" : "ok"}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-            <button type="button" className="btn btn-secondary fontes-ver" onClick={onAbrirFontes}>Ver fontes</button>
           </section>
         </div>
       </div>
