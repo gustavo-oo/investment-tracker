@@ -373,6 +373,10 @@ button {
   margin-top: 12px;
 }
 
+.callout + .colunas {
+  margin-top: 16px;
+}
+
 .stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
