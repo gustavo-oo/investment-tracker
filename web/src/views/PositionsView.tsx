@@ -64,7 +64,7 @@ export function PositionsView({ reloadToken, filtroInicial }: {
         setTransacoes([]);
       });
     return () => controller.abort();
-  }, [selecionada]);
+  }, [selecionada?.instrumentId]);
 
   const corretoras = useMemo(() => [...new Set((posicoes ?? []).map((posicao) => posicao.broker ?? "—"))].sort(), [posicoes]);
   const objetivos = useMemo(() => [...new Set((posicoes ?? []).map((posicao) => posicao.objective ?? "—"))].sort(), [posicoes]);
@@ -72,6 +72,10 @@ export function PositionsView({ reloadToken, filtroInicial }: {
     () => [...new Set((posicoes ?? []).map((posicao) => posicao.investor ?? "—"))].sort(),
     [posicoes],
   );
+
+  useEffect(() => {
+    if (investidor !== "todos" && !investidores.includes(investidor)) setInvestidor("todos");
+  }, [investidores, investidor]);
 
   function abrirAtivo(posicao: PortfolioPosition) {
     setSelecionada(posicao);
@@ -88,7 +92,7 @@ export function PositionsView({ reloadToken, filtroInicial }: {
       const atualizada = { ...selecionada, investor: investidorRascunho };
       setPosicoes((antigas) => (antigas ?? []).map((posicao) =>
         posicao.instrumentId === atualizada.instrumentId ? atualizada : posicao));
-      setSelecionada(atualizada);
+      setSelecionada((atual) => (atual !== null && atual.instrumentId === atualizada.instrumentId ? atualizada : atual));
       setFeedbackInvestidor({ tipo: "ok", mensagem: "Investidor atualizado" });
     } catch (cause) {
       setFeedbackInvestidor({ tipo: "erro", mensagem: cause instanceof Error ? cause.message : String(cause) });
@@ -261,14 +265,11 @@ export function PositionsView({ reloadToken, filtroInicial }: {
               </button>
             </div>
             <span className="stat-note">Correções valem até o próximo import — a planilha sobrescreve.</span>
-            {feedbackInvestidor !== null && (
-              <span
-                className={feedbackInvestidor.tipo === "ok" ? "stat-note" : "campo-erro"}
-                role={feedbackInvestidor.tipo === "erro" ? "alert" : undefined}
-                aria-live="polite"
-              >
-                {feedbackInvestidor.mensagem}
-              </span>
+            {feedbackInvestidor !== null && feedbackInvestidor.tipo === "ok" && (
+              <span className="stat-note" aria-live="polite">{feedbackInvestidor.mensagem}</span>
+            )}
+            {feedbackInvestidor !== null && feedbackInvestidor.tipo === "erro" && (
+              <span className="campo-erro" role="alert">{feedbackInvestidor.mensagem}</span>
             )}
           </div>
           <div className="stats">
