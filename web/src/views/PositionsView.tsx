@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { CaretDown, CaretUp, MagnifyingGlass, Table, X } from "@phosphor-icons/react";
-import { getPortfolio, getTransactions, type PortfolioPosition, type Transaction } from "../api.ts";
+import { getPortfolio, getTransactions, patchInvestor, type Investor, type PortfolioPosition, type Transaction } from "../api.ts";
 import { formataBRL, formataCategoria, formataData, formataMes, formataPercentualSinal, formataQuantidade } from "../format.ts";
 import { ORDEM_CLASSE, ROTULO_CLASSE, classeDe, type Classe } from "../classes.ts";
 
@@ -19,6 +19,7 @@ function precoMedio(transacao: Transaction): string {
 }
 
 const ROTULO_OPERACAO: Record<string, string> = { BUY: "Compra", SELL: "Venda", AMORTIZATION: "Amortização", INTEREST: "Juros", DIVIDEND: "Dividendo" };
+const INVESTIDORES: Investor[] = ["Ana", "Beto"];
 
 export function PositionsView({ reloadToken, filtroInicial }: {
   reloadToken: number; filtroInicial: Classe | null;
@@ -33,6 +34,9 @@ export function PositionsView({ reloadToken, filtroInicial }: {
   const [ordem, setOrdem] = useState<Ordem>("valor");
   const [selecionada, setSelecionada] = useState<PortfolioPosition | null>(null);
   const [transacoes, setTransacoes] = useState<Transaction[] | null>(null);
+  const [investidorRascunho, setInvestidorRascunho] = useState("");
+  const [salvandoInvestidor, setSalvandoInvestidor] = useState(false);
+  const [feedbackInvestidor, setFeedbackInvestidor] = useState<{ tipo: "ok" | "erro"; mensagem: string } | null>(null);
 
   useEffect(() => {
     setClasse(filtroInicial ?? "todos");
@@ -68,6 +72,35 @@ export function PositionsView({ reloadToken, filtroInicial }: {
     () => [...new Set((posicoes ?? []).map((posicao) => posicao.investor ?? "—"))].sort(),
     [posicoes],
   );
+
+  function abrirAtivo(posicao: PortfolioPosition) {
+    setSelecionada(posicao);
+    setInvestidorRascunho(posicao.investor ?? "");
+    setFeedbackInvestidor(null);
+  }
+
+  async function salvarInvestidor() {
+    if (selecionada === null || investidorRascunho === "") return;
+    setSalvandoInvestidor(true);
+    setFeedbackInvestidor(null);
+    try {
+      await patchInvestor(selecionada.instrumentId, investidorRascunho as Investor);
+      const atualizada = { ...selecionada, investor: investidorRascunho };
+      setPosicoes((antigas) => (antigas ?? []).map((posicao) =>
+        posicao.instrumentId === atualizada.instrumentId ? atualizada : posicao));
+      setSelecionada(atualizada);
+      setFeedbackInvestidor({ tipo: "ok", mensagem: "Investidor atualizado" });
+    } catch (cause) {
+      setFeedbackInvestidor({ tipo: "erro", mensagem: cause instanceof Error ? cause.message : String(cause) });
+    } finally {
+      setSalvandoInvestidor(false);
+    }
+  }
+
+  const opcoesInvestidor = selecionada !== null && selecionada.investor !== null && !INVESTIDORES.includes(selecionada.investor as Investor)
+    ? [selecionada.investor, ...INVESTIDORES.map((valor) => valor as string)]
+    : INVESTIDORES.map((valor) => valor as string);
+  const mudouInvestidor = selecionada !== null && investidorRascunho !== (selecionada.investor ?? "");
   const total = (posicoes ?? []).reduce((soma, posicao) => soma + (posicao.marketValueCents ?? 0), 0);
 
   const visiveis = (posicoes ?? [])
@@ -170,7 +203,7 @@ export function PositionsView({ reloadToken, filtroInicial }: {
               {visiveis.map((posicao) => {
                 const rendimento = rendimentoDe(posicao);
                 return (
-                  <tr key={posicao.instrumentId} onClick={() => setSelecionada(posicao)} className="linha-clicavel">
+                  <tr key={posicao.instrumentId} onClick={() => abrirAtivo(posicao)} className="linha-clicavel">
                     <td>
                       {posicao.name}
                       {posicao.stale && <span className="badge badge-warn">desatualizado</span>}
@@ -214,7 +247,30 @@ export function PositionsView({ reloadToken, filtroInicial }: {
             <span className="chip">{formataCategoria(selecionada.category)}</span>
             <span className="chip">{selecionada.broker ?? "—"}</span>
             <span className="chip">{ROTULO_CLASSE[classeDe(selecionada)]}</span>
+            <span className="chip">{selecionada.investor ?? "sem investidor"}</span>
           </p>
+          <div className="campo">
+            <span className="stat-label">Investidor</span>
+            <div className="investidor-opcoes">
+              <select value={investidorRascunho} onChange={(evento) => setInvestidorRascunho(evento.target.value)} aria-label="Investidor do ativo">
+                {investidorRascunho === "" && <option value="" disabled>—</option>}
+                {opcoesInvestidor.map((valor) => <option key={valor} value={valor}>{valor}</option>)}
+              </select>
+              <button type="button" className="btn btn-secondary" disabled={!mudouInvestidor || salvandoInvestidor || investidorRascunho === ""} onClick={salvarInvestidor}>
+                {salvandoInvestidor ? "Salvando..." : "Salvar"}
+              </button>
+            </div>
+            <span className="stat-note">Correções valem até o próximo import — a planilha sobrescreve.</span>
+            {feedbackInvestidor !== null && (
+              <span
+                className={feedbackInvestidor.tipo === "ok" ? "stat-note" : "campo-erro"}
+                role={feedbackInvestidor.tipo === "erro" ? "alert" : undefined}
+                aria-live="polite"
+              >
+                {feedbackInvestidor.mensagem}
+              </span>
+            )}
+          </div>
           <div className="stats">
             <div className="stat"><span className="stat-label">Valor</span><span className="stat-value">{selecionada.marketValueCents === null ? "—" : formataBRL(selecionada.marketValueCents)}</span></div>
             <div className="stat"><span className="stat-label">Quantidade</span><span className="stat-value">{selecionada.quantityE8 === null ? "—" : formataQuantidade(selecionada.quantityE8)}</span></div>

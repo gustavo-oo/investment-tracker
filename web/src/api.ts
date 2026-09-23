@@ -155,6 +155,20 @@ export const getPerformance = (from: string, to: string, signal?: AbortSignal): 
 export const getTransactions = (id: string, signal?: AbortSignal): Promise<Transaction[]> =>
   getJson(`/api/instruments/${encodeURIComponent(id)}/transactions`, signal);
 
+export type Investor = "Ana" | "Beto";
+
+export async function patchInvestor(id: string, investor: Investor): Promise<void> {
+  const response = await fetch(`/api/instruments/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ investor }),
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(await apiErrorMessage(response, body));
+  }
+}
+
 export async function postRefresh(): Promise<RefreshResult> {
   const response = await fetch("/api/refresh", { method: "POST" });
   const body = (await response.json().catch(() => null)) as RefreshResult | { error?: string } | null;

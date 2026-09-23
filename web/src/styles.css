@@ -717,6 +717,8 @@ tbody tr:last-child td {
 .campo { display: flex; flex-direction: column; gap: 4px; min-width: 150px; }
 .campo-com-icone { display: flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: var(--radius-control); padding: 6px 8px; background: var(--surface); }
 .campo-com-icone input, .campo select { border: none; background: transparent; font: inherit; color: var(--text); }
+.investidor-opcoes { display: flex; align-items: center; gap: 8px; }
+.campo-erro { color: var(--danger); font-size: 12px; }
 .linha-clicavel { cursor: pointer; }
 .rendimento-positivo { color: var(--accent); }
 .rendimento-negativo { color: var(--danger); }
