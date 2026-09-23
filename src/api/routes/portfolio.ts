@@ -19,7 +19,7 @@ export function registerPortfolioRoutes(app: FastifyInstance, db: Db): void {
       },
       positions: portfolio.positions.map((position) => ({
         instrumentId: position.instrumentId, name: position.name, kind: position.kind, category: position.category,
-        broker: position.broker, objective: position.objective, benchmark: position.benchmark,
+        broker: position.broker, objective: position.objective, benchmark: position.benchmark, investor: position.investor,
         rateE6: position.rateE6 === null ? null : toNumberSafe(position.rateE6),
         quantityE8: position.quantityE8 === null ? null : toNumberSafe(position.quantityE8),
         priceCents: position.priceCents === null ? null : toNumberSafe(position.priceCents),

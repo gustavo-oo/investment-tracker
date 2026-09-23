@@ -233,6 +233,7 @@ test("rotas de portfolio, history e allocation respondem em centavos", async () 
   assert.equal(portfolio.totals.marketValueCents, 110_100);
   assert.equal(portfolio.positions.length, 2);
   assert.equal(portfolio.positions[0].priceSource, "bcb");
+  assert.equal(portfolio.positions[0].investor, "Ana");
 
   res = await app.inject({ method: "GET", url: "/api/history?from=2026-08&to=2026-09" });
   assert.equal(res.json().length, 2);

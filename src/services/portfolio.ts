@@ -14,6 +14,7 @@ export type PortfolioPosition = PositionValue & {
   category: InstrumentCategory;
   broker: string | null;
   objective: string | null;
+  investor: string | null;
   benchmark: string | null;
   rateE6: bigint | null;
   priceSource: string | null;
@@ -68,7 +69,7 @@ export function buildPortfolio(db: Db, deps: { now?: () => Date; asOf?: string }
     return {
       ...value, instrumentId: instrument.id, name: instrument.name, kind: instrument.kind, category: instrument.category,
       broker: instrument.broker, objective: instrument.objective, benchmark: instrument.benchmark, rateE6: instrument.rateE6,
-      priceSource, stale,
+      investor: instrument.investor, priceSource, stale,
     };
   });
 

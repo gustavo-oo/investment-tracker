@@ -98,3 +98,15 @@ test("PGBL sem cota fica null + stale", () => {
   assert.equal(pension?.priceSource, null);
   assert.equal(pension?.stale, true);
 });
+
+test("portfolio expõe investor da posição, inclusive nulo", () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  const semInvestidor: InstrumentRow = {
+    ...cdb, id: "cdb-sem-investidor", legacyKey: "CDB Sem", name: "CDB Sem", investor: null,
+  };
+  insertInstruments(db, [cdb, semInvestidor]);
+  const portfolio = buildPortfolio(db, { now: NOW });
+  assert.equal(portfolio.positions.find((p) => p.instrumentId === "cdb-1")?.investor, "Ana");
+  assert.equal(portfolio.positions.find((p) => p.instrumentId === "cdb-sem-investidor")?.investor, null);
+});
