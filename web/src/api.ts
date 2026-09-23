@@ -73,7 +73,7 @@ export type Health = { ok: boolean; counts: { instruments: number; transactions:
 
 export type PortfolioPosition = {
   instrumentId: string; name: string; kind: "fixed_income" | "equity" | "pension"; category: string;
-  broker: string | null; objective: string | null; benchmark: string | null; rateE6: number | null;
+  broker: string | null; objective: string | null; investor: string | null; benchmark: string | null; rateE6: number | null;
   quantityE8: number | null; priceCents: number | null; priceDate: string | null; priceSource: string | null;
   marketValueCents: number | null; investedCents: number; redeemedCents: number; feesCents: number; stale: boolean;
   maturityDate: string | null; pendingRedemption: boolean;

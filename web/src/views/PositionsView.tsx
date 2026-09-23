@@ -29,6 +29,7 @@ export function PositionsView({ reloadToken, filtroInicial }: {
   const [classe, setClasse] = useState<Classe | "todos">(filtroInicial ?? "todos");
   const [corretora, setCorretora] = useState("todas");
   const [objetivo, setObjetivo] = useState("todos");
+  const [investidor, setInvestidor] = useState("todos");
   const [ordem, setOrdem] = useState<Ordem>("valor");
   const [selecionada, setSelecionada] = useState<PortfolioPosition | null>(null);
   const [transacoes, setTransacoes] = useState<Transaction[] | null>(null);
@@ -63,6 +64,10 @@ export function PositionsView({ reloadToken, filtroInicial }: {
 
   const corretoras = useMemo(() => [...new Set((posicoes ?? []).map((posicao) => posicao.broker ?? "—"))].sort(), [posicoes]);
   const objetivos = useMemo(() => [...new Set((posicoes ?? []).map((posicao) => posicao.objective ?? "—"))].sort(), [posicoes]);
+  const investidores = useMemo(
+    () => [...new Set((posicoes ?? []).map((posicao) => posicao.investor ?? "—"))].sort(),
+    [posicoes],
+  );
   const total = (posicoes ?? []).reduce((soma, posicao) => soma + (posicao.marketValueCents ?? 0), 0);
 
   const visiveis = (posicoes ?? [])
@@ -70,6 +75,7 @@ export function PositionsView({ reloadToken, filtroInicial }: {
     .filter((posicao) => classe === "todos" || classeDe(posicao) === classe)
     .filter((posicao) => corretora === "todas" || (posicao.broker ?? "—") === corretora)
     .filter((posicao) => objetivo === "todos" || (posicao.objective ?? "—") === objetivo)
+    .filter((posicao) => investidor === "todos" || (posicao.investor ?? "—") === investidor)
     .sort((a, b) => {
       if (ordem === "nome") return a.name.localeCompare(b.name, "pt-BR");
       if (ordem === "rendimento") return (rendimentoDe(b).cents ?? -Infinity) - (rendimentoDe(a).cents ?? -Infinity);
@@ -119,6 +125,13 @@ export function PositionsView({ reloadToken, filtroInicial }: {
           <select value={objetivo} onChange={(evento) => setObjetivo(evento.target.value)}>
             <option value="todos">Todos</option>
             {objetivos.map((valor) => <option key={valor} value={valor}>{valor}</option>)}
+          </select>
+        </label>
+        <label className="campo">
+          <span className="stat-label">Investidor</span>
+          <select value={investidor} onChange={(evento) => setInvestidor(evento.target.value)}>
+            <option value="todos">Todos</option>
+            {investidores.map((valor) => <option key={valor} value={valor}>{valor}</option>)}
           </select>
         </label>
         <label className="campo">
