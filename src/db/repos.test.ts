@@ -7,7 +7,7 @@ import {
   hasQuoteFromSourceOnDate, indexFrontier, insertImportRun, insertInstruments, insertLegacySnapshots,
   insertTransactions, latestLegacyMonth, listAllFundQuotas, listAllIndexRates, listAllQuotes, listAllTransactions,
   listImportRuns, listLegacySnapshotByMonth, listSourceStatus, listTransactionsByInstrument,
-  quoteFrontier, recordSourceAttempt, writeFundQuotas, writeIndexRates, writeQuotes,
+  quoteFrontier, recordSourceAttempt, updateInstrumentInvestor, writeFundQuotas, writeIndexRates, writeQuotes,
 } from "./repos.ts";
 import type { FundQuotaRow, IndexRateRow, InstrumentRow, QuoteRow } from "./repos.ts";
 
@@ -144,4 +144,14 @@ test("writeFundQuotas: fetch do dia seguinte finaliza o parcial (0→1)", () => 
     { inserted: 0, updated: 1, skipped: 0 },
   );
   assert.deepEqual(listAllFundQuotas(db)[0], { symbol: "253210", date: "2026-09-18", quotaE12: 2n, source: "cvm-swb", settled: true });
+});
+
+test("updateInstrumentInvestor altera só o investidor e devolve o instrumento", () => {
+  const db = freshDb();
+  insertInstruments(db, [cdb]);
+  const atualizado = updateInstrumentInvestor(db, cdb.id, "Beto");
+  assert.equal(atualizado?.investor, "Beto");
+  assert.equal(atualizado?.rateE6, 1060000n, "demais campos intactos");
+  assert.equal(atualizado?.broker, "PagBank");
+  assert.equal(updateInstrumentInvestor(db, "nao-existe", "Beto"), undefined);
 });

@@ -76,6 +76,11 @@ export function getInstrumentByLegacyKey(db: Db, legacyKey: string): InstrumentR
   return row ? toInstrument(row) : undefined;
 }
 
+export function updateInstrumentInvestor(db: Db, id: string, investor: string): InstrumentRow | undefined {
+  db.prepare("UPDATE instruments SET investor = ? WHERE id = ?").run(investor, id);
+  return getInstrument(db, id);
+}
+
 export function insertTransactions(db: Db, rows: TransactionRow[]): void {
   const stmt = db.prepare(`INSERT INTO transactions
     (instrument_id, trade_date, kind, quantity_e8, gross_cents, fees_cents, note, legacy_row)
