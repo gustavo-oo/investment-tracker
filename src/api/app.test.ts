@@ -433,3 +433,51 @@ test("GET /api/performance valida a janela e devolve números", async () => {
 
   await app.close();
 });
+
+test("PATCH /api/instruments/:id corrige o investidor", async () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  seedPortfolio(db);
+  const app = buildApp({ db, csvDir: csvDirFixture(), logger: false });
+
+  const res = await app.inject({ method: "PATCH", url: `/api/instruments/${cdbInstrument.id}`, payload: { investor: "Beto" } });
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.json().investor, "Beto");
+  assert.equal(res.json().rateE6, 1_000_000, "demais campos intactos");
+
+  const portfolio = (await app.inject({ method: "GET", url: "/api/portfolio" })).json();
+  const posicao = portfolio.positions.find((p: { instrumentId: string }) => p.instrumentId === cdbInstrument.id);
+  assert.equal(posicao.investor, "Beto");
+
+  await app.close();
+});
+
+test("PATCH /api/instruments/:id rejeita corpo inválido", async () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  seedPortfolio(db);
+  const app = buildApp({ db, csvDir: csvDirFixture(), logger: false });
+  const url = `/api/instruments/${cdbInstrument.id}`;
+
+  const invalidos: Record<string, unknown>[] = [
+    { investor: "Ambos" }, { investor: "gustavo" }, { investor: "" }, { investor: 1 },
+    { investor: "Ana", extra: true }, {},
+  ];
+  for (const payload of invalidos) {
+    const res = await app.inject({ method: "PATCH", url, payload });
+    assert.equal(res.statusCode, 400, JSON.stringify(payload));
+  }
+  const semCorpo = await app.inject({ method: "PATCH", url });
+  assert.equal(semCorpo.statusCode, 400);
+
+  await app.close();
+});
+
+test("PATCH /api/instruments/:id responde 404 para ativo inexistente", async () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  const app = buildApp({ db, csvDir: csvDirFixture(), logger: false });
+  const res = await app.inject({ method: "PATCH", url: "/api/instruments/nao-existe", payload: { investor: "Beto" } });
+  assert.equal(res.statusCode, 404);
+  await app.close();
+});
