@@ -14,6 +14,19 @@ export type TransactionRow = {
   note: string | null; legacyRow: number | null;
 };
 
+export type TransactionWithId = TransactionRow & { id: number };
+
+type TransactionDbRow = {
+  id: bigint; instrument_id: string; trade_date: string; kind: TransactionKind;
+  quantity_e8: bigint | null; gross_cents: bigint; fees_cents: bigint; note: string | null; legacy_row: bigint | null;
+};
+
+const toTransaction = (row: TransactionDbRow): TransactionWithId => ({
+  id: Number(row.id), instrumentId: row.instrument_id, tradeDate: row.trade_date, kind: row.kind,
+  quantityE8: row.quantity_e8, grossCents: row.gross_cents, feesCents: row.fees_cents,
+  note: row.note, legacyRow: row.legacy_row === null ? null : Number(row.legacy_row),
+});
+
 export type LegacySnapshotRow = { month: string; instrumentId: string; valueCents: bigint; sharesE8: bigint | null };
 
 export type ImportRunRow = {
@@ -81,6 +94,27 @@ export function updateInstrumentInvestor(db: Db, id: string, investor: string): 
   return getInstrument(db, id);
 }
 
+export function insertInstrument(db: Db, row: InstrumentRow): void {
+  db.prepare(`INSERT INTO instruments
+    (id, legacy_key, name, kind, category, ticker, quote_source, quote_symbol, currency,
+     benchmark, rate_e6, maturity_date, liquidity, broker, objective, investor)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    .run(row.id, row.legacyKey, row.name, row.kind, row.category, row.ticker, row.quoteSource, row.quoteSymbol,
+      row.currency, row.benchmark, row.rateE6, row.maturityDate, row.liquidity, row.broker, row.objective, row.investor);
+}
+
+export function updateInstrument(db: Db, row: InstrumentRow): void {
+  db.prepare(`UPDATE instruments SET legacy_key = ?, name = ?, kind = ?, category = ?, ticker = ?,
+    quote_source = ?, quote_symbol = ?, currency = ?, benchmark = ?, rate_e6 = ?, maturity_date = ?,
+    liquidity = ?, broker = ?, objective = ?, investor = ? WHERE id = ?`)
+    .run(row.legacyKey, row.name, row.kind, row.category, row.ticker, row.quoteSource, row.quoteSymbol,
+      row.currency, row.benchmark, row.rateE6, row.maturityDate, row.liquidity, row.broker, row.objective, row.investor, row.id);
+}
+
+export function deleteInstrument(db: Db, id: string): void {
+  db.prepare("DELETE FROM instruments WHERE id = ?").run(id);
+}
+
 export function insertTransactions(db: Db, rows: TransactionRow[]): void {
   const stmt = db.prepare(`INSERT INTO transactions
     (instrument_id, trade_date, kind, quantity_e8, gross_cents, fees_cents, note, legacy_row)
@@ -93,17 +127,38 @@ export function insertTransactions(db: Db, rows: TransactionRow[]): void {
   run(rows);
 }
 
-export function listTransactionsByInstrument(db: Db, instrumentId: string): TransactionRow[] {
+export function listTransactionsByInstrument(db: Db, instrumentId: string): TransactionWithId[] {
   const rows = db.prepare("SELECT * FROM transactions WHERE instrument_id = ? ORDER BY trade_date, id")
-    .all(instrumentId) as Array<{
-      instrument_id: string; trade_date: string; kind: TransactionKind;
-      quantity_e8: bigint | null; gross_cents: bigint; fees_cents: bigint; note: string | null; legacy_row: bigint | null;
-    }>;
-  return rows.map((row) => ({
-    instrumentId: row.instrument_id, tradeDate: row.trade_date, kind: row.kind,
-    quantityE8: row.quantity_e8, grossCents: row.gross_cents, feesCents: row.fees_cents,
-    note: row.note, legacyRow: row.legacy_row === null ? null : Number(row.legacy_row),
-  }));
+    .all(instrumentId) as TransactionDbRow[];
+  return rows.map(toTransaction);
+}
+
+export function getTransaction(db: Db, id: number): TransactionWithId | undefined {
+  const row = db.prepare("SELECT * FROM transactions WHERE id = ?").get(id) as TransactionDbRow | undefined;
+  return row ? toTransaction(row) : undefined;
+}
+
+export function insertTransaction(db: Db, row: TransactionRow): number {
+  const result = db.prepare(`INSERT INTO transactions
+    (instrument_id, trade_date, kind, quantity_e8, gross_cents, fees_cents, note, legacy_row)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+    .run(row.instrumentId, row.tradeDate, row.kind, row.quantityE8, row.grossCents, row.feesCents, row.note, row.legacyRow);
+  return Number(result.lastInsertRowid);
+}
+
+export function updateTransaction(db: Db, id: number, row: TransactionRow): void {
+  db.prepare(`UPDATE transactions SET instrument_id = ?, trade_date = ?, kind = ?, quantity_e8 = ?,
+    gross_cents = ?, fees_cents = ?, note = ?, legacy_row = ? WHERE id = ?`)
+    .run(row.instrumentId, row.tradeDate, row.kind, row.quantityE8, row.grossCents, row.feesCents, row.note, row.legacyRow, id);
+}
+
+export function deleteTransaction(db: Db, id: number): void {
+  db.prepare("DELETE FROM transactions WHERE id = ?").run(id);
+}
+
+export function countTransactions(db: Db, instrumentId: string): number {
+  const row = db.prepare("SELECT COUNT(*) AS total FROM transactions WHERE instrument_id = ?").get(instrumentId) as { total: bigint };
+  return Number(row.total);
 }
 
 export function insertLegacySnapshots(db: Db, rows: LegacySnapshotRow[]): void {

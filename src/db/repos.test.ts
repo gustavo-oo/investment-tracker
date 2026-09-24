@@ -3,11 +3,13 @@ import assert from "node:assert/strict";
 import { openDb } from "./index.ts";
 import { migrate } from "./migrate.ts";
 import {
-  clearImportedData, counts, earliestTradeDate, fundQuotaFrontier, getInstrument, getInstrumentByLegacyKey,
-  hasQuoteFromSourceOnDate, indexFrontier, insertImportRun, insertInstruments, insertLegacySnapshots,
-  insertTransactions, latestLegacyMonth, listAllFundQuotas, listAllIndexRates, listAllQuotes, listAllTransactions,
+  clearImportedData, countTransactions, counts, deleteInstrument, deleteTransaction, earliestTradeDate,
+  fundQuotaFrontier, getInstrument, getInstrumentByLegacyKey, getTransaction,
+  hasQuoteFromSourceOnDate, indexFrontier, insertImportRun, insertInstrument, insertInstruments, insertLegacySnapshots,
+  insertTransaction, insertTransactions, latestLegacyMonth, listAllFundQuotas, listAllIndexRates, listAllQuotes, listAllTransactions,
   listImportRuns, listLegacySnapshotByMonth, listSourceStatus, listTransactionsByInstrument,
-  quoteFrontier, recordSourceAttempt, updateInstrumentInvestor, writeFundQuotas, writeIndexRates, writeQuotes,
+  quoteFrontier, recordSourceAttempt, updateInstrument, updateInstrumentInvestor, updateTransaction,
+  writeFundQuotas, writeIndexRates, writeQuotes,
 } from "./repos.ts";
 import type { FundQuotaRow, IndexRateRow, InstrumentRow, QuoteRow } from "./repos.ts";
 
@@ -154,4 +156,38 @@ test("updateInstrumentInvestor altera só o investidor e devolve o instrumento",
   assert.equal(atualizado?.rateE6, 1060000n, "demais campos intactos");
   assert.equal(atualizado?.broker, "PagBank");
   assert.equal(updateInstrumentInvestor(db, "nao-existe", "Beto"), undefined);
+});
+
+test("CRUD de instrumento: insere, atualiza e exclui", () => {
+  const db = freshDb();
+  insertInstrument(db, { ...cdb, id: "ui-1", legacyKey: "ui:ui-1", name: "CDB da UI" });
+  assert.equal(getInstrument(db, "ui-1")?.name, "CDB da UI");
+  updateInstrument(db, { ...cdb, id: "ui-1", legacyKey: "ui:ui-1", name: "CDB renomeado", investor: "Beto" });
+  const atualizado = getInstrument(db, "ui-1");
+  assert.equal(atualizado?.name, "CDB renomeado");
+  assert.equal(atualizado?.investor, "Beto");
+  deleteInstrument(db, "ui-1");
+  assert.equal(getInstrument(db, "ui-1"), undefined);
+});
+
+test("CRUD de transação: insere com id, atualiza, conta e exclui", () => {
+  const db = freshDb();
+  insertInstruments(db, [cdb]);
+  const id = insertTransaction(db, {
+    instrumentId: cdb.id, tradeDate: "2026-09-17", kind: "BUY", quantityE8: null,
+    grossCents: 100_000n, feesCents: 0n, note: "aporte", legacyRow: null,
+  });
+  assert.ok(id > 0);
+  assert.equal(getTransaction(db, id)?.note, "aporte");
+  assert.equal(countTransactions(db, cdb.id), 1);
+  assert.equal(listTransactionsByInstrument(db, cdb.id)[0]?.id, id);
+  updateTransaction(db, id, {
+    instrumentId: cdb.id, tradeDate: "2026-09-18", kind: "BUY", quantityE8: null,
+    grossCents: 120_000n, feesCents: 0n, note: null, legacyRow: null,
+  });
+  assert.equal(getTransaction(db, id)?.grossCents, 120_000n);
+  assert.equal(getTransaction(db, id)?.note, null);
+  deleteTransaction(db, id);
+  assert.equal(getTransaction(db, id), undefined);
+  assert.equal(countTransactions(db, cdb.id), 0);
 });
