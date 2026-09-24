@@ -99,7 +99,7 @@ export function PositionsView({ reloadToken, filtroInicial }: {
   }
 
   async function editarAtivo() {
-    if (selecionada === null) return;
+    if (selecionada === null || transacoes === null) return;
     try {
       const instrumentos = await getInstruments();
       const instrumento = instrumentos.find((item) => item.id === selecionada.instrumentId) ?? null;
@@ -252,7 +252,7 @@ export function PositionsView({ reloadToken, filtroInicial }: {
         <aside className="painel-ativo" aria-label={`Detalhes de ${selecionada.name}`}>
           <div className="section-head">
             <h2 className="section-title">{selecionada.name}</h2>
-            <button type="button" className="btn btn-secondary" onClick={() => void editarAtivo()}>
+            <button type="button" className="btn btn-secondary" disabled={transacoes === null} onClick={() => void editarAtivo()}>
               <PencilSimple size={15} aria-hidden="true" /> Editar cadastro
             </button>
             <button type="button" className="btn btn-secondary" onClick={() => setSelecionada(null)}>
