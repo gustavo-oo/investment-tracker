@@ -29,6 +29,7 @@ type Dados = {
 };
 
 const INICIO_TUDO = "2000-01";
+const OBJETIVO_RESERVA = "Reserva";
 
 function inicioDoPeriodo(periodo: Periodo, mes: string): string {
   if (periodo === "1a") return mesDeslocado(mes, -11);
@@ -104,6 +105,9 @@ export function OverviewView({ reloadToken, onAbrirPosicoes }: {
     const valor = posicoes.reduce((total, posicao) => total + (posicao.marketValueCents ?? 0), 0);
     return { classe, valor, quantidade: posicoes.length, pct: portfolio.totals.marketValueCents > 0 ? (valor / portfolio.totals.marketValueCents) * 100 : 0 };
   });
+  const posicoesReserva = portfolio.positions.filter((posicao) => posicao.objective === OBJETIVO_RESERVA);
+  const reservaCents = posicoesReserva.reduce((total, posicao) => total + (posicao.marketValueCents ?? 0), 0);
+  const reservaPct = portfolio.totals.marketValueCents > 0 ? (reservaCents / portfolio.totals.marketValueCents) * 100 : 0;
   const mwrPct = performanceTudo.mwr.periodPct;
   const ultimoMesIpca = [...performanceTudo.months].reverse().find((mes) => mes.ipcaPct !== null)?.month;
   const rotuloIpca = ultimoMesIpca === undefined ? "IPCA do período" : `IPCA do período (até ${formataMes(ultimoMesIpca)})`;
@@ -191,6 +195,17 @@ export function OverviewView({ reloadToken, onAbrirPosicoes }: {
         </div>
 
         <div className="stack">
+          {posicoesReserva.length > 0 && (
+            <section className="card">
+              <div className="section-head"><h2 className="section-title">Reserva de emergência</h2></div>
+              <p className="reserva-valor">{formataBRL(reservaCents)}</p>
+              <p className="reserva-sub">
+                {reservaPct.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% do patrimônio · {posicoesReserva.length} {posicoesReserva.length === 1 ? "ativo" : "ativos"}
+              </p>
+              <span className="alloc-bar"><span className="alloc-bar-fill" style={{ width: `${Math.min(100, reservaPct)}%` }} /></span>
+            </section>
+          )}
+
           <section className="card">
             <div className="section-head"><h2 className="section-title">Onde está o dinheiro</h2></div>
             <ul className="alloc-list">
