@@ -127,7 +127,11 @@ export function FormAtivo({ aberto, instrumento, qtdTransacoes, onFechar, onSalv
       <div className="form-grade">
         <label className="campo">
           <span className="stat-label">Modelo</span>
-          <select value={modelo} onChange={(evento) => setModelo(evento.target.value)} disabled={temTransacoes}>
+          <select value={modelo} onChange={(evento) => {
+            const novo = evento.target.value;
+            setModelo(novo);
+            if (novo === "rf" && !(categoria in CATEGORIAS_RF)) setCategoria("cdb");
+          }} disabled={temTransacoes}>
             {MODELOS.map((item) => <option key={item.id} value={item.id}>{item.rotulo}</option>)}
           </select>
         </label>
