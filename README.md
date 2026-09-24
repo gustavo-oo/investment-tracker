@@ -5,7 +5,8 @@ Substitui a planilha Google + Apps Script por um app local (Node + SQLite).
 ## Dev
 
     npm install
-    npm run import     # lê data/csv e popula data/investments.db
+    npm run import                  # lê data/csv e popula data/investments.db (1ª vez)
+    npm run import -- --replace     # substitui TODOS os dados (apaga edições feitas na UI)
     # reparo de cotações: automático após o refresh; para forçar uma janela:
     # npm run backfill -- --ticker B5P211 --from 2025-04-23 --to 2026-01-07
     npm run dev        # API em http://localhost:3000
