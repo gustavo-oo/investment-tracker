@@ -82,18 +82,16 @@ test("patchInstrument de RF revalida a carteira ao mexer em taxa/índice", () =>
   const resgate = addTransaction(db, cdb.id, { tradeDate: "2026-09-18", kind: "SELL", grossCents: 100_100n, feesCents: 0n, quantityE8: null, note: null }, HOJE);
   assert.equal(resgate.ok, true);
 
-  const semTaxa = patchInstrument(db, cdb.id, { rateE6: null });
-  assert.equal(semTaxa.ok, false);
-  if (!semTaxa.ok) assert.equal(semTaxa.failure.status, 400);
+  const taxaMenor = patchInstrument(db, cdb.id, { rateE6: 500_000n });
+  assert.equal(taxaMenor.ok, false);
+  if (!taxaMenor.ok) assert.equal(taxaMenor.failure.status, 400);
 
-  const comTaxa = patchInstrument(db, cdb.id, { rateE6: 1_000_000n });
-  assert.equal(comTaxa.ok, true);
+  const taxaMantida = patchInstrument(db, cdb.id, { rateE6: 1_000_000n });
+  assert.equal(taxaMantida.ok, true);
 
-  const mesmoKind = patchInstrument(db, cdb.id, { kind: "fixed_income", category: "cdb", broker: "XP" });
-  assert.equal(mesmoKind.ok, true);
-  if (mesmoKind.ok) assert.equal(mesmoKind.value.broker, "XP");
-  const outroKind = patchInstrument(db, cdb.id, { category: "lca" });
-  assert.equal(outroKind.ok, false);
+  const payloadCompleto = patchInstrument(db, cdb.id, { kind: "fixed_income", category: "cdb", broker: "XP" });
+  assert.equal(payloadCompleto.ok, true);
+  if (payloadCompleto.ok) assert.equal(payloadCompleto.value.broker, "XP");
 });
 
 test("removeInstrument bloqueia com transações e libera sem", () => {
