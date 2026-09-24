@@ -481,3 +481,130 @@ test("PATCH /api/instruments/:id responde 404 para ativo inexistente", async () 
   assert.equal(res.statusCode, 404);
   await app.close();
 });
+
+test("CRUD de ativos pela API: cria, edita e exclui sem transações", async () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  const app = buildApp({ db, csvDir: csvDirFixture(), logger: false });
+
+  let res = await app.inject({
+    method: "POST", url: "/api/instruments",
+    payload: {
+      name: "CDB Teste CRUD", kind: "fixed_income", category: "cdb", benchmark: "CDI", rateE6: 1_050_000,
+      maturityDate: "2030-01-01", broker: "PagBank", objective: "Reserva", investor: "Ana",
+    },
+  });
+  assert.equal(res.statusCode, 201);
+  const id = res.json().id as string;
+  assert.equal(id, "cdb-teste-crud");
+  assert.equal(res.json().quoteSource, null);
+
+  res = await app.inject({ method: "PATCH", url: `/api/instruments/${id}`, payload: { broker: "XP", investor: "Beto" } });
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.json().broker, "XP");
+  assert.equal(res.json().investor, "Beto");
+
+  res = await app.inject({ method: "DELETE", url: `/api/instruments/${id}` });
+  assert.equal(res.statusCode, 204);
+  assert.equal((await app.inject({ method: "GET", url: "/api/instruments" })).json().length, 0);
+
+  await app.close();
+});
+
+test("POST /api/instruments rejeita id duplicado e cadastro inconsistente", async () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  seedPortfolio(db);
+  const app = buildApp({ db, csvDir: csvDirFixture(), logger: false });
+  const valido = {
+    name: "CDB 1", kind: "fixed_income", category: "cdb", benchmark: "CDI", rateE6: 1_050_000, ticker: null, quoteSymbol: null,
+  };
+
+  assert.equal((await app.inject({ method: "POST", url: "/api/instruments", payload: valido })).statusCode, 409);
+  assert.equal((await app.inject({ method: "POST", url: "/api/instruments", payload: { ...valido, name: "Sem taxa", rateE6: null } })).statusCode, 400);
+  assert.equal((await app.inject({ method: "POST", url: "/api/instruments", payload: { ...valido, name: "RV sem ticker", kind: "equity", category: "etf_equity", benchmark: null, rateE6: null } })).statusCode, 400);
+  assert.equal((await app.inject({ method: "POST", url: "/api/instruments", payload: { ...valido, name: "Com extra", extra: 1 } })).statusCode, 400);
+  assert.equal((await app.inject({ method: "PATCH", url: "/api/instruments/cdb-1", payload: {} })).statusCode, 400);
+
+  await app.close();
+});
+
+test("transações pela API: cria com id, edita e exclui", async () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  seedPortfolio(db);
+  const app = buildApp({ db, csvDir: csvDirFixture(), logger: false });
+
+  let res = await app.inject({
+    method: "POST", url: "/api/instruments/cdb-1/transactions",
+    payload: { tradeDate: "2026-09-18", kind: "BUY", grossCents: 50_000, feesCents: 0 },
+  });
+  assert.equal(res.statusCode, 201);
+  const transactionId = res.json().id as number;
+  assert.ok(transactionId > 0);
+  assert.equal(res.json().quantityE8, null);
+
+  res = await app.inject({ method: "GET", url: "/api/instruments/cdb-1/transactions" });
+  assert.ok((res.json() as Array<{ id: number }>).every((transaction) => typeof transaction.id === "number"));
+
+  res = await app.inject({ method: "PATCH", url: `/api/transactions/${transactionId}`, payload: { grossCents: 60_000, note: "ajuste" } });
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.json().grossCents, 60_000);
+  assert.equal(res.json().note, "ajuste");
+
+  res = await app.inject({ method: "DELETE", url: `/api/transactions/${transactionId}` });
+  assert.equal(res.statusCode, 204);
+  assert.equal((await app.inject({ method: "PATCH", url: `/api/transactions/${transactionId}`, payload: { grossCents: 1 } })).statusCode, 404);
+
+  await app.close();
+});
+
+test("guarda de escrita: resgate acima do saldo e venda acima das cotas respondem 400", async () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  seedPortfolio(db);
+  const app = buildApp({ db, csvDir: csvDirFixture(), logger: false });
+
+  let res = await app.inject({
+    method: "POST", url: "/api/instruments/cdb-1/transactions",
+    payload: { tradeDate: "2026-09-18", kind: "SELL", grossCents: 99_999_999 },
+  });
+  assert.equal(res.statusCode, 400);
+  assert.match(res.json().error, /maior que o saldo/);
+
+  res = await app.inject({
+    method: "POST", url: "/api/instruments/etf-1/transactions",
+    payload: { tradeDate: "2026-09-18", kind: "SELL", grossCents: 1_000, quantityE8: 11_00000000 },
+  });
+  assert.equal(res.statusCode, 400);
+  assert.match(res.json().error, /negativa/);
+
+  res = await app.inject({
+    method: "POST", url: "/api/instruments/etf-1/transactions",
+    payload: { tradeDate: "2099-01-01", kind: "BUY", grossCents: 1_000, quantityE8: 1_00000000 },
+  });
+  assert.equal(res.statusCode, 400);
+  assert.match(res.json().error, /futura/);
+
+  await app.close();
+});
+
+test("classe/categoria travadas e exclusão de ativo com transações", async () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  seedPortfolio(db);
+  const app = buildApp({ db, csvDir: csvDirFixture(), logger: false });
+
+  const patch = await app.inject({ method: "PATCH", url: "/api/instruments/cdb-1", payload: { category: "lca" } });
+  assert.equal(patch.statusCode, 400);
+  assert.match(patch.json().error, /classe\/categoria/);
+
+  const exclusao = await app.inject({ method: "DELETE", url: "/api/instruments/cdb-1" });
+  assert.equal(exclusao.statusCode, 409);
+  assert.match(exclusao.json().error, /transações/);
+
+  assert.equal((await app.inject({ method: "DELETE", url: "/api/instruments/nao-existe" })).statusCode, 404);
+  assert.equal((await app.inject({ method: "PATCH", url: "/api/transactions/999", payload: { grossCents: 1 } })).statusCode, 404);
+
+  await app.close();
+});

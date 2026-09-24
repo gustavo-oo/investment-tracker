@@ -9,6 +9,7 @@ import { registerPerformanceRoutes } from "./api/routes/performance.ts";
 import { registerPortfolioRoutes } from "./api/routes/portfolio.ts";
 import { registerReconciliationRoutes } from "./api/routes/reconciliation.ts";
 import { registerRefreshRoutes } from "./api/routes/refresh.ts";
+import { registerTransactionsRoutes } from "./api/routes/transactions.ts";
 import type { RefreshDeps } from "./services/refresh.ts";
 
 export function buildApp(options: {
@@ -16,6 +17,7 @@ export function buildApp(options: {
 }): FastifyInstance {
   const app = Fastify({ logger: options.logger ?? false, bodyLimit: 20 * 1024 * 1024 });
   registerInstrumentsRoutes(app, options.db);
+  registerTransactionsRoutes(app, options.db);
   registerImportRoutes(app, options.db, options.csvDir);
   registerHealthRoutes(app, options.db);
   registerPortfolioRoutes(app, options.db);

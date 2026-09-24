@@ -39,6 +39,11 @@ Se o volume der erro de permissão, ajuste o dono de `./data` para o uid do cont
 | `GET /api/import/runs` | histórico de imports |
 | `GET /api/instruments` | lista de ativos |
 | `GET /api/instruments/:id/transactions` | movimentos do ativo |
+| `POST /api/instruments` | cria ativo (corpo com o cadastro; `id` gerado do nome) |
+| `PATCH /api/instruments/:id` | edita cadastro (classe/categoria só sem transações) |
+| `DELETE /api/instruments/:id` | exclui ativo sem transações |
+| `POST /api/instruments/:id/transactions` | cria Compra/Resgate (`kind: BUY\|SELL`; quantidade em RV/previdência) |
+| `PATCH /api/transactions/:id` · `DELETE /api/transactions/:id` | edita/exclui transação (guarda impede posição negativa) |
 | `GET /api/portfolio` | posições + totais (RF capitalizada, RV = cotas × fechamento) |
 | `GET /api/history?from=YYYY-MM&to=YYYY-MM` | evolução mensal (default: 12 meses); clampa a janela no primeiro mês com retorno (mai/2025 nos dados atuais) |
 | `GET /api/performance?from=YYYY-MM&to=YYYY-MM` | retorno mensal/acumulado da carteira, diferença em p.p. contra CDI/IPCA e MWR (mesma janela clampada do `/api/history`) |
