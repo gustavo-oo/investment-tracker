@@ -99,3 +99,32 @@ export function formataPontosPercentuais(valor: number): string {
 export function formataJanela(from: string, to: string): string {
   return `${formataMes(from)} – ${formataMes(to)}`;
 }
+
+/** "1.234,56" | "1234,5" | "1234" → centavos; aceita 0; null se inválido. */
+export function parseMoedaParaCents(texto: string): number | null {
+  const limpo = texto.trim().replace(/R\$/g, "").replace(/\s+/g, "");
+  const match = /^(\d{1,3}(?:\.\d{3})+|\d+)(?:,(\d{1,2}))?$/.exec(limpo);
+  if (match === null) return null;
+  const inteiro = (match[1] ?? "0").replace(/\./g, "");
+  const centavos = ((match[2] ?? "") + "00").slice(0, 2);
+  const cents = Number(BigInt(inteiro) * 100n + BigInt(centavos));
+  return Number.isSafeInteger(cents) ? cents : null;
+}
+
+/** "105" | "105,5" → 1050000 (escala e6, 100% = 1e6); null se inválido ou ≤ 0. */
+export function parsePercentualParaE6(texto: string): number | null {
+  const limpo = texto.trim().replace("%", "").replace(",", ".");
+  if (!/^\d+(\.\d{1,2})?$/.test(limpo)) return null;
+  const [inteiro = "0", fracao = ""] = limpo.split(".");
+  const e6 = Number(BigInt(inteiro) * 10_000n + BigInt((fracao + "00").slice(0, 2)) * 100n);
+  return Number.isSafeInteger(e6) && e6 > 0 ? e6 : null;
+}
+
+/** "10,5" → 1050000000 (escala e8); null se inválido ou ≤ 0. */
+export function parseQuantidadeE8(texto: string): number | null {
+  const limpo = texto.trim().replace(/\./g, "").replace(",", ".");
+  if (!/^\d+(\.\d{1,8})?$/.test(limpo)) return null;
+  const [inteiro = "0", fracao = ""] = limpo.split(".");
+  const e8 = Number(BigInt(inteiro) * 100_000_000n + BigInt((fracao + "00000000").slice(0, 8)));
+  return Number.isSafeInteger(e8) && e8 > 0 ? e8 : null;
+}

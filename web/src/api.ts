@@ -1,14 +1,3 @@
-export type ImportSummary = {
-  dryRun: boolean;
-  instruments: number;
-  transactions: number;
-  historyRows: number;
-  latestMonth: string | null;
-  latestTotalCents: number;
-  warnings: string[];
-  errors: string[];
-};
-
 export type ImportRun = {
   id: number;
   importedAt: string;
@@ -20,35 +9,11 @@ export type ImportRun = {
   message: string | null;
 };
 
-export type ImportPayload = {
-  workbookBase64?: string;
-  assetsCsv?: string;
-  transactionsCsv?: string;
-  historyCsv?: string;
-  dryRun: boolean;
-};
-
 async function errorMessage(response: Response, body: unknown): Promise<string> {
   if (body && typeof body === "object" && typeof (body as { message?: unknown }).message === "string") {
     return String((body as { message: string }).message);
   }
   return `erro HTTP ${response.status}`;
-}
-
-export async function postImport(payload: ImportPayload): Promise<ImportSummary> {
-  const response = await fetch("/api/import", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  const body = (await response.json().catch(() => null)) as ImportSummary | { message?: string } | null;
-  if (body && Array.isArray((body as ImportSummary).errors)) {
-    return body as ImportSummary;
-  }
-  if (!response.ok || body === null) {
-    throw new Error(await errorMessage(response, body));
-  }
-  return body as ImportSummary;
 }
 
 export async function getImportRuns(): Promise<ImportRun[]> {
@@ -126,7 +91,7 @@ export type Performance = {
 };
 
 export type Transaction = {
-  tradeDate: string; kind: string; quantityE8: number | null;
+  id: number; tradeDate: string; kind: string; quantityE8: number | null;
   grossCents: number; feesCents: number; note: string | null; legacyRow: number | null;
 };
 
@@ -155,19 +120,58 @@ export const getPerformance = (from: string, to: string, signal?: AbortSignal): 
 export const getTransactions = (id: string, signal?: AbortSignal): Promise<Transaction[]> =>
   getJson(`/api/instruments/${encodeURIComponent(id)}/transactions`, signal);
 
-export type Investor = "Ana" | "Beto";
+export type Instrument = {
+  id: string; name: string; kind: "fixed_income" | "equity" | "pension"; category: string;
+  ticker: string | null; quoteSource: string | null; quoteSymbol: string | null; currency: string;
+  benchmark: string | null; rateE6: number | null; maturityDate: string | null;
+  liquidity: string | null; broker: string | null; objective: string | null; investor: string | null;
+};
 
-export async function patchInvestor(id: string, investor: Investor): Promise<void> {
-  const response = await fetch(`/api/instruments/${encodeURIComponent(id)}`, {
-    method: "PATCH",
+export type InstrumentPayload = {
+  name: string; kind: Instrument["kind"]; category: string;
+  ticker?: string | null; quoteSymbol?: string | null; benchmark?: string | null; rateE6?: number | null;
+  maturityDate?: string | null; liquidity?: string | null; broker?: string | null;
+  objective?: string | null; investor?: string | null;
+};
+
+export type TransactionPayload = {
+  tradeDate: string; kind: "BUY" | "SELL"; grossCents: number; feesCents?: number;
+  quantityE8?: number | null; note?: string | null;
+};
+
+async function sendJson<T>(url: string, method: "POST" | "PATCH", payload: unknown): Promise<T> {
+  const response = await fetch(url, {
+    method,
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ investor }),
+    body: JSON.stringify(payload),
   });
   if (!response.ok) {
     const body = await response.json().catch(() => null);
     throw new Error(await apiErrorMessage(response, body));
   }
+  return (await response.json()) as T;
 }
+
+async function sendDelete(url: string): Promise<void> {
+  const response = await fetch(url, { method: "DELETE" });
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(await apiErrorMessage(response, body));
+  }
+}
+
+export const getInstruments = (signal?: AbortSignal): Promise<Instrument[]> => getJson("/api/instruments", signal);
+export const postInstrument = (payload: InstrumentPayload): Promise<Instrument> => sendJson("/api/instruments", "POST", payload);
+export const patchInstrument = (id: string, payload: Partial<InstrumentPayload>): Promise<Instrument> =>
+  sendJson(`/api/instruments/${encodeURIComponent(id)}`, "PATCH", payload);
+export const deleteInstrument = (id: string): Promise<void> => sendDelete(`/api/instruments/${encodeURIComponent(id)}`);
+export const postTransaction = (instrumentId: string, payload: TransactionPayload): Promise<Transaction> =>
+  sendJson(`/api/instruments/${encodeURIComponent(instrumentId)}/transactions`, "POST", payload);
+export const patchTransaction = (id: number, payload: Partial<TransactionPayload>): Promise<Transaction> =>
+  sendJson(`/api/transactions/${id}`, "PATCH", payload);
+export const deleteTransaction = (id: number): Promise<void> => sendDelete(`/api/transactions/${id}`);
+
+export type Investor = "Ana" | "Beto";
 
 export async function postRefresh(): Promise<RefreshResult> {
   const response = await fetch("/api/refresh", { method: "POST" });

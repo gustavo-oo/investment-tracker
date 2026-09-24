@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { CaretDown, CaretUp, MagnifyingGlass, Table, X } from "@phosphor-icons/react";
-import { getPortfolio, getTransactions, patchInvestor, type Investor, type PortfolioPosition, type Transaction } from "../api.ts";
+import { getPortfolio, getTransactions, patchInstrument, type Investor, type PortfolioPosition, type Transaction } from "../api.ts";
 import { formataBRL, formataCategoria, formataData, formataMes, formataPercentualSinal, formataQuantidade } from "../format.ts";
 import { ORDEM_CLASSE, ROTULO_CLASSE, classeDe, type Classe } from "../classes.ts";
 
@@ -88,7 +88,7 @@ export function PositionsView({ reloadToken, filtroInicial }: {
     setSalvandoInvestidor(true);
     setFeedbackInvestidor(null);
     try {
-      await patchInvestor(selecionada.instrumentId, investidorRascunho as Investor);
+      await patchInstrument(selecionada.instrumentId, { investor: investidorRascunho as Investor });
       const atualizada = { ...selecionada, investor: investidorRascunho };
       setPosicoes((antigas) => (antigas ?? []).map((posicao) =>
         posicao.instrumentId === atualizada.instrumentId ? atualizada : posicao));

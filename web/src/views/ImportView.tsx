@@ -9,8 +9,31 @@ import {
   WarningCircle,
   XCircle,
 } from "@phosphor-icons/react";
-import { getImportRuns, postImport, type ImportPayload, type ImportRun, type ImportSummary } from "../api.ts";
+import { getImportRuns, type ImportRun } from "../api.ts";
 import { formataBRL, formataDataHora, formataFonte, formataMes, formataNumero, formataTamanho } from "../format.ts";
+
+type ImportSummary = {
+  dryRun: boolean; instruments: number; transactions: number; historyRows: number;
+  latestMonth: string | null; latestTotalCents: number; warnings: string[]; errors: string[];
+};
+
+type ImportPayload = {
+  workbookBase64?: string; assetsCsv?: string; transactionsCsv?: string; historyCsv?: string; dryRun: boolean;
+};
+
+async function postImport(payload: ImportPayload): Promise<ImportSummary> {
+  const response = await fetch("/api/import", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const body = (await response.json().catch(() => null)) as ImportSummary | { message?: string } | null;
+  if (body && Array.isArray((body as ImportSummary).errors)) return body as ImportSummary;
+  const mensagem = body !== null && typeof (body as { message?: unknown }).message === "string"
+    ? String((body as { message: string }).message)
+    : `erro HTTP ${response.status}`;
+  throw new Error(mensagem);
+}
 
 const readAsBase64 = (file: File): Promise<string> =>
   new Promise((resolve, reject) => {
