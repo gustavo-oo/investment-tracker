@@ -112,7 +112,7 @@ export function patchInstrument(db: Db, id: string, patch: Partial<InstrumentInp
   const current = getInstrument(db, id);
   if (current === undefined) return failure(404, "instrumento não encontrado");
   const hasTransactions = countTransactions(db, id) > 0;
-  if (hasTransactions && (patch.kind !== undefined || patch.category !== undefined)) {
+  if (hasTransactions && ((patch.kind !== undefined && patch.kind !== current.kind) || (patch.category !== undefined && patch.category !== current.category))) {
     return failure(400, "não é possível mudar classe/categoria com transações");
   }
   const merged: InstrumentInput = {

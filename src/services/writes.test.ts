@@ -73,6 +73,29 @@ test("patchInstrument não muda kind/category com transações", () => {
   assert.equal(patchInstrument(db, "nao-existe", { broker: "XP" }).ok, false);
 });
 
+test("patchInstrument de RF revalida a carteira ao mexer em taxa/índice", () => {
+  const db = freshDb();
+  insertInstruments(db, [cdb]);
+  writeIndexRates(db, [{ series: "CDI", date: "2026-09-17", valueE12: 1_000_000_000n }]);
+  const compra = addTransaction(db, cdb.id, { tradeDate: "2026-09-17", kind: "BUY", grossCents: 100_000n, feesCents: 0n, quantityE8: null, note: null }, HOJE);
+  assert.equal(compra.ok, true);
+  const resgate = addTransaction(db, cdb.id, { tradeDate: "2026-09-18", kind: "SELL", grossCents: 100_100n, feesCents: 0n, quantityE8: null, note: null }, HOJE);
+  assert.equal(resgate.ok, true);
+
+  const semTaxa = patchInstrument(db, cdb.id, { rateE6: null });
+  assert.equal(semTaxa.ok, false);
+  if (!semTaxa.ok) assert.equal(semTaxa.failure.status, 400);
+
+  const comTaxa = patchInstrument(db, cdb.id, { rateE6: 1_000_000n });
+  assert.equal(comTaxa.ok, true);
+
+  const mesmoKind = patchInstrument(db, cdb.id, { kind: "fixed_income", category: "cdb", broker: "XP" });
+  assert.equal(mesmoKind.ok, true);
+  if (mesmoKind.ok) assert.equal(mesmoKind.value.broker, "XP");
+  const outroKind = patchInstrument(db, cdb.id, { category: "lca" });
+  assert.equal(outroKind.ok, false);
+});
+
 test("removeInstrument bloqueia com transações e libera sem", () => {
   const db = freshDb();
   insertInstruments(db, [cdb]);
