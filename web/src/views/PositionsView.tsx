@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { CaretDown, CaretUp, MagnifyingGlass, Table, X } from "@phosphor-icons/react";
-import { getPortfolio, getTransactions, patchInstrument, type Investor, type PortfolioPosition, type Transaction } from "../api.ts";
+import { CaretDown, CaretUp, MagnifyingGlass, PencilSimple, Plus, Table, X } from "@phosphor-icons/react";
+import { getInstruments, getPortfolio, getTransactions, type Instrument, type PortfolioPosition, type Transaction } from "../api.ts";
 import { formataBRL, formataCategoria, formataData, formataMes, formataPercentualSinal, formataQuantidade } from "../format.ts";
 import { ORDEM_CLASSE, ROTULO_CLASSE, classeDe, type Classe } from "../classes.ts";
+import { FormAtivo } from "../components/FormAtivo.tsx";
+import { FormTransacao } from "../components/FormTransacao.tsx";
 
 type Ordem = "valor" | "nome" | "rendimento" | "rendimentoPct" | "pct";
 
@@ -19,7 +21,6 @@ function precoMedio(transacao: Transaction): string {
 }
 
 const ROTULO_OPERACAO: Record<string, string> = { BUY: "Compra", SELL: "Venda", AMORTIZATION: "Amortização", INTEREST: "Juros", DIVIDEND: "Dividendo" };
-const INVESTIDORES: Investor[] = ["Ana", "Beto"];
 
 export function PositionsView({ reloadToken, filtroInicial }: {
   reloadToken: number; filtroInicial: Classe | null;
@@ -34,9 +35,9 @@ export function PositionsView({ reloadToken, filtroInicial }: {
   const [ordem, setOrdem] = useState<Ordem>("valor");
   const [selecionada, setSelecionada] = useState<PortfolioPosition | null>(null);
   const [transacoes, setTransacoes] = useState<Transaction[] | null>(null);
-  const [investidorRascunho, setInvestidorRascunho] = useState("");
-  const [salvandoInvestidor, setSalvandoInvestidor] = useState(false);
-  const [feedbackInvestidor, setFeedbackInvestidor] = useState<{ tipo: "ok" | "erro"; mensagem: string } | null>(null);
+  const [recargaLocal, setRecargaLocal] = useState(0);
+  const [formAtivo, setFormAtivo] = useState<{ instrumento: Instrument | null; qtdTransacoes: number } | null>(null);
+  const [formTransacao, setFormTransacao] = useState<{ transacao: Transaction | null } | null>(null);
 
   useEffect(() => {
     setClasse(filtroInicial ?? "todos");
@@ -45,13 +46,19 @@ export function PositionsView({ reloadToken, filtroInicial }: {
   useEffect(() => {
     const controller = new AbortController();
     getPortfolio(controller.signal)
-      .then((portfolio) => { setPosicoes(portfolio.positions); setErro(null); })
+      .then((portfolio) => {
+        setPosicoes(portfolio.positions);
+        setSelecionada((atual) => atual === null
+          ? null
+          : portfolio.positions.find((posicao) => posicao.instrumentId === atual.instrumentId) ?? null);
+        setErro(null);
+      })
       .catch((cause: unknown) => {
         if (cause instanceof DOMException && cause.name === "AbortError") return;
         setErro(cause instanceof Error ? cause.message : String(cause));
       });
     return () => controller.abort();
-  }, [reloadToken]);
+  }, [reloadToken, recargaLocal]);
 
   useEffect(() => {
     if (selecionada === null) return;
@@ -64,7 +71,7 @@ export function PositionsView({ reloadToken, filtroInicial }: {
         setTransacoes([]);
       });
     return () => controller.abort();
-  }, [selecionada?.instrumentId]);
+  }, [selecionada?.instrumentId, recargaLocal]);
 
   const corretoras = useMemo(() => [...new Set((posicoes ?? []).map((posicao) => posicao.broker ?? "—"))].sort(), [posicoes]);
   const objetivos = useMemo(() => [...new Set((posicoes ?? []).map((posicao) => posicao.objective ?? "—"))].sort(), [posicoes]);
@@ -79,32 +86,29 @@ export function PositionsView({ reloadToken, filtroInicial }: {
 
   function abrirAtivo(posicao: PortfolioPosition) {
     setSelecionada(posicao);
-    setInvestidorRascunho(posicao.investor ?? "");
-    setFeedbackInvestidor(null);
   }
 
-  async function salvarInvestidor() {
-    if (selecionada === null || investidorRascunho === "") return;
-    setSalvandoInvestidor(true);
-    setFeedbackInvestidor(null);
+  function concluirMutacao() {
+    setFormTransacao(null);
+    setFormAtivo(null);
+    setRecargaLocal((valor) => valor + 1);
+  }
+
+  function novoAtivo() {
+    setFormAtivo({ instrumento: null, qtdTransacoes: 0 });
+  }
+
+  async function editarAtivo() {
+    if (selecionada === null) return;
     try {
-      await patchInstrument(selecionada.instrumentId, { investor: investidorRascunho as Investor });
-      const atualizada = { ...selecionada, investor: investidorRascunho };
-      setPosicoes((antigas) => (antigas ?? []).map((posicao) =>
-        posicao.instrumentId === atualizada.instrumentId ? atualizada : posicao));
-      setSelecionada((atual) => (atual !== null && atual.instrumentId === atualizada.instrumentId ? atualizada : atual));
-      setFeedbackInvestidor({ tipo: "ok", mensagem: "Investidor atualizado" });
+      const instrumentos = await getInstruments();
+      const instrumento = instrumentos.find((item) => item.id === selecionada.instrumentId) ?? null;
+      setFormAtivo({ instrumento, qtdTransacoes: (transacoes ?? []).length });
     } catch (cause) {
-      setFeedbackInvestidor({ tipo: "erro", mensagem: cause instanceof Error ? cause.message : String(cause) });
-    } finally {
-      setSalvandoInvestidor(false);
+      setErro(cause instanceof Error ? cause.message : String(cause));
     }
   }
 
-  const opcoesInvestidor = selecionada !== null && selecionada.investor !== null && !INVESTIDORES.includes(selecionada.investor as Investor)
-    ? [selecionada.investor, ...INVESTIDORES.map((valor) => valor as string)]
-    : INVESTIDORES.map((valor) => valor as string);
-  const mudouInvestidor = selecionada !== null && investidorRascunho !== (selecionada.investor ?? "");
   const total = (posicoes ?? []).reduce((soma, posicao) => soma + (posicao.marketValueCents ?? 0), 0);
 
   const visiveis = (posicoes ?? [])
@@ -130,6 +134,11 @@ export function PositionsView({ reloadToken, filtroInicial }: {
             <span>{visiveis.length} de {(posicoes ?? []).length} ativos</span>
             <span>valor total {formataBRL(total)}</span>
           </p>
+        </div>
+        <div className="page-head-actions">
+          <button type="button" className="btn" onClick={() => void novoAtivo()}>
+            <Plus size={15} aria-hidden="true" /> Novo ativo
+          </button>
         </div>
       </div>
 
@@ -187,7 +196,7 @@ export function PositionsView({ reloadToken, filtroInicial }: {
         <div className="empty">
           <Table size={22} aria-hidden="true" />
           <p className="empty-title">Nenhum ativo</p>
-          <p className="empty-hint">Ajuste os filtros ou importe a planilha em Importar.</p>
+          <p className="empty-hint">Ajuste os filtros ou crie um ativo em Novo ativo.</p>
         </div>
       ) : (
         <div className="table-wrap card">
@@ -243,6 +252,9 @@ export function PositionsView({ reloadToken, filtroInicial }: {
         <aside className="painel-ativo" aria-label={`Detalhes de ${selecionada.name}`}>
           <div className="section-head">
             <h2 className="section-title">{selecionada.name}</h2>
+            <button type="button" className="btn btn-secondary" onClick={() => void editarAtivo()}>
+              <PencilSimple size={15} aria-hidden="true" /> Editar cadastro
+            </button>
             <button type="button" className="btn btn-secondary" onClick={() => setSelecionada(null)}>
               <X size={15} /> Fechar
             </button>
@@ -253,32 +265,18 @@ export function PositionsView({ reloadToken, filtroInicial }: {
             <span className="chip">{ROTULO_CLASSE[classeDe(selecionada)]}</span>
             <span className="chip">{selecionada.investor ?? "sem investidor"}</span>
           </p>
-          <div className="campo">
-            <span className="stat-label">Investidor</span>
-            <div className="investidor-opcoes">
-              <select value={investidorRascunho} onChange={(evento) => setInvestidorRascunho(evento.target.value)} aria-label="Investidor do ativo">
-                {investidorRascunho === "" && <option value="" disabled>—</option>}
-                {opcoesInvestidor.map((valor) => <option key={valor} value={valor}>{valor}</option>)}
-              </select>
-              <button type="button" className="btn btn-secondary" disabled={!mudouInvestidor || salvandoInvestidor || investidorRascunho === ""} onClick={salvarInvestidor}>
-                {salvandoInvestidor ? "Salvando..." : "Salvar"}
-              </button>
-            </div>
-            <span className="stat-note">Correções valem até o próximo import — a planilha sobrescreve.</span>
-            {feedbackInvestidor !== null && feedbackInvestidor.tipo === "ok" && (
-              <span className="stat-note" aria-live="polite">{feedbackInvestidor.mensagem}</span>
-            )}
-            {feedbackInvestidor !== null && feedbackInvestidor.tipo === "erro" && (
-              <span className="campo-erro" role="alert">{feedbackInvestidor.mensagem}</span>
-            )}
-          </div>
           <div className="stats">
             <div className="stat"><span className="stat-label">Valor</span><span className="stat-value">{selecionada.marketValueCents === null ? "—" : formataBRL(selecionada.marketValueCents)}</span></div>
             <div className="stat"><span className="stat-label">Quantidade</span><span className="stat-value">{selecionada.quantityE8 === null ? "—" : formataQuantidade(selecionada.quantityE8)}</span></div>
             <div className="stat"><span className="stat-label">Preço</span><span className="stat-value">{selecionada.priceCents === null ? "—" : formataBRL(selecionada.priceCents)}</span></div>
             <div className="stat"><span className="stat-label">Preço em</span><span className="stat-value">{selecionada.priceDate === null ? "—" : formataMes(selecionada.priceDate.slice(0, 7))}</span></div>
           </div>
-          <h3 className="section-title">Transações</h3>
+          <div className="section-head section-head-linha">
+            <h3 className="section-title">Transações</h3>
+            <button type="button" className="btn btn-secondary" onClick={() => setFormTransacao({ transacao: null })}>
+              <Plus size={15} aria-hidden="true" /> Nova transação
+            </button>
+          </div>
           {transacoes === null ? (
             <p className="section-hint">Carregando...</p>
           ) : transacoes.length === 0 ? (
@@ -290,8 +288,8 @@ export function PositionsView({ reloadToken, filtroInicial }: {
                   <tr><th scope="col">Data</th><th scope="col">Tipo</th><th scope="col" className="num">Qtd.</th><th scope="col" className="num">Preço</th><th scope="col" className="num">Valor</th><th scope="col" className="num">Taxas</th></tr>
                 </thead>
                 <tbody>
-                  {transacoes.map((transacao, index) => (
-                    <tr key={`${transacao.tradeDate}:${transacao.kind}:${index}`}>
+                  {transacoes.map((transacao) => (
+                    <tr key={transacao.id} onClick={() => setFormTransacao({ transacao })} className="linha-clicavel">
                       <td>{formataData(transacao.tradeDate)}</td>
                       <td>{ROTULO_OPERACAO[transacao.kind] ?? transacao.kind}</td>
                       <td className="num">{transacao.quantityE8 === null ? "—" : formataQuantidade(transacao.quantityE8)}</td>
@@ -305,6 +303,25 @@ export function PositionsView({ reloadToken, filtroInicial }: {
             </div>
           )}
         </aside>
+      )}
+
+      {formTransacao !== null && selecionada !== null && (
+        <FormTransacao
+          aberto
+          posicao={selecionada}
+          transacao={formTransacao.transacao}
+          onFechar={() => setFormTransacao(null)}
+          onSalvo={concluirMutacao}
+        />
+      )}
+      {formAtivo !== null && (
+        <FormAtivo
+          aberto
+          instrumento={formAtivo.instrumento}
+          qtdTransacoes={formAtivo.qtdTransacoes}
+          onFechar={() => setFormAtivo(null)}
+          onSalvo={concluirMutacao}
+        />
       )}
     </div>
   );

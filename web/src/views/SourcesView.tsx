@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowsClockwise, WarningCircle } from "@phosphor-icons/react";
-import { getHealth, getReconciliation, postRefresh, type Health, type Reconciliation, type ReconciliationCause, type RefreshResult } from "../api.ts";
+import { getHealth, getImportRuns, getReconciliation, postRefresh, type Health, type ImportRun, type Reconciliation, type ReconciliationCause, type RefreshResult } from "../api.ts";
 import { formataBRL, formataDataHora, formataMes, formataNumero } from "../format.ts";
 
 const ROTULO_CAUSA: Record<ReconciliationCause, string> = {
@@ -21,6 +21,7 @@ const mesAtual = (): string =>
 export function SourcesView({ reloadToken }: { reloadToken: number }) {
   const [health, setHealth] = useState<Health | null>(null);
   const [reconciliation, setReconciliation] = useState<Reconciliation | null>(null);
+  const [importRuns, setImportRuns] = useState<ImportRun[]>([]);
   const [resultado, setResultado] = useState<RefreshResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -28,9 +29,10 @@ export function SourcesView({ reloadToken }: { reloadToken: number }) {
 
   const carregar = useCallback(async (signal: AbortSignal) => {
     try {
-      const [novoHealth, novaRecon] = await Promise.all([getHealth(signal), getReconciliation(mesAtual(), signal)]);
+      const [novoHealth, novaRecon, novoRuns] = await Promise.all([getHealth(signal), getReconciliation(mesAtual(), signal), getImportRuns()]);
       setHealth(novoHealth);
       setReconciliation(novaRecon);
+      setImportRuns(novoRuns);
       setErro(null);
     } catch (cause) {
       if (cause instanceof DOMException && cause.name === "AbortError") return;
@@ -207,6 +209,34 @@ export function SourcesView({ reloadToken }: { reloadToken: number }) {
                   </table>
                 </div>
               )}
+            </details>
+          </section>
+        )}
+
+        {importRuns.length > 0 && (
+          <section className="card">
+            <details className="recon">
+              <summary><span className="section-title">Importações da planilha</span><span className="badge">{formataNumero(importRuns.length)} registros</span></summary>
+              <p className="section-hint">O import substitui todos os dados e agora só roda pelo CLI: <code>npm run import -- --replace</code>.</p>
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr><th scope="col">Quando</th><th scope="col">Origem</th><th scope="col" className="num">Ativos</th><th scope="col" className="num">Transações</th><th scope="col" className="num">Histórico</th><th scope="col">Estado</th></tr>
+                  </thead>
+                  <tbody>
+                    {importRuns.map((run) => (
+                      <tr key={run.id}>
+                        <td>{formataDataHora(run.importedAt)}</td>
+                        <td>{run.source}</td>
+                        <td className="num">{run.instruments}</td>
+                        <td className="num">{run.transactions}</td>
+                        <td className="num">{run.historyRows}</td>
+                        <td>{run.status === "ok" ? <span className="badge badge-ok">ok</span> : <span className="badge badge-error">{run.message ?? "erro"}</span>}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </details>
           </section>
         )}
