@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { openDb } from "../db/index.ts";
 import { migrate } from "../db/migrate.ts";
-import { insertInstruments, writeIndexRates, type InstrumentRow } from "../db/repos.ts";
+import { getInstrument, insertInstruments, insertLegacySnapshots, writeIndexRates, type InstrumentRow } from "../db/repos.ts";
 import {
   addTransaction, createInstrument, editTransaction, patchInstrument, removeInstrument, removeTransaction,
 } from "./writes.ts";
@@ -107,6 +107,60 @@ test("removeInstrument bloqueia com transações e libera sem", () => {
   });
   assert.equal(semUso.ok, true);
   if (semUso.ok) assert.equal(removeInstrument(db, semUso.value.id).ok, true);
+});
+
+test("patchInstrument aceita investidor legado Ambos, mas valida quando enviado", () => {
+  const db = freshDb();
+  const legado: InstrumentRow = {
+    ...etf, id: "vwra11", legacyKey: "VWRA11", name: "VWRA11", ticker: "VWRA11",
+    broker: "Importado", objective: null, liquidity: null, investor: "Ambos",
+  };
+  insertInstruments(db, [legado]);
+
+  const broker = patchInstrument(db, legado.id, { broker: "XP" });
+  assert.equal(broker.ok, true);
+  if (broker.ok) {
+    assert.equal(broker.value.broker, "XP");
+    assert.equal(broker.value.investor, "Ambos", "investidor legado preservado");
+  }
+
+  const correcao = patchInstrument(db, legado.id, { investor: "Ana" });
+  assert.equal(correcao.ok, true);
+  if (correcao.ok) assert.equal(correcao.value.investor, "Ana");
+
+  const amboso = patchInstrument(db, legado.id, { investor: "Ambos" });
+  assert.equal(amboso.ok, false);
+  if (!amboso.ok) assert.equal(amboso.failure.status, 400);
+
+  const criadoComAmbos = createInstrument(db, {
+    name: "Ativo Ambos", kind: "equity", category: "etf_equity", ticker: "AMBO11", quoteSymbol: null,
+    benchmark: null, rateE6: null, maturityDate: null, liquidity: null, broker: null, objective: null, investor: "Ambos",
+  });
+  assert.equal(criadoComAmbos.ok, false);
+  if (!criadoComAmbos.ok) assert.equal(criadoComAmbos.failure.status, 400);
+});
+
+test("removeInstrument bloqueia quando há snapshots de histórico", () => {
+  const db = freshDb();
+  insertInstruments(db, [etf]);
+  insertLegacySnapshots(db, [{ month: "2026-08-01", instrumentId: etf.id, valueCents: 0n, sharesE8: 0n }]);
+
+  const bloqueado = removeInstrument(db, etf.id);
+  assert.equal(bloqueado.ok, false);
+  if (!bloqueado.ok) {
+    assert.equal(bloqueado.failure.status, 409);
+    assert.match(bloqueado.failure.message, /1 registros de histórico/);
+  }
+
+  const semHistorico = createInstrument(db, {
+    name: "ETF Sem Uso", kind: "equity", category: "etf_equity", ticker: "SEM11", quoteSymbol: null,
+    benchmark: null, rateE6: null, maturityDate: null, liquidity: null, broker: null, objective: null, investor: null,
+  });
+  assert.equal(semHistorico.ok, true);
+  if (semHistorico.ok) {
+    assert.equal(removeInstrument(db, semHistorico.value.id).ok, true);
+    assert.equal(getInstrument(db, semHistorico.value.id), undefined);
+  }
 });
 
 test("addTransaction grava SELL negativo, guarda e valida", () => {

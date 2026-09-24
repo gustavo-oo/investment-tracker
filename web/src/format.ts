@@ -111,12 +111,12 @@ export function parseMoedaParaCents(texto: string): number | null {
   return Number.isSafeInteger(cents) ? cents : null;
 }
 
-/** "105" | "105,5" → 1050000 (escala e6, 100% = 1e6); null se inválido ou ≤ 0. */
+/** "105" | "105,5" | "100,0996" → 1050000/1055000/1000996 (escala e6, 100% = 1e6); null se inválido ou ≤ 0. */
 export function parsePercentualParaE6(texto: string): number | null {
   const limpo = texto.trim().replace("%", "").replace(",", ".");
-  if (!/^\d+(\.\d{1,2})?$/.test(limpo)) return null;
+  if (!/^\d+(\.\d{1,4})?$/.test(limpo)) return null;
   const [inteiro = "0", fracao = ""] = limpo.split(".");
-  const e6 = Number(BigInt(inteiro) * 10_000n + BigInt((fracao + "00").slice(0, 2)) * 100n);
+  const e6 = Number(BigInt(inteiro) * 10_000n + BigInt((fracao + "0000").slice(0, 4)));
   return Number.isSafeInteger(e6) && e6 > 0 ? e6 : null;
 }
 

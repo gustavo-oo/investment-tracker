@@ -183,6 +183,11 @@ export function listLegacySnapshotByMonth(db: Db, month: string): LegacySnapshot
   }));
 }
 
+export function countLegacySnapshots(db: Db, instrumentId: string): number {
+  const row = db.prepare("SELECT COUNT(*) AS total FROM legacy_snapshots WHERE instrument_id = ?").get(instrumentId) as { total: bigint };
+  return Number(row.total);
+}
+
 export function insertImportRun(db: Db, run: Omit<ImportRunRow, "id" | "importedAt">): void {
   db.prepare("INSERT INTO import_runs (source, instruments, transactions, history_rows, status, message) VALUES (?, ?, ?, ?, ?, ?)")
     .run(run.source, run.instruments, run.transactions, run.historyRows, run.status, run.message);

@@ -17,5 +17,8 @@ web/dist/
 *.db-shm
 *.db-wal
 
+# brainstorming / screenshots
+.superpowers/
+
 # OS
 .DS_Store

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { openDb } from "./index.ts";
 import { migrate } from "./migrate.ts";
 import {
-  clearImportedData, countTransactions, counts, deleteInstrument, deleteTransaction, earliestTradeDate,
+  clearImportedData, countLegacySnapshots, countTransactions, counts, deleteInstrument, deleteTransaction, earliestTradeDate,
   fundQuotaFrontier, getInstrument, getInstrumentByLegacyKey, getTransaction,
   hasQuoteFromSourceOnDate, indexFrontier, insertImportRun, insertInstrument, insertInstruments, insertLegacySnapshots,
   insertTransaction, insertTransactions, latestLegacyMonth, listAllFundQuotas, listAllIndexRates, listAllQuotes, listAllTransactions,
@@ -55,6 +55,19 @@ test("histórico legado, runs e limpeza", () => {
   assert.deepEqual(counts(db), { instruments: 1, transactions: 0, legacySnapshots: 2, importRuns: 1 });
   clearImportedData(db);
   assert.deepEqual(counts(db), { instruments: 0, transactions: 0, legacySnapshots: 0, importRuns: 1 });
+});
+
+test("countLegacySnapshots conta por instrumento", () => {
+  const db = freshDb();
+  insertInstruments(db, [cdb, { ...cdb, id: "outro", legacyKey: "Outro", name: "Outro" }]);
+  insertLegacySnapshots(db, [
+    { month: "2026-08-01", instrumentId: cdb.id, valueCents: 1n, sharesE8: null },
+    { month: "2026-09-01", instrumentId: cdb.id, valueCents: 2n, sharesE8: null },
+    { month: "2026-09-01", instrumentId: "outro", valueCents: 3n, sharesE8: null },
+  ]);
+  assert.equal(countLegacySnapshots(db, cdb.id), 2);
+  assert.equal(countLegacySnapshots(db, "outro"), 1);
+  assert.equal(countLegacySnapshots(db, "nao-existe"), 0);
 });
 
 test("writeQuotes: fechado imutável, hoje sobrescreve, pendente finaliza", () => {

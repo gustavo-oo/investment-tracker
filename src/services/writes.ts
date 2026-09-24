@@ -1,6 +1,6 @@
 import type { Db } from "../db/index.ts";
 import {
-  countTransactions, deleteInstrument, deleteTransaction, getInstrument, getTransaction, insertInstrument,
+  countLegacySnapshots, countTransactions, deleteInstrument, deleteTransaction, getInstrument, getTransaction, insertInstrument,
   insertTransaction, listAllIndexRates, listTransactionsByInstrument, updateInstrument, updateTransaction,
   type InstrumentRow, type TransactionRow, type TransactionWithId,
 } from "../db/repos.ts";
@@ -36,10 +36,13 @@ const clean = (value: string | null): string | null => {
   return trimmed === "" ? null : trimmed;
 };
 
+function validateInvestor(investor: string | null): string | null {
+  return investor !== null && !INVESTORS.has(investor) ? "investidor deve ser Ana ou Beto" : null;
+}
+
 function validateInstrument(input: InstrumentInput): string | null {
   if (input.name.trim() === "") return "nome obrigatório";
   if (CATEGORY_KINDS[input.category] !== input.kind) return "classe e categoria não combinam";
-  if (input.investor !== null && !INVESTORS.has(input.investor)) return "investidor deve ser Ana ou Beto";
   if (input.maturityDate !== null && !isDate(input.maturityDate)) return "vencimento inválido";
   if (input.kind === "fixed_income") {
     if (input.benchmark !== "CDI" && input.benchmark !== "SELIC") return "renda fixa usa CDI ou SELIC";
@@ -83,7 +86,7 @@ function runGuard(
 const failure = (status: 400 | 404 | 409, message: string): WriteResult<never> => ({ ok: false, failure: { status, message } });
 
 export function createInstrument(db: Db, input: InstrumentInput): WriteResult<InstrumentRow> {
-  const invalid = validateInstrument(input);
+  const invalid = validateInstrument(input) ?? validateInvestor(input.investor);
   if (invalid !== null) return failure(400, invalid);
   let id: string;
   try {
@@ -129,7 +132,7 @@ export function patchInstrument(db: Db, id: string, patch: Partial<InstrumentInp
     objective: patch.objective !== undefined ? patch.objective : current.objective,
     investor: patch.investor !== undefined ? patch.investor : current.investor,
   };
-  const invalid = validateInstrument(merged);
+  const invalid = validateInstrument(merged) ?? (patch.investor !== undefined ? validateInvestor(merged.investor) : null);
   if (invalid !== null) return failure(400, invalid);
   const mudaRF = patch.benchmark !== undefined || patch.rateE6 !== undefined || patch.maturityDate !== undefined;
   if (hasTransactions && merged.kind === "fixed_income" && mudaRF) {
@@ -156,6 +159,8 @@ export function removeInstrument(db: Db, id: string): WriteResult<null> {
   if (current === undefined) return failure(404, "instrumento não encontrado");
   const total = countTransactions(db, id);
   if (total > 0) return failure(409, `não é possível excluir: ${total} transações lançadas`);
+  const snapshots = countLegacySnapshots(db, id);
+  if (snapshots > 0) return failure(409, `não é possível excluir: ${snapshots} registros de histórico`);
   deleteInstrument(db, id);
   return { ok: true, value: null };
 }

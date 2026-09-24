@@ -16,6 +16,8 @@ const MODELOS: Array<{ id: string; rotulo: string; kind: Instrument["kind"]; cat
 
 const CATEGORIAS_RF: Record<string, string> = { cdb: "CDB", lca: "LCA", selic: "Selic" };
 
+const INVESTIDORES: string[] = ["Ana", "Beto"];
+
 export function FormAtivo({ aberto, instrumento, qtdTransacoes, onFechar, onSalvo }: {
   aberto: boolean;
   instrumento: Instrument | null;
@@ -69,6 +71,9 @@ export function FormAtivo({ aberto, instrumento, qtdTransacoes, onFechar, onSalv
 
   const definicao = MODELOS.find((item) => item.id === modelo) ?? MODELOS[0];
   const ehRF = definicao.kind === "fixed_income";
+  const opcoesInvestidor = instrumento !== null && instrumento.investor !== null && !INVESTIDORES.includes(instrumento.investor)
+    ? [instrumento.investor, ...INVESTIDORES]
+    : INVESTIDORES;
 
   async function salvar() {
     const payload: InstrumentPayload = {
@@ -79,8 +84,10 @@ export function FormAtivo({ aberto, instrumento, qtdTransacoes, onFechar, onSalv
       liquidity: liquidez.trim() === "" ? null : liquidez.trim(),
       broker: corretora.trim() === "" ? null : corretora.trim(),
       objective: objetivo.trim() === "" ? null : objetivo.trim(),
-      investor: investidor === "" ? null : investidor,
     };
+    if (instrumento === null || investidor !== (instrumento.investor ?? "")) {
+      payload.investor = investidor === "" ? null : investidor;
+    }
     if (payload.name === "") return setErro("informe o nome");
     if (ehRF) {
       const rateE6 = parsePercentualParaE6(rentabilidade);
@@ -185,8 +192,7 @@ export function FormAtivo({ aberto, instrumento, qtdTransacoes, onFechar, onSalv
           <span className="stat-label">Investidor</span>
           <select value={investidor} onChange={(evento) => setInvestidor(evento.target.value)}>
             <option value="">—</option>
-            <option value="Ana">Ana</option>
-            <option value="Beto">Beto</option>
+            {opcoesInvestidor.map((valor) => <option key={valor} value={valor}>{valor}</option>)}
           </select>
         </label>
       </div>
