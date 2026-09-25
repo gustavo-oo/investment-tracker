@@ -31,7 +31,9 @@ export function PainelGrupo({ grupo, totalCents, onAbrirMembro }: {
       </p>
       <p className="painel-valor">{grupo.semValor ? "—" : formataBRL(grupo.valorCents)}</p>
       {encerrado ? (
-        <p className="painel-sem-cotacao">posições encerradas (R$ 0,00): resultado realizado {formataBRLSinal(grupo.resultadoRealizadoCents)}</p>
+        <p className="painel-sem-cotacao">
+          {grupo.membros.length === 1 ? "posição encerrada" : "posições encerradas"} (R$ 0,00): resultado realizado {formataBRLSinal(grupo.resultadoRealizadoCents)}
+        </p>
       ) : grupo.rendimentoCents === null ? (
         <p className="painel-sem-cotacao">sem cotação registrada</p>
       ) : (

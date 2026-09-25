@@ -70,10 +70,11 @@ function agregarGrupo(chave: string, membros: PortfolioPosition[]): GrupoPosicoe
   const rendimentoPct = rendimentoCents === null || capitalCents <= 0 ? null : (rendimentoCents / capitalCents) * 100;
   const distintos = (valores: Array<string | null>): string[] =>
     [...new Set(valores.filter((valor): valor is string => valor !== null && valor !== ""))].sort();
+  const investidor = ordenados.find((posicao) => (posicao.investor ?? "").trim() !== "")?.investor ?? null;
   return {
     chave,
     nome: ordenados[0].name,
-    investidor: ordenados[0].investor,
+    investidor,
     membros: ordenados,
     valorCents,
     semValor,
