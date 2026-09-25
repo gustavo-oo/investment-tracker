@@ -1117,6 +1117,22 @@ select {
 }
 
 .controles-cabecalho { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+
+.reb-metas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)) minmax(0, 1.2fr); gap: 14px; }
+.reb-grade { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 14px; }
+.reb-card { display: flex; flex-direction: column; gap: 12px; }
+.reb-card-topo { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.reb-titulo { margin: 0; font-size: 15px; }
+.reb-pct { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.reb-pct-bloco { display: flex; flex-direction: column; gap: 2px; }
+.reb-pct-bloco strong { font-family: var(--font-mono); font-size: 18px; }
+.reb-seta { color: var(--text-3); }
+.reb-valores { display: flex; flex-direction: column; gap: 4px; border-top: 1px solid var(--border); padding-top: 10px; }
+.reb-sugerido { font-family: var(--font-mono); font-size: 26px; font-weight: 600; color: var(--accent); }
+.reb-nota { color: var(--text-2); font-size: 12px; }
+@media (max-width: 1024px) {
+  .reb-metas, .reb-grade { grid-template-columns: minmax(0, 1fr); }
+}
 .gaveta {
   position: fixed;
   inset: 0 0 0 auto;
