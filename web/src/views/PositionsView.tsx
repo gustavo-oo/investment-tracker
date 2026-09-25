@@ -10,6 +10,11 @@ import { PainelAtivo } from "../components/PainelAtivo.tsx";
 
 type Ordem = "valor" | "nome" | "rendimento" | "rendimentoPct" | "pct";
 
+type EstadoGaveta =
+  | { tipo: "detalhe" }
+  | { tipo: "transacao"; transacao: Transaction | null }
+  | { tipo: "cadastro"; instrumento: Instrument | null; qtdTransacoes: number };
+
 function rendimentoDe(posicao: PortfolioPosition): { cents: number | null; pct: number | null } {
   if (posicao.marketValueCents === null) return { cents: null, pct: null };
   const capital = posicao.investedCents - posicao.redeemedCents;
@@ -29,11 +34,10 @@ export function PositionsView({ reloadToken, filtroInicial }: {
   const [investidor, setInvestidor] = useState("todos");
   const [ordem, setOrdem] = useState<Ordem>("valor");
   const [selecionada, setSelecionada] = useState<PortfolioPosition | null>(null);
-  const [gavetaAberta, setGavetaAberta] = useState(false);
+  const [gaveta, setGaveta] = useState<EstadoGaveta | null>(null);
+  const [sugestoesLiquidez, setSugestoesLiquidez] = useState<string[]>([]);
   const [transacoes, setTransacoes] = useState<Transaction[] | null>(null);
   const [recargaLocal, setRecargaLocal] = useState(0);
-  const [formAtivo, setFormAtivo] = useState<{ instrumento: Instrument | null; qtdTransacoes: number } | null>(null);
-  const [formTransacao, setFormTransacao] = useState<{ transacao: Transaction | null } | null>(null);
 
   useEffect(() => {
     setClasse(filtroInicial ?? "todos");
@@ -69,8 +73,14 @@ export function PositionsView({ reloadToken, filtroInicial }: {
     return () => controller.abort();
   }, [selecionada?.instrumentId, recargaLocal]);
 
-  const corretoras = useMemo(() => [...new Set((posicoes ?? []).map((posicao) => posicao.broker ?? "—"))].sort(), [posicoes]);
-  const objetivos = useMemo(() => [...new Set((posicoes ?? []).map((posicao) => posicao.objective ?? "—"))].sort(), [posicoes]);
+  const corretoras = useMemo(
+    () => [...new Set((posicoes ?? []).map((posicao) => posicao.broker).filter((valor): valor is string => valor !== null && valor !== ""))].sort(),
+    [posicoes],
+  );
+  const objetivos = useMemo(
+    () => [...new Set((posicoes ?? []).map((posicao) => posicao.objective).filter((valor): valor is string => valor !== null && valor !== ""))].sort(),
+    [posicoes],
+  );
   const investidores = useMemo(
     () => [...new Set((posicoes ?? []).map((posicao) => posicao.investor ?? "—"))].sort(),
     [posicoes],
@@ -82,33 +92,44 @@ export function PositionsView({ reloadToken, filtroInicial }: {
 
   function abrirAtivo(posicao: PortfolioPosition) {
     setSelecionada(posicao);
-    setGavetaAberta(true);
+    setGaveta({ tipo: "detalhe" });
   }
 
   function fecharGaveta() {
-    setGavetaAberta(false);
+    setGaveta(null);
     setSelecionada(null);
   }
 
-  function concluirMutacao() {
-    setFormTransacao(null);
-    setFormAtivo(null);
-    setRecargaLocal((valor) => valor + 1);
+  function liquidezDe(instrumentos: Instrument[]): string[] {
+    return [...new Set(instrumentos.map((item) => item.liquidity).filter((valor): valor is string => valor !== null && valor !== ""))].sort();
   }
 
   function novoAtivo() {
-    setFormAtivo({ instrumento: null, qtdTransacoes: 0 });
+    setSelecionada(null);
+    setGaveta({ tipo: "cadastro", instrumento: null, qtdTransacoes: 0 });
+    getInstruments()
+      .then((instrumentos) => setSugestoesLiquidez(liquidezDe(instrumentos)))
+      .catch(() => undefined);
   }
 
   async function editarAtivo() {
-    if (selecionada === null || transacoes === null) return;
+    if (selecionada === null) return;
     try {
       const instrumentos = await getInstruments();
       const instrumento = instrumentos.find((item) => item.id === selecionada.instrumentId) ?? null;
-      setFormAtivo({ instrumento, qtdTransacoes: (transacoes ?? []).length });
+      setSugestoesLiquidez(liquidezDe(instrumentos));
+      setGaveta({ tipo: "cadastro", instrumento, qtdTransacoes: (transacoes ?? []).length });
     } catch (cause) {
       setErro(cause instanceof Error ? cause.message : String(cause));
     }
+  }
+
+  function concluirMutacao() {
+    setRecargaLocal((valor) => valor + 1);
+    setGaveta((atual) => {
+      if (atual !== null && atual.tipo === "cadastro" && atual.instrumento === null) return null;
+      return selecionada === null ? null : { tipo: "detalhe" };
+    });
   }
 
   const total = (posicoes ?? []).reduce((soma, posicao) => soma + (posicao.marketValueCents ?? 0), 0);
@@ -250,36 +271,36 @@ export function PositionsView({ reloadToken, filtroInicial }: {
         </div>
       )}
 
-      {gavetaAberta && selecionada !== null && (
-        <Gaveta aberta titulo={selecionada.name} onFechar={fecharGaveta}>
-          <PainelAtivo
-            posicao={selecionada}
-            totalCents={total}
-            transacoes={transacoes}
-            onNovaTransacao={() => setFormTransacao({ transacao: null })}
-            onEditarTransacao={(transacao) => setFormTransacao({ transacao })}
-            onEditarCadastro={() => void editarAtivo()}
-          />
+      {gaveta !== null && (
+        <Gaveta aberta titulo={selecionada === null ? "Novo ativo" : selecionada.name} onFechar={fecharGaveta}>
+          {gaveta.tipo === "detalhe" && selecionada !== null && (
+            <PainelAtivo
+              posicao={selecionada}
+              totalCents={total}
+              transacoes={transacoes}
+              onNovaTransacao={() => setGaveta({ tipo: "transacao", transacao: null })}
+              onEditarTransacao={(transacao) => setGaveta({ tipo: "transacao", transacao })}
+              onEditarCadastro={() => void editarAtivo()}
+            />
+          )}
+          {gaveta.tipo === "transacao" && selecionada !== null && (
+            <FormTransacao
+              posicao={selecionada}
+              transacao={gaveta.transacao}
+              onVoltar={() => setGaveta({ tipo: "detalhe" })}
+              onConcluir={concluirMutacao}
+            />
+          )}
+          {gaveta.tipo === "cadastro" && (
+            <FormAtivo
+              instrumento={gaveta.instrumento}
+              qtdTransacoes={gaveta.qtdTransacoes}
+              sugestoes={{ corretoras, objetivos, liquidez: sugestoesLiquidez }}
+              onVoltar={() => { if (gaveta.instrumento === null) fecharGaveta(); else setGaveta({ tipo: "detalhe" }); }}
+              onConcluir={concluirMutacao}
+            />
+          )}
         </Gaveta>
-      )}
-
-      {formTransacao !== null && selecionada !== null && (
-        <FormTransacao
-          aberto
-          posicao={selecionada}
-          transacao={formTransacao.transacao}
-          onFechar={() => setFormTransacao(null)}
-          onSalvo={concluirMutacao}
-        />
-      )}
-      {formAtivo !== null && (
-        <FormAtivo
-          aberto
-          instrumento={formAtivo.instrumento}
-          qtdTransacoes={formAtivo.qtdTransacoes}
-          onFechar={() => setFormAtivo(null)}
-          onSalvo={concluirMutacao}
-        />
       )}
     </div>
   );

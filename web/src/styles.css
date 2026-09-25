@@ -1160,8 +1160,9 @@ select {
 .gaveta-caixa { padding: 20px 20px 32px; }
 
 .gaveta-fechar {
-  position: absolute; top: 16px; right: 16px;
-  display: inline-flex; align-items: center; gap: 6px;
+  position: sticky; top: 0; z-index: 1;
+  display: flex; align-items: center; gap: 6px;
+  width: fit-content; margin-left: auto;
   padding: 5px 10px; border: 1px solid var(--border); border-radius: var(--radius-control);
   background: var(--surface); color: var(--text-2); font: inherit; font-size: 12.5px; cursor: pointer;
 }
@@ -1214,3 +1215,32 @@ select {
 @media (max-width: 640px) {
   .gaveta { width: 100vw; border-left: 0; }
 }
+
+.gaveta-cabecalho-linha { align-items: flex-start; justify-content: space-between; }
+
+.btn-voltar {
+  border: 0; background: transparent; color: var(--text-2);
+  font: inherit; font-size: 12.5px; padding: 3px 6px; border-radius: 6px;
+  cursor: pointer; white-space: nowrap;
+}
+.btn-voltar:hover { background: var(--surface-2); color: var(--text); }
+.btn-voltar:focus-visible { outline: none; box-shadow: var(--ring); }
+
+.campo-opcional { color: var(--text-3); font-weight: 400; }
+.campo-moeda { display: flex; align-items: center; gap: 6px; padding-left: 11px; background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius-control); transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease); }
+.campo-moeda:hover { border-color: var(--text-3); }
+.campo-moeda:focus-within { border-color: var(--accent); box-shadow: var(--ring); }
+.campo-prefixo { color: var(--text-3); font-size: 13px; }
+.campo-moeda input { flex: 1; min-width: 0; border: 0; background: transparent; padding-left: 0; }
+.campo-moeda input:hover, .campo-moeda input:focus { border: 0; box-shadow: none; }
+
+.campo-sufixo { display: flex; align-items: center; gap: 6px; }
+.campo-sufixo input { flex: 1; min-width: 0; }
+.campo-sufixo-texto { color: var(--text-3); font-size: 12px; white-space: nowrap; }
+
+.form-dica { margin-top: 12px; padding: 9px 12px; background: var(--surface-2); border-radius: var(--radius-control); font-size: 12px; color: var(--text-2); }
+.aviso-travado { margin-top: 12px; padding: 9px 12px; background: var(--warn-soft); border-radius: var(--radius-control); font-size: 12px; color: var(--text); }
+.aviso-travado strong { color: var(--warn); }
+
+.btn-danger { background: var(--danger); border-color: var(--danger); color: var(--ink-contrast); }
+.btn-danger:hover:not(:disabled) { background: color-mix(in srgb, var(--danger) 86%, var(--bg)); }
