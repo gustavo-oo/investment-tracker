@@ -92,12 +92,6 @@ export function PositionsView({ reloadToken, filtroInicial }: {
     if (investidor !== "todos" && !investidores.includes(investidor)) setInvestidor("todos");
   }, [investidores, investidor]);
 
-  function abrirAtivo(posicao: PortfolioPosition) {
-    setSelecionada(posicao);
-    setOrigemGrupo(null);
-    setGaveta({ tipo: "detalhe" });
-  }
-
   function abrirGrupo(grupo: GrupoPosicoes) {
     setSelecionada(null);
     setOrigemGrupo(null);
@@ -169,8 +163,6 @@ export function PositionsView({ reloadToken, filtroInicial }: {
   const capitalTotal = (posicoes ?? []).reduce((soma, posicao) => soma + capitalDe(posicao), 0);
   const rendimentoPctTotal = capitalTotal > 0 ? (rendimentoTotal / capitalTotal) * 100 : null;
 
-  const encerradas = visiveis.filter((posicao) => posicao.marketValueCents === 0);
-
   function comparaGrupos(a: GrupoPosicoes, b: GrupoPosicoes): number {
     if (ordem === "nome") return a.nome.localeCompare(b.nome, "pt-BR");
     if (ordem === "rendimento") return (b.rendimentoCents ?? -Infinity) - (a.rendimentoCents ?? -Infinity);
@@ -178,8 +170,10 @@ export function PositionsView({ reloadToken, filtroInicial }: {
     return b.valorCents - a.valorCents;
   }
 
-  const gruposAtivos = agruparPosicoes(visiveis.filter((posicao) => posicao.marketValueCents !== 0)).sort(comparaGrupos);
-  const gruposEncerrados = agruparPosicoes(encerradas);
+  const gruposVisiveis = agruparPosicoes(visiveis);
+  const gruposAtivos = gruposVisiveis.filter((grupo) => grupo.membros.some((membro) => membro.marketValueCents !== 0)).sort(comparaGrupos);
+  const gruposEncerrados = gruposVisiveis.filter((grupo) => grupo.membros.every((membro) => membro.marketValueCents === 0));
+  const encerradas = gruposEncerrados.reduce((soma, grupo) => soma + grupo.membros.length, 0);
   const resultadoEncerradas = gruposEncerrados.reduce((soma, grupo) => soma + grupo.resultadoRealizadoCents, 0);
   const grupoDaGaveta = gaveta?.tipo === "grupo"
     ? [...gruposAtivos, ...gruposEncerrados].find((grupo) => grupo.chave === gaveta.chave) ?? null
@@ -301,7 +295,7 @@ export function PositionsView({ reloadToken, filtroInicial }: {
             <details className="encerradas">
               <summary>
                 <span className="encerradas-resumo">
-                  {encerradas.length} {encerradas.length === 1 ? "posição encerrada" : "posições encerradas"}
+                  {encerradas} {encerradas === 1 ? "posição encerrada" : "posições encerradas"}
                   {gruposEncerrados.length > 1 ? ` em ${gruposEncerrados.length} grupos` : ""} (R$ 0,00) · resultado realizado{" "}
                   <strong className={resultadoEncerradas >= 0 ? "rendimento-positivo" : "rendimento-negativo"}>{formataBRLSinal(resultadoEncerradas)}</strong>
                 </span>
