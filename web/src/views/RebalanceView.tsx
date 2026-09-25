@@ -53,10 +53,11 @@ export function RebalanceView({ reloadToken }: { reloadToken: number }) {
     if (rfE6 + rvE6 !== SOMA_METAS) return setErroEntrada("as metas precisam somar 100%");
     if (aporte === null) return setErroEntrada("valor a investir inválido");
     setErroEntrada(null);
+    setRecado(null);
     const controller = new AbortController();
     const id = setTimeout(() => {
       getRebalance({ amountCents: aporte, rfE6, rvE6 }, controller.signal)
-        .then((resultado) => setDados(resultado))
+        .then((resultado) => { setDados(resultado); setErro(null); })
         .catch((cause: unknown) => {
           if (cause instanceof DOMException && cause.name === "AbortError") return;
           setErro(cause instanceof Error ? cause.message : String(cause));
