@@ -1,64 +1,67 @@
-import type { PortfolioPosition } from "../api.ts";
 import { formataBRL, formataBRLSinal, formataCategoria, formataData, formataPercentualSinal, formataQuantidade } from "../format.ts";
 import { COR_DA_CLASSE, classeDe } from "../classes.ts";
-import { participacaoPct, rendimentoDe } from "../posicoes.ts";
+import { participacaoPct, type GrupoPosicoes } from "../posicoes.ts";
 import { taxaTexto } from "./PainelAtivo.tsx";
 
-export function CartaoAtivo({ posicao, totalCents, onAbrir }: {
-  posicao: PortfolioPosition;
+export function CartaoAtivo({ grupo, totalCents, onAbrir }: {
+  grupo: GrupoPosicoes;
   totalCents: number;
-  onAbrir: (posicao: PortfolioPosition) => void;
+  onAbrir: (grupo: GrupoPosicoes) => void;
 }) {
-  const rendimento = rendimentoDe(posicao);
-  const pct = participacaoPct(posicao.marketValueCents, totalCents);
+  const posicao = grupo.membros[0];
   const cor = COR_DA_CLASSE[classeDe(posicao)];
+  const umSo = grupo.membros.length === 1;
   const taxa = taxaTexto(posicao.rateE6, posicao.benchmark);
-  const chip = posicao.kind === "pension"
-    ? "PGBL · IPCA"
-    : posicao.category === "etf_fixed"
-      ? "ETF RF"
-      : posicao.category === "etf_equity"
-        ? "ETF RV"
-        : taxa ?? formataCategoria(posicao.category);
+  const participacao = participacaoPct(grupo.semValor ? null : grupo.valorCents, totalCents);
+
+  const chip = umSo
+    ? posicao.kind === "pension" ? "PGBL · IPCA"
+      : posicao.category === "etf_fixed" ? "ETF RF"
+        : posicao.category === "etf_equity" ? "ETF RV"
+          : taxa ?? formataCategoria(posicao.category)
+    : `${grupo.membros.length} posições`;
+
   const meta: string[] = [];
-  if (posicao.kind !== "fixed_income") {
+  if (umSo && posicao.kind !== "fixed_income") {
     if (posicao.quantityE8 !== null) meta.push(`${formataQuantidade(posicao.quantityE8)} cotas`);
     if (posicao.priceCents !== null) meta.push(formataBRL(posicao.priceCents));
   }
-  if (posicao.broker !== null && posicao.broker !== "") meta.push(posicao.broker);
-  meta.push(posicao.investor === null || posicao.investor === "" ? "sem investidor" : posicao.investor);
-  if (posicao.objective !== null && posicao.objective !== "") meta.push(posicao.objective);
+  if (grupo.brokers.length === 1) meta.push(grupo.brokers[0]);
+  else if (grupo.brokers.length > 1) meta.push(`${grupo.brokers.length} corretoras`);
+  meta.push(grupo.investidor ?? "sem investidor");
+  if (grupo.objetivos.length === 1) meta.push(grupo.objetivos[0]);
+  else if (grupo.objetivos.length > 1) meta.push(`${grupo.objetivos.length} objetivos`);
 
   return (
-    <button type="button" className="cartao-ativo" style={{ borderLeft: `3px solid ${cor}` }} onClick={() => onAbrir(posicao)}>
+    <button type="button" className="cartao-ativo" style={{ borderLeft: `3px solid ${cor}` }} onClick={() => onAbrir(grupo)}>
       <span className="cartao-topo">
-        <span className="cartao-nome">{posicao.name}</span>
+        <span className="cartao-nome">{grupo.nome}</span>
         <span className="cartao-chip">{chip}</span>
       </span>
-      <span className="cartao-valor">{posicao.marketValueCents === null ? "—" : formataBRL(posicao.marketValueCents)}</span>
-      {rendimento.cents === null ? (
+      <span className="cartao-valor">{grupo.semValor ? "—" : formataBRL(grupo.valorCents)}</span>
+      {grupo.rendimentoCents === null ? (
         <span className="cartao-sem-cotacao">sem cotação hoje</span>
       ) : (
-        <span className={rendimento.cents >= 0 ? "cartao-rendimento rendimento-positivo" : "cartao-rendimento rendimento-negativo"}>
-          {rendimento.cents >= 0 ? "▲" : "▼"} {formataBRLSinal(rendimento.cents)}
-          {rendimento.pct === null ? "" : ` (${formataPercentualSinal(rendimento.pct)})`}
+        <span className={grupo.rendimentoCents >= 0 ? "cartao-rendimento rendimento-positivo" : "cartao-rendimento rendimento-negativo"}>
+          {grupo.rendimentoCents >= 0 ? "▲" : "▼"} {formataBRLSinal(grupo.rendimentoCents)}
+          {grupo.rendimentoPct === null ? "" : ` (${formataPercentualSinal(grupo.rendimentoPct)})`}
         </span>
       )}
-      {pct !== null && (
+      {participacao !== null && (
         <span className="cartao-participacao">
-          <span className="cartao-barra"><span className="cartao-barra-fill" style={{ width: `${Math.min(100, pct)}%`, background: cor }} /></span>
-          <span className="cartao-pct">{pct.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%</span>
+          <span className="cartao-barra"><span className="cartao-barra-fill" style={{ width: `${Math.min(100, participacao)}%`, background: cor }} /></span>
+          <span className="cartao-pct">{participacao.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%</span>
         </span>
       )}
       <span className="cartao-meta">{meta.join(" · ")}</span>
       <span className="cartao-badges">
-        {posicao.stale && <span className="badge badge-warn">desatualizado</span>}
-        {posicao.pendingRedemption && (
+        {grupo.stale && <span className="badge badge-warn">desatualizado</span>}
+        {grupo.pendente && (
           <span className="badge badge-warn">
-            {posicao.maturityDate === null ? "vencido · resgate pendente" : `vencido em ${formataData(posicao.maturityDate)} · resgate pendente`}
+            {umSo && posicao.maturityDate !== null ? `vencido em ${formataData(posicao.maturityDate)} · resgate pendente` : "vencido · resgate pendente"}
           </span>
         )}
-        {!posicao.pendingRedemption && posicao.maturityDate !== null && (
+        {umSo && !grupo.pendente && posicao.maturityDate !== null && (
           <span className="badge badge-neutro">vence {formataData(posicao.maturityDate)}</span>
         )}
       </span>

@@ -31,13 +31,14 @@ function detalheDaTransacao(transacao: Transaction): string {
   return partes.length === 0 ? "sem taxas" : partes.join(" · ");
 }
 
-export function PainelAtivo({ posicao, totalCents, transacoes, onNovaTransacao, onEditarTransacao, onEditarCadastro }: {
+export function PainelAtivo({ posicao, totalCents, transacoes, onNovaTransacao, onEditarTransacao, onEditarCadastro, onVoltarGrupo }: {
   posicao: PortfolioPosition;
   totalCents: number;
   transacoes: Transaction[] | null;
   onNovaTransacao: () => void;
   onEditarTransacao: (transacao: Transaction) => void;
   onEditarCadastro: () => void;
+  onVoltarGrupo?: () => void;
 }) {
   const rendimento = rendimentoDe(posicao);
   const capital = capitalDe(posicao);
@@ -62,9 +63,14 @@ export function PainelAtivo({ posicao, totalCents, transacoes, onNovaTransacao, 
 
   return (
     <div className="painel-conteudo">
-      <div className="gaveta-cabecalho">
-        <span className="painel-ponto" style={{ background: cor }} aria-hidden="true" />
-        <h2 className="gaveta-titulo">{posicao.name}</h2>
+      <div className="gaveta-cabecalho gaveta-cabecalho-linha">
+        <div className="gaveta-cabecalho-titulo">
+          <span className="painel-ponto" style={{ background: cor }} aria-hidden="true" />
+          <h2 className="gaveta-titulo">{posicao.name}</h2>
+        </div>
+        {onVoltarGrupo !== undefined && (
+          <button type="button" className="btn-voltar" onClick={onVoltarGrupo}>‹ Voltar ao grupo</button>
+        )}
       </div>
       <p className="tags">
         <span className="chip chip-classe" style={{ color: cor, borderColor: cor }}>{ROTULO_CLASSE[classeDe(posicao)]}</span>
