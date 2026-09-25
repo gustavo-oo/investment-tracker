@@ -714,9 +714,67 @@ tbody tr:last-child td {
   overflow-y: auto; padding: 20px; border-left: 1px solid var(--border); background: var(--surface);
 }
 .filtros { display: flex; flex-wrap: wrap; gap: 12px; padding: 14px 16px; }
-.campo { display: flex; flex-direction: column; gap: 4px; min-width: 150px; }
-.campo-com-icone { display: flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: var(--radius-control); padding: 6px 8px; background: var(--surface); }
-.campo-com-icone input, .campo select { border: none; background: transparent; font: inherit; color: var(--text); }
+input:not([type="checkbox"]),
+select,
+textarea {
+  font: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control);
+  padding: 8px 11px;
+  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease), background-color var(--dur) var(--ease);
+}
+
+input:not([type="checkbox"]):hover:not(:disabled),
+select:hover:not(:disabled),
+textarea:hover:not(:disabled) {
+  border-color: var(--text-3);
+}
+
+input:not([type="checkbox"]):focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--ring);
+}
+
+input:not([type="checkbox"]):disabled,
+select:disabled,
+textarea:disabled {
+  background: var(--surface-2);
+  color: var(--text-3);
+  cursor: not-allowed;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-3);
+}
+
+select {
+  appearance: none;
+  padding-right: 30px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5' fill='none' stroke='%238C8272' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+}
+
+.campo { display: flex; flex-direction: column; gap: 5px; min-width: 150px; }
+.campo-com-icone { display: flex; align-items: center; gap: 6px; border: 1px solid var(--border-strong); border-radius: var(--radius-control); padding: 8px 10px; background: var(--surface); color: var(--text-3); transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease); }
+.campo-com-icone:hover { border-color: var(--text-3); }
+.campo-com-icone:focus-within { border-color: var(--accent); box-shadow: var(--ring); }
+.campo-com-icone input { border: none; background: transparent; padding: 0; }
+.campo-com-icone input:hover, .campo-com-icone input:focus { border: none; box-shadow: none; }
+
+.segmented { display: inline-flex; gap: 2px; padding: 3px; background: var(--surface-2); border-radius: var(--radius-pill); }
+.segmented-item { border: 0; border-radius: var(--radius-pill); padding: 6px 14px; background: transparent; color: var(--text-2); font: inherit; font-size: 13px; cursor: pointer; transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease), box-shadow var(--dur) var(--ease); }
+.segmented-item:hover:not(:disabled):not(.ativo) { color: var(--text); }
+.segmented-item.ativo { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: 0 1px 2px rgb(46 42 36 / 8%); }
+.segmented-item:focus-visible { outline: none; box-shadow: var(--ring); }
+.segmented-item:disabled { color: var(--text-3); cursor: not-allowed; }
 .investidor-opcoes { display: flex; align-items: center; gap: 8px; }
 .campo-erro { color: var(--danger); font-size: 12px; }
 .form-grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
