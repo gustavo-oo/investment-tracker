@@ -8,7 +8,7 @@ import { FormTransacao } from "../components/FormTransacao.tsx";
 import { Gaveta } from "../components/Gaveta.tsx";
 import { PainelAtivo } from "../components/PainelAtivo.tsx";
 import { CartaoAtivo } from "../components/CartaoAtivo.tsx";
-import { capitalDe, resultadoRealizadoDe, rendimentoDe } from "../posicoes.ts";
+import { agruparPosicoes, capitalDe, resultadoRealizadoDe, rendimentoDe } from "../posicoes.ts";
 
 type Ordem = "valor" | "nome" | "rendimento" | "rendimentoPct" | "pct";
 
@@ -250,7 +250,12 @@ export function PositionsView({ reloadToken, filtroInicial }: {
                 </span>
                 <div className="grade-cartoes">
                   {doGrupo.map((posicao) => (
-                    <CartaoAtivo key={posicao.instrumentId} posicao={posicao} totalCents={total} onAbrir={abrirAtivo} />
+                    <CartaoAtivo
+                      key={posicao.instrumentId}
+                      grupo={agruparPosicoes([posicao])[0]}
+                      totalCents={total}
+                      onAbrir={() => abrirAtivo(posicao)}
+                    />
                   ))}
                 </div>
               </section>
