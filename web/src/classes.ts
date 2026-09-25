@@ -16,3 +16,10 @@ export function classeDe(posicao: Pick<PortfolioPosition, "kind" | "category">):
   if (posicao.kind === "fixed_income" || posicao.category === "etf_fixed") return "rf";
   return "rv";
 }
+
+/** Cor de cada classe econômica (cartões, cabeçalhos de grupo e gaveta). */
+export const COR_DA_CLASSE: Record<Classe, string> = {
+  rf: "#3F6B52",
+  rv: "#47657F",
+  pension: "#9A6A2A",
+};

@@ -1,26 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
-import { CaretDown, CaretUp, MagnifyingGlass, PencilSimple, Plus, Table, X } from "@phosphor-icons/react";
+import { MagnifyingGlass, Plus, Table } from "@phosphor-icons/react";
 import { getInstruments, getPortfolio, getTransactions, type Instrument, type PortfolioPosition, type Transaction } from "../api.ts";
-import { formataBRL, formataCategoria, formataData, formataMes, formataPercentualSinal, formataQuantidade } from "../format.ts";
-import { ORDEM_CLASSE, ROTULO_CLASSE, classeDe, type Classe } from "../classes.ts";
+import { formataBRL, formataBRLSinal, formataPercentualSinal } from "../format.ts";
+import { COR_DA_CLASSE, ORDEM_CLASSE, ROTULO_CLASSE, classeDe, type Classe } from "../classes.ts";
 import { FormAtivo } from "../components/FormAtivo.tsx";
 import { FormTransacao } from "../components/FormTransacao.tsx";
+import { Gaveta } from "../components/Gaveta.tsx";
+import { PainelAtivo } from "../components/PainelAtivo.tsx";
+import { CartaoAtivo } from "../components/CartaoAtivo.tsx";
+import { capitalDe, resultadoRealizadoDe, rendimentoDe } from "../posicoes.ts";
 
 type Ordem = "valor" | "nome" | "rendimento" | "rendimentoPct" | "pct";
 
-function rendimentoDe(posicao: PortfolioPosition): { cents: number | null; pct: number | null } {
-  if (posicao.marketValueCents === null) return { cents: null, pct: null };
-  const capital = posicao.investedCents - posicao.redeemedCents;
-  const cents = posicao.marketValueCents - capital;
-  return { cents, pct: capital > 0 ? (cents / capital) * 100 : null };
-}
-
-function precoMedio(transacao: Transaction): string {
-  if (transacao.quantityE8 === null || transacao.quantityE8 === 0) return "—";
-  return formataBRL(Math.round(transacao.grossCents / (transacao.quantityE8 / 1e8)));
-}
-
-const ROTULO_OPERACAO: Record<string, string> = { BUY: "Compra", SELL: "Venda", AMORTIZATION: "Amortização", INTEREST: "Juros", DIVIDEND: "Dividendo" };
+type EstadoGaveta =
+  | { tipo: "detalhe" }
+  | { tipo: "transacao"; transacao: Transaction | null }
+  | { tipo: "cadastro"; instrumento: Instrument | null; qtdTransacoes: number };
 
 export function PositionsView({ reloadToken, filtroInicial }: {
   reloadToken: number; filtroInicial: Classe | null;
@@ -34,10 +29,10 @@ export function PositionsView({ reloadToken, filtroInicial }: {
   const [investidor, setInvestidor] = useState("todos");
   const [ordem, setOrdem] = useState<Ordem>("valor");
   const [selecionada, setSelecionada] = useState<PortfolioPosition | null>(null);
+  const [gaveta, setGaveta] = useState<EstadoGaveta | null>(null);
+  const [sugestoesLiquidez, setSugestoesLiquidez] = useState<string[]>([]);
   const [transacoes, setTransacoes] = useState<Transaction[] | null>(null);
   const [recargaLocal, setRecargaLocal] = useState(0);
-  const [formAtivo, setFormAtivo] = useState<{ instrumento: Instrument | null; qtdTransacoes: number } | null>(null);
-  const [formTransacao, setFormTransacao] = useState<{ transacao: Transaction | null } | null>(null);
 
   useEffect(() => {
     setClasse(filtroInicial ?? "todos");
@@ -73,8 +68,14 @@ export function PositionsView({ reloadToken, filtroInicial }: {
     return () => controller.abort();
   }, [selecionada?.instrumentId, recargaLocal]);
 
-  const corretoras = useMemo(() => [...new Set((posicoes ?? []).map((posicao) => posicao.broker ?? "—"))].sort(), [posicoes]);
-  const objetivos = useMemo(() => [...new Set((posicoes ?? []).map((posicao) => posicao.objective ?? "—"))].sort(), [posicoes]);
+  const corretoras = useMemo(
+    () => [...new Set((posicoes ?? []).map((posicao) => posicao.broker).filter((valor): valor is string => valor !== null && valor !== ""))].sort(),
+    [posicoes],
+  );
+  const objetivos = useMemo(
+    () => [...new Set((posicoes ?? []).map((posicao) => posicao.objective).filter((valor): valor is string => valor !== null && valor !== ""))].sort(),
+    [posicoes],
+  );
   const investidores = useMemo(
     () => [...new Set((posicoes ?? []).map((posicao) => posicao.investor ?? "—"))].sort(),
     [posicoes],
@@ -86,27 +87,44 @@ export function PositionsView({ reloadToken, filtroInicial }: {
 
   function abrirAtivo(posicao: PortfolioPosition) {
     setSelecionada(posicao);
+    setGaveta({ tipo: "detalhe" });
   }
 
-  function concluirMutacao() {
-    setFormTransacao(null);
-    setFormAtivo(null);
-    setRecargaLocal((valor) => valor + 1);
+  function fecharGaveta() {
+    setGaveta(null);
+    setSelecionada(null);
+  }
+
+  function liquidezDe(instrumentos: Instrument[]): string[] {
+    return [...new Set(instrumentos.map((item) => item.liquidity).filter((valor): valor is string => valor !== null && valor !== ""))].sort();
   }
 
   function novoAtivo() {
-    setFormAtivo({ instrumento: null, qtdTransacoes: 0 });
+    setSelecionada(null);
+    setGaveta({ tipo: "cadastro", instrumento: null, qtdTransacoes: 0 });
+    getInstruments()
+      .then((instrumentos) => setSugestoesLiquidez(liquidezDe(instrumentos)))
+      .catch(() => undefined);
   }
 
   async function editarAtivo() {
-    if (selecionada === null || transacoes === null) return;
+    if (selecionada === null) return;
     try {
       const instrumentos = await getInstruments();
       const instrumento = instrumentos.find((item) => item.id === selecionada.instrumentId) ?? null;
-      setFormAtivo({ instrumento, qtdTransacoes: (transacoes ?? []).length });
+      setSugestoesLiquidez(liquidezDe(instrumentos));
+      setGaveta({ tipo: "cadastro", instrumento, qtdTransacoes: (transacoes ?? []).length });
     } catch (cause) {
       setErro(cause instanceof Error ? cause.message : String(cause));
     }
+  }
+
+  function concluirMutacao() {
+    setRecargaLocal((valor) => valor + 1);
+    setGaveta((atual) => {
+      if (atual !== null && atual.tipo === "cadastro" && atual.instrumento === null) return null;
+      return selecionada === null ? null : { tipo: "detalhe" };
+    });
   }
 
   const total = (posicoes ?? []).reduce((soma, posicao) => soma + (posicao.marketValueCents ?? 0), 0);
@@ -125,6 +143,17 @@ export function PositionsView({ reloadToken, filtroInicial }: {
       return (b.marketValueCents ?? 0) - (a.marketValueCents ?? 0);
     });
 
+  const rendimentoTotal = (posicoes ?? []).reduce((soma, posicao) => soma + (rendimentoDe(posicao).cents ?? 0), 0);
+  const capitalTotal = (posicoes ?? []).reduce((soma, posicao) => soma + capitalDe(posicao), 0);
+  const rendimentoPctTotal = capitalTotal > 0 ? (rendimentoTotal / capitalTotal) * 100 : null;
+
+  const ativas = visiveis.filter((posicao) => posicao.marketValueCents !== 0);
+  const encerradas = visiveis.filter((posicao) => posicao.marketValueCents === 0);
+  const resultadoEncerradas = encerradas.reduce((soma, posicao) => soma + resultadoRealizadoDe(posicao), 0);
+  const grupos = ORDEM_CLASSE
+    .map((classeGrupo) => ({ classe: classeGrupo, posicoes: ativas.filter((posicao) => classeDe(posicao) === classeGrupo) }))
+    .filter((grupo) => grupo.posicoes.length > 0);
+
   return (
     <div className="page">
       <div className="page-head">
@@ -133,6 +162,10 @@ export function PositionsView({ reloadToken, filtroInicial }: {
           <p className="page-sub resumo-itens">
             <span>{visiveis.length} de {(posicoes ?? []).length} ativos</span>
             <span>valor total {formataBRL(total)}</span>
+            <span className={rendimentoTotal >= 0 ? "rendimento-positivo" : "rendimento-negativo"}>
+              rendimento {formataBRLSinal(rendimentoTotal)}
+              {rendimentoPctTotal === null ? "" : ` (${formataPercentualSinal(rendimentoPctTotal)})`}
+            </span>
           </p>
         </div>
         <div className="page-head-actions">
@@ -199,129 +232,91 @@ export function PositionsView({ reloadToken, filtroInicial }: {
           <p className="empty-hint">Ajuste os filtros ou crie um ativo em Novo ativo.</p>
         </div>
       ) : (
-        <div className="table-wrap card">
-          <table>
-            <caption className="sr-only">Posições da carteira</caption>
-            <thead>
-              <tr>
-                <th scope="col">Ativo</th>
-                <th scope="col">Setor</th>
-                <th scope="col" className="num">Valor</th>
-                <th scope="col" className="num">%</th>
-                <th scope="col" className="num">Rendimento</th>
-                <th scope="col" className="num">Rend. %</th>
-              </tr>
-            </thead>
-            <tbody>
-              {visiveis.map((posicao) => {
-                const rendimento = rendimentoDe(posicao);
-                return (
-                  <tr key={posicao.instrumentId} onClick={() => abrirAtivo(posicao)} className="linha-clicavel">
-                    <td>
-                      {posicao.name}
-                      {posicao.stale && <span className="badge badge-warn">desatualizado</span>}
-                      {posicao.pendingRedemption && (
-                        <span className="badge badge-warn">
-                          {posicao.maturityDate === null ? "vencido · resgate pendente" : `vencido em ${formataData(posicao.maturityDate)} · resgate pendente`}
-                        </span>
-                      )}
-                    </td>
-                    <td>{ROTULO_CLASSE[classeDe(posicao)]}</td>
-                    <td className="num">{posicao.marketValueCents === null ? "—" : formataBRL(posicao.marketValueCents)}</td>
-                    <td className="num">{total > 0 && posicao.marketValueCents !== null ? formataPercentualSinal((posicao.marketValueCents / total) * 100) : "—"}</td>
-                    <td className={`num ${rendimento.cents === null ? "" : rendimento.cents >= 0 ? "rendimento-positivo" : "rendimento-negativo"}`}>
-                      {rendimento.cents === null ? "—" : (
-                        <span className="delta-inline">
-                          {rendimento.cents >= 0 ? <CaretUp size={11} aria-hidden="true" /> : <CaretDown size={11} aria-hidden="true" />}
-                          {formataBRL(rendimento.cents)}
-                        </span>
-                      )}
-                    </td>
-                    <td className={`num ${rendimento.pct === null ? "" : rendimento.pct >= 0 ? "rendimento-positivo" : "rendimento-negativo"}`}>
-                      {rendimento.pct === null ? "—" : formataPercentualSinal(rendimento.pct)}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {selecionada !== null && (
-        <aside className="painel-ativo" aria-label={`Detalhes de ${selecionada.name}`}>
-          <div className="section-head">
-            <h2 className="section-title">{selecionada.name}</h2>
-            <button type="button" className="btn btn-secondary" disabled={transacoes === null} onClick={() => void editarAtivo()}>
-              <PencilSimple size={15} aria-hidden="true" /> Editar cadastro
-            </button>
-            <button type="button" className="btn btn-secondary" onClick={() => setSelecionada(null)}>
-              <X size={15} /> Fechar
-            </button>
-          </div>
-          <p className="tags">
-            <span className="chip">{formataCategoria(selecionada.category)}</span>
-            <span className="chip">{selecionada.broker ?? "—"}</span>
-            <span className="chip">{ROTULO_CLASSE[classeDe(selecionada)]}</span>
-            <span className="chip">{selecionada.investor ?? "sem investidor"}</span>
-          </p>
-          <div className="stats">
-            <div className="stat"><span className="stat-label">Valor</span><span className="stat-value">{selecionada.marketValueCents === null ? "—" : formataBRL(selecionada.marketValueCents)}</span></div>
-            <div className="stat"><span className="stat-label">Quantidade</span><span className="stat-value">{selecionada.quantityE8 === null ? "—" : formataQuantidade(selecionada.quantityE8)}</span></div>
-            <div className="stat"><span className="stat-label">Preço</span><span className="stat-value">{selecionada.priceCents === null ? "—" : formataBRL(selecionada.priceCents)}</span></div>
-            <div className="stat"><span className="stat-label">Preço em</span><span className="stat-value">{selecionada.priceDate === null ? "—" : formataMes(selecionada.priceDate.slice(0, 7))}</span></div>
-          </div>
-          <div className="section-head section-head-linha">
-            <h3 className="section-title">Transações</h3>
-            <button type="button" className="btn btn-secondary" onClick={() => setFormTransacao({ transacao: null })}>
-              <Plus size={15} aria-hidden="true" /> Nova transação
-            </button>
-          </div>
-          {transacoes === null ? (
-            <p className="section-hint">Carregando...</p>
-          ) : transacoes.length === 0 ? (
-            <p className="section-hint">Sem transações registradas.</p>
-          ) : (
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr><th scope="col">Data</th><th scope="col">Tipo</th><th scope="col" className="num">Qtd.</th><th scope="col" className="num">Preço</th><th scope="col" className="num">Valor</th><th scope="col" className="num">Taxas</th></tr>
-                </thead>
-                <tbody>
-                  {transacoes.map((transacao) => (
-                    <tr key={transacao.id} onClick={() => setFormTransacao({ transacao })} className="linha-clicavel">
-                      <td>{formataData(transacao.tradeDate)}</td>
-                      <td>{ROTULO_OPERACAO[transacao.kind] ?? transacao.kind}</td>
-                      <td className="num">{transacao.quantityE8 === null ? "—" : formataQuantidade(transacao.quantityE8)}</td>
-                      <td className="num">{precoMedio(transacao)}</td>
-                      <td className="num">{formataBRL(transacao.grossCents)}</td>
-                      <td className="num">{formataBRL(transacao.feesCents)}</td>
-                    </tr>
+        <>
+          {grupos.map(({ classe: classeGrupo, posicoes: doGrupo }) => {
+            const valor = doGrupo.reduce((soma, posicao) => soma + (posicao.marketValueCents ?? 0), 0);
+            const pct = total > 0 ? (valor / total) * 100 : 0;
+            return (
+              <section key={classeGrupo} className="grupo-classe" aria-label={ROTULO_CLASSE[classeGrupo]}>
+                <div className="grupo-cabecalho">
+                  <span className="grupo-cor" style={{ background: COR_DA_CLASSE[classeGrupo] }} aria-hidden="true" />
+                  <h2 className="grupo-nome">{ROTULO_CLASSE[classeGrupo]}</h2>
+                  <span className="grupo-numeros">
+                    {doGrupo.length} {doGrupo.length === 1 ? "ativo" : "ativos"} · {formataBRL(valor)} · {pct.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%
+                  </span>
+                </div>
+                <span className="grupo-barra" aria-hidden="true">
+                  <span className="grupo-barra-fill" style={{ width: `${Math.min(100, pct)}%`, background: COR_DA_CLASSE[classeGrupo] }} />
+                </span>
+                <div className="grade-cartoes">
+                  {doGrupo.map((posicao) => (
+                    <CartaoAtivo key={posicao.instrumentId} posicao={posicao} totalCents={total} onAbrir={abrirAtivo} />
                   ))}
-                </tbody>
-              </table>
-            </div>
+                </div>
+              </section>
+            );
+          })}
+
+          {encerradas.length > 0 && (
+            <details className="encerradas">
+              <summary>
+                <span className="encerradas-resumo">
+                  {encerradas.length} {encerradas.length === 1 ? "posição encerrada" : "posições encerradas"} (R$ 0,00) · resultado realizado{" "}
+                  <strong className={resultadoEncerradas >= 0 ? "rendimento-positivo" : "rendimento-negativo"}>{formataBRLSinal(resultadoEncerradas)}</strong>
+                </span>
+                <span className="encerradas-toggle">mostrar</span>
+              </summary>
+              <ul className="encerradas-lista">
+                {encerradas.map((posicao) => {
+                  const resultado = resultadoRealizadoDe(posicao);
+                  return (
+                    <li key={posicao.instrumentId}>
+                      <button type="button" className="encerrada" onClick={() => abrirAtivo(posicao)}>
+                        <span className="encerrada-nome">{posicao.name}</span>
+                        <span className="encerrada-meta">
+                          {[posicao.broker, posicao.investor].filter((valorMeta): valorMeta is string => valorMeta !== null && valorMeta !== "").join(" · ")}
+                        </span>
+                        <span className={resultado >= 0 ? "encerrada-resultado rendimento-positivo" : "encerrada-resultado rendimento-negativo"}>{formataBRLSinal(resultado)}</span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </details>
           )}
-        </aside>
+        </>
       )}
 
-      {formTransacao !== null && selecionada !== null && (
-        <FormTransacao
-          aberto
-          posicao={selecionada}
-          transacao={formTransacao.transacao}
-          onFechar={() => setFormTransacao(null)}
-          onSalvo={concluirMutacao}
-        />
-      )}
-      {formAtivo !== null && (
-        <FormAtivo
-          aberto
-          instrumento={formAtivo.instrumento}
-          qtdTransacoes={formAtivo.qtdTransacoes}
-          onFechar={() => setFormAtivo(null)}
-          onSalvo={concluirMutacao}
-        />
+      {gaveta !== null && (gaveta.tipo === "cadastro" || selecionada !== null) && (
+        <Gaveta aberta titulo={selecionada === null ? "Novo ativo" : selecionada.name} onFechar={fecharGaveta}>
+          {gaveta.tipo === "detalhe" && selecionada !== null && (
+            <PainelAtivo
+              posicao={selecionada}
+              totalCents={total}
+              transacoes={transacoes}
+              onNovaTransacao={() => setGaveta({ tipo: "transacao", transacao: null })}
+              onEditarTransacao={(transacao) => setGaveta({ tipo: "transacao", transacao })}
+              onEditarCadastro={() => void editarAtivo()}
+            />
+          )}
+          {gaveta.tipo === "transacao" && selecionada !== null && (
+            <FormTransacao
+              posicao={selecionada}
+              transacao={gaveta.transacao}
+              onVoltar={() => setGaveta({ tipo: "detalhe" })}
+              onConcluir={concluirMutacao}
+            />
+          )}
+          {gaveta.tipo === "cadastro" && (
+            <FormAtivo
+              instrumento={gaveta.instrumento}
+              qtdTransacoes={gaveta.qtdTransacoes}
+              sugestoes={{ corretoras, objetivos, liquidez: sugestoesLiquidez }}
+              onVoltar={() => { if (gaveta.instrumento === null) fecharGaveta(); else setGaveta({ tipo: "detalhe" }); }}
+              onConcluir={concluirMutacao}
+            />
+          )}
+        </Gaveta>
       )}
     </div>
   );
