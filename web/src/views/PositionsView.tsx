@@ -271,7 +271,7 @@ export function PositionsView({ reloadToken, filtroInicial }: {
         </div>
       )}
 
-      {gaveta !== null && (
+      {gaveta !== null && (gaveta.tipo === "cadastro" || selecionada !== null) && (
         <Gaveta aberta titulo={selecionada === null ? "Novo ativo" : selecionada.name} onFechar={fecharGaveta}>
           {gaveta.tipo === "detalhe" && selecionada !== null && (
             <PainelAtivo
