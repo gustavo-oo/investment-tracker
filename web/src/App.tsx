@@ -1,19 +1,21 @@
 import { useCallback, useEffect, useState } from "react";
-import { ArrowsClockwise, ChartLine, ChartLineUp, Coins, Table } from "@phosphor-icons/react";
+import { ArrowsClockwise, ChartLine, ChartLineUp, Coins, Table, Target } from "@phosphor-icons/react";
 import { getHealth, postRefresh, type Health } from "./api.ts";
 import { formataHora } from "./format.ts";
 import { Logo } from "./Logo.tsx";
 import type { Classe } from "./classes.ts";
 import { OverviewView } from "./views/OverviewView.tsx";
 import { PositionsView } from "./views/PositionsView.tsx";
+import { RebalanceView } from "./views/RebalanceView.tsx";
 import { EvolutionView } from "./views/EvolutionView.tsx";
 import { SourcesView } from "./views/SourcesView.tsx";
 
-type View = "visao-geral" | "posicoes" | "evolucao" | "fontes";
+type View = "visao-geral" | "posicoes" | "rebalanceamento" | "evolucao" | "fontes";
 
 const ITENS: Array<{ id: View; rotulo: string; Icone: typeof Coins }> = [
   { id: "visao-geral", rotulo: "Visão geral", Icone: ChartLineUp },
   { id: "posicoes", rotulo: "Posições", Icone: Table },
+  { id: "rebalanceamento", rotulo: "Rebalanceamento", Icone: Target },
   { id: "evolucao", rotulo: "Evolução", Icone: ChartLine },
   { id: "fontes", rotulo: "Fontes", Icone: Coins },
 ];
@@ -129,6 +131,7 @@ export function App() {
           <OverviewView reloadToken={reloadToken} onAbrirPosicoes={abrirPosicoes} />
         )}
         {view === "posicoes" && <PositionsView reloadToken={reloadToken} filtroInicial={filtroPosicoes} />}
+        {view === "rebalanceamento" && <RebalanceView reloadToken={reloadToken} />}
         {view === "evolucao" && <EvolutionView reloadToken={reloadToken} />}
         {view === "fontes" && <SourcesView reloadToken={reloadToken} />}
       </main>

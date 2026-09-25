@@ -114,6 +114,33 @@ async function getJson<T>(url: string, signal?: AbortSignal): Promise<T> {
 export const getPortfolio = (signal?: AbortSignal): Promise<Portfolio> => getJson("/api/portfolio", signal);
 export const getHealth = (signal?: AbortSignal): Promise<Health> => getJson("/api/health", signal);
 export const getAllocation = (by: AllocationBy, signal?: AbortSignal): Promise<Allocation> => getJson(`/api/allocation?by=${by}`, signal);
+
+export type RebalanceGroup = {
+  key: "rf" | "rv"; valueCents: number; pctBefore: number; targetE6: number;
+  suggestedCents: number; afterValueCents: number; pctAfter: number; aboveTarget: boolean;
+};
+export type Rebalance = {
+  asOf: string; baseCents: number; amountCents: number;
+  targets: { rfE6: number; rvE6: number }; groups: RebalanceGroup[]; stale: boolean;
+};
+export type RebalanceConfig = { rfE6: number; rvE6: number; amountCents: number; updatedAt: string };
+
+export function getRebalance(
+  params: { amountCents?: number; rfE6?: number; rvE6?: number },
+  signal?: AbortSignal,
+): Promise<Rebalance> {
+  const query = new URLSearchParams();
+  if (params.amountCents !== undefined) query.set("amountCents", String(params.amountCents));
+  if (params.rfE6 !== undefined && params.rvE6 !== undefined) {
+    query.set("rfE6", String(params.rfE6));
+    query.set("rvE6", String(params.rvE6));
+  }
+  const qs = query.toString();
+  return getJson(`/api/rebalance${qs === "" ? "" : `?${qs}`}`, signal);
+}
+
+export const saveRebalance = (payload: { rfE6: number; rvE6: number; amountCents: number }): Promise<RebalanceConfig> =>
+  sendJson("/api/rebalance", "PUT", payload);
 export const getReconciliation = (month: string, signal?: AbortSignal): Promise<Reconciliation> => getJson(`/api/reconciliation?month=${month}`, signal);
 export const getHistory = (from: string, to: string, signal?: AbortSignal): Promise<HistoryPoint[]> => getJson(`/api/history?from=${from}&to=${to}`, signal);
 export const getPerformance = (from: string, to: string, signal?: AbortSignal): Promise<Performance> => getJson(`/api/performance?from=${from}&to=${to}`, signal);
@@ -139,7 +166,7 @@ export type TransactionPayload = {
   quantityE8?: number | null; note?: string | null;
 };
 
-async function sendJson<T>(url: string, method: "POST" | "PATCH", payload: unknown): Promise<T> {
+async function sendJson<T>(url: string, method: "POST" | "PATCH" | "PUT", payload: unknown): Promise<T> {
   const response = await fetch(url, {
     method,
     headers: { "content-type": "application/json" },
