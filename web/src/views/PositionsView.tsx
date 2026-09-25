@@ -93,6 +93,12 @@ export function PositionsView({ reloadToken, filtroInicial }: {
   }, [investidores, investidor]);
 
   function abrirGrupo(grupo: GrupoPosicoes) {
+    if (grupo.membros.length === 1) {
+      setSelecionada(grupo.membros[0]);
+      setOrigemGrupo(null);
+      setGaveta({ tipo: "detalhe" });
+      return;
+    }
     setSelecionada(null);
     setOrigemGrupo(null);
     setGaveta({ tipo: "grupo", chave: grupo.chave });

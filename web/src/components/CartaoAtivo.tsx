@@ -19,7 +19,7 @@ export function CartaoAtivo({ grupo, totalCents, onAbrir }: {
       : posicao.category === "etf_fixed" ? "ETF RF"
         : posicao.category === "etf_equity" ? "ETF RV"
           : taxa ?? formataCategoria(posicao.category)
-    : `${grupo.membros.length} posições`;
+    : formataCategoria(posicao.category);
 
   const meta: string[] = [];
   if (umSo && posicao.kind !== "fixed_income") {
