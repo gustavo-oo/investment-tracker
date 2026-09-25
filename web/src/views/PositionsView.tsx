@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
-import { CaretDown, CaretUp, MagnifyingGlass, Plus, Table } from "@phosphor-icons/react";
+import { MagnifyingGlass, Plus, Table } from "@phosphor-icons/react";
 import { getInstruments, getPortfolio, getTransactions, type Instrument, type PortfolioPosition, type Transaction } from "../api.ts";
-import { formataBRL, formataData, formataPercentualSinal } from "../format.ts";
-import { ORDEM_CLASSE, ROTULO_CLASSE, classeDe, type Classe } from "../classes.ts";
+import { formataBRL, formataPercentualSinal } from "../format.ts";
+import { COR_DA_CLASSE, ORDEM_CLASSE, ROTULO_CLASSE, classeDe, type Classe } from "../classes.ts";
 import { FormAtivo } from "../components/FormAtivo.tsx";
 import { FormTransacao } from "../components/FormTransacao.tsx";
 import { Gaveta } from "../components/Gaveta.tsx";
 import { PainelAtivo } from "../components/PainelAtivo.tsx";
+import { CartaoAtivo } from "../components/CartaoAtivo.tsx";
+import { capitalDe, resultadoRealizadoDe, rendimentoDe } from "../posicoes.ts";
 
 type Ordem = "valor" | "nome" | "rendimento" | "rendimentoPct" | "pct";
 
@@ -14,13 +16,6 @@ type EstadoGaveta =
   | { tipo: "detalhe" }
   | { tipo: "transacao"; transacao: Transaction | null }
   | { tipo: "cadastro"; instrumento: Instrument | null; qtdTransacoes: number };
-
-function rendimentoDe(posicao: PortfolioPosition): { cents: number | null; pct: number | null } {
-  if (posicao.marketValueCents === null) return { cents: null, pct: null };
-  const capital = posicao.investedCents - posicao.redeemedCents;
-  const cents = posicao.marketValueCents - capital;
-  return { cents, pct: capital > 0 ? (cents / capital) * 100 : null };
-}
 
 export function PositionsView({ reloadToken, filtroInicial }: {
   reloadToken: number; filtroInicial: Classe | null;
@@ -148,6 +143,17 @@ export function PositionsView({ reloadToken, filtroInicial }: {
       return (b.marketValueCents ?? 0) - (a.marketValueCents ?? 0);
     });
 
+  const rendimentoTotal = (posicoes ?? []).reduce((soma, posicao) => soma + (rendimentoDe(posicao).cents ?? 0), 0);
+  const capitalTotal = (posicoes ?? []).reduce((soma, posicao) => soma + capitalDe(posicao), 0);
+  const rendimentoPctTotal = capitalTotal > 0 ? (rendimentoTotal / capitalTotal) * 100 : null;
+
+  const ativas = visiveis.filter((posicao) => posicao.marketValueCents !== 0);
+  const encerradas = visiveis.filter((posicao) => posicao.marketValueCents === 0);
+  const resultadoEncerradas = encerradas.reduce((soma, posicao) => soma + resultadoRealizadoDe(posicao), 0);
+  const grupos = ORDEM_CLASSE
+    .map((classeGrupo) => ({ classe: classeGrupo, posicoes: ativas.filter((posicao) => classeDe(posicao) === classeGrupo) }))
+    .filter((grupo) => grupo.posicoes.length > 0);
+
   return (
     <div className="page">
       <div className="page-head">
@@ -156,6 +162,10 @@ export function PositionsView({ reloadToken, filtroInicial }: {
           <p className="page-sub resumo-itens">
             <span>{visiveis.length} de {(posicoes ?? []).length} ativos</span>
             <span>valor total {formataBRL(total)}</span>
+            <span className={rendimentoTotal >= 0 ? "rendimento-positivo" : "rendimento-negativo"}>
+              rendimento {rendimentoTotal > 0 ? "+" : ""}{formataBRL(rendimentoTotal)}
+              {rendimentoPctTotal === null ? "" : ` (${formataPercentualSinal(rendimentoPctTotal)})`}
+            </span>
           </p>
         </div>
         <div className="page-head-actions">
@@ -222,53 +232,59 @@ export function PositionsView({ reloadToken, filtroInicial }: {
           <p className="empty-hint">Ajuste os filtros ou crie um ativo em Novo ativo.</p>
         </div>
       ) : (
-        <div className="table-wrap card">
-          <table>
-            <caption className="sr-only">Posições da carteira</caption>
-            <thead>
-              <tr>
-                <th scope="col">Ativo</th>
-                <th scope="col">Setor</th>
-                <th scope="col" className="num">Valor</th>
-                <th scope="col" className="num">%</th>
-                <th scope="col" className="num">Rendimento</th>
-                <th scope="col" className="num">Rend. %</th>
-              </tr>
-            </thead>
-            <tbody>
-              {visiveis.map((posicao) => {
-                const rendimento = rendimentoDe(posicao);
-                return (
-                  <tr key={posicao.instrumentId} onClick={() => abrirAtivo(posicao)} className="linha-clicavel">
-                    <td>
-                      {posicao.name}
-                      {posicao.stale && <span className="badge badge-warn">desatualizado</span>}
-                      {posicao.pendingRedemption && (
-                        <span className="badge badge-warn">
-                          {posicao.maturityDate === null ? "vencido · resgate pendente" : `vencido em ${formataData(posicao.maturityDate)} · resgate pendente`}
+        <>
+          {grupos.map(({ classe: classeGrupo, posicoes: doGrupo }) => {
+            const valor = doGrupo.reduce((soma, posicao) => soma + (posicao.marketValueCents ?? 0), 0);
+            const pct = total > 0 ? (valor / total) * 100 : 0;
+            return (
+              <section key={classeGrupo} className="grupo-classe" aria-label={ROTULO_CLASSE[classeGrupo]}>
+                <div className="grupo-cabecalho">
+                  <span className="grupo-cor" style={{ background: COR_DA_CLASSE[classeGrupo] }} aria-hidden="true" />
+                  <h2 className="grupo-nome">{ROTULO_CLASSE[classeGrupo]}</h2>
+                  <span className="grupo-numeros">
+                    {doGrupo.length} {doGrupo.length === 1 ? "ativo" : "ativos"} · {formataBRL(valor)} · {pct.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%
+                  </span>
+                </div>
+                <span className="grupo-barra" aria-hidden="true">
+                  <span className="grupo-barra-fill" style={{ width: `${Math.min(100, pct)}%`, background: COR_DA_CLASSE[classeGrupo] }} />
+                </span>
+                <div className="grade-cartoes">
+                  {doGrupo.map((posicao) => (
+                    <CartaoAtivo key={posicao.instrumentId} posicao={posicao} totalCents={total} onAbrir={abrirAtivo} />
+                  ))}
+                </div>
+              </section>
+            );
+          })}
+
+          {encerradas.length > 0 && (
+            <details className="encerradas">
+              <summary>
+                <span className="encerradas-resumo">
+                  {encerradas.length} {encerradas.length === 1 ? "posição encerrada" : "posições encerradas"} (R$ 0,00) · resultado realizado{" "}
+                  <strong className={resultadoEncerradas >= 0 ? "rendimento-positivo" : "rendimento-negativo"}>{formataBRL(resultadoEncerradas)}</strong>
+                </span>
+                <span className="encerradas-toggle">mostrar</span>
+              </summary>
+              <ul className="encerradas-lista">
+                {encerradas.map((posicao) => {
+                  const resultado = resultadoRealizadoDe(posicao);
+                  return (
+                    <li key={posicao.instrumentId}>
+                      <button type="button" className="encerrada" onClick={() => abrirAtivo(posicao)}>
+                        <span className="encerrada-nome">{posicao.name}</span>
+                        <span className="encerrada-meta">
+                          {[posicao.broker, posicao.investor].filter((valorMeta): valorMeta is string => valorMeta !== null && valorMeta !== "").join(" · ")}
                         </span>
-                      )}
-                    </td>
-                    <td>{ROTULO_CLASSE[classeDe(posicao)]}</td>
-                    <td className="num">{posicao.marketValueCents === null ? "—" : formataBRL(posicao.marketValueCents)}</td>
-                    <td className="num">{total > 0 && posicao.marketValueCents !== null ? formataPercentualSinal((posicao.marketValueCents / total) * 100) : "—"}</td>
-                    <td className={`num ${rendimento.cents === null ? "" : rendimento.cents >= 0 ? "rendimento-positivo" : "rendimento-negativo"}`}>
-                      {rendimento.cents === null ? "—" : (
-                        <span className="delta-inline">
-                          {rendimento.cents >= 0 ? <CaretUp size={11} aria-hidden="true" /> : <CaretDown size={11} aria-hidden="true" />}
-                          {formataBRL(rendimento.cents)}
-                        </span>
-                      )}
-                    </td>
-                    <td className={`num ${rendimento.pct === null ? "" : rendimento.pct >= 0 ? "rendimento-positivo" : "rendimento-negativo"}`}>
-                      {rendimento.pct === null ? "—" : formataPercentualSinal(rendimento.pct)}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                        <span className={resultado >= 0 ? "encerrada-resultado rendimento-positivo" : "encerrada-resultado rendimento-negativo"}>{formataBRL(resultado)}</span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </details>
+          )}
+        </>
       )}
 
       {gaveta !== null && (gaveta.tipo === "cadastro" || selecionada !== null) && (
