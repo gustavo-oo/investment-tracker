@@ -23,28 +23,29 @@ function visaoPatrimonio(meses: Mes[], trimestral: boolean): LinhaPatrimonio[] {
   return grupos;
 }
 
-function TooltipPatrimonio({ active, payload }: { active?: boolean; payload?: Array<{ payload: LinhaPatrimonio }> }) {
+function TooltipPatrimonio({ active, payload, trimestral }: { active?: boolean; payload?: Array<{ payload: LinhaPatrimonio }>; trimestral: boolean }) {
   if (!active || !payload || payload.length === 0) return null;
   const linha = payload[0]!.payload;
   return (
     <div className="chart-tooltip">
       <p className="chart-tooltip-title">{linha.rotulo}</p>
       <p>Patrimônio: <strong>{formataBRL(linha.patrimonioCents)}</strong></p>
-      <p>Variação no mês: {formataBRLSinal(linha.variacaoCents)}</p>
+      <p>{trimestral ? "Variação no trimestre" : "Variação no mês"}: {formataBRLSinal(linha.variacaoCents)}</p>
     </div>
   );
 }
 
 export function PatrimonioChart({ meses, altura = 300 }: { meses: Mes[]; altura?: number }) {
   if (meses.length === 0) return <SemHistorico />;
-  const linhas = visaoPatrimonio(meses, meses.length > 24);
+  const trimestral = meses.length > 24;
+  const linhas = visaoPatrimonio(meses, trimestral);
   return (
     <ResponsiveContainer width="100%" height={altura}>
       <ComposedChart data={linhas} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
         <CartesianGrid strokeDasharray="3 3" vertical={false} />
         <XAxis dataKey="rotulo" tickLine={false} axisLine={false} fontSize={12} />
         <YAxis tickLine={false} axisLine={false} fontSize={12} width={76} tickFormatter={formataEixoRs} />
-        <Tooltip content={<TooltipPatrimonio />} />
+        <Tooltip content={<TooltipPatrimonio trimestral={trimestral} />} />
         <Legend />
         <Area type="monotone" dataKey="patrimonioCents" name="Patrimônio" stroke="var(--accent)" fill="var(--accent-soft)" strokeWidth={2} />
       </ComposedChart>
