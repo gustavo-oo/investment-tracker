@@ -1170,7 +1170,7 @@ select {
 .gaveta-fechar:hover { background: var(--surface-2); color: var(--text); }
 .gaveta-fechar:focus-visible { outline: none; box-shadow: var(--ring); }
 
-.gaveta-cabecalho { display: flex; align-items: center; gap: 9px; padding-right: 84px; }
+.gaveta-cabecalho { display: flex; align-items: center; gap: 9px; }
 .gaveta-titulo { font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
 .gaveta-sub { margin-top: 2px; font-size: 12px; color: var(--text-2); }
 
