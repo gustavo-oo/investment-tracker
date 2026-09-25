@@ -1,17 +1,17 @@
-import { divRoundHalfUp } from "./money.ts";
+import { divRoundHalfUp, MULTIPLIER_SCALE } from "./money.ts";
 
 export type RebalanceGroupKey = "rf" | "rv";
 
 export type RebalanceInput = {
   valuesCents: Record<RebalanceGroupKey, bigint>;
-  targetsE6: Record<RebalanceGroupKey, number>;
+  targetsE6: Record<RebalanceGroupKey, bigint>;
   amountCents: bigint;
 };
 
 export type RebalanceGroup = {
   key: RebalanceGroupKey;
   valueCents: bigint;
-  targetE6: number;
+  targetE6: bigint;
   pctBefore: number;
   suggestedCents: bigint;
   afterValueCents: bigint;
@@ -26,8 +26,6 @@ export type RebalanceResult = {
   groups: RebalanceGroup[];
 };
 
-const TARGET_SCALE = 1_000_000n;
-
 function pctOf(valueCents: bigint, totalCents: bigint): number {
   if (totalCents === 0n) return 0;
   return Number(divRoundHalfUp(valueCents * 10_000n, totalCents)) / 100;
@@ -41,7 +39,7 @@ function pctOf(valueCents: bigint, totalCents: bigint): number {
 export function rebalance(input: RebalanceInput): RebalanceResult {
   const baseCents = input.valuesCents.rf + input.valuesCents.rv;
   const totalCents = baseCents + input.amountCents;
-  const rfTargetCents = divRoundHalfUp(BigInt(input.targetsE6.rf) * totalCents, TARGET_SCALE);
+  const rfTargetCents = divRoundHalfUp(input.targetsE6.rf * totalCents, MULTIPLIER_SCALE);
   const rvTargetCents = totalCents - rfTargetCents;
   const demand: Record<RebalanceGroupKey, bigint> = {
     rf: rfTargetCents - input.valuesCents.rf,

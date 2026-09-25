@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { rebalance } from "./rebalance.ts";
 
-const METAS_80_20 = { rf: 800_000, rv: 200_000 };
+const METAS_80_20 = { rf: 800_000n, rv: 200_000n };
 
 test("investe a demanda dos dois grupos quando ambos estao abaixo da meta", () => {
   const result = rebalance({
@@ -53,7 +53,7 @@ test("grupo acima da meta recebe zero e o aporte inteiro vai para o outro (RV ac
 test("carteira vazia investe conforme as metas", () => {
   const result = rebalance({
     valuesCents: { rf: 0n, rv: 0n },
-    targetsE6: { rf: 700_000, rv: 300_000 },
+    targetsE6: { rf: 700_000n, rv: 300_000n },
     amountCents: 50_000n,
   });
   assert.equal(result.baseCents, 0n);
@@ -68,7 +68,7 @@ test("carteira vazia investe conforme as metas", () => {
 test("aporte zero nao sugere nada e preserva os percentuais", () => {
   const result = rebalance({
     valuesCents: { rf: 50_000n, rv: 50_000n },
-    targetsE6: { rf: 700_000, rv: 300_000 },
+    targetsE6: { rf: 700_000n, rv: 300_000n },
     amountCents: 0n,
   });
   const [rf, rv] = result.groups;
@@ -83,7 +83,7 @@ test("aporte zero nao sugere nada e preserva os percentuais", () => {
 test("meta 100/0 zera o grupo acima e concentra o aporte", () => {
   const result = rebalance({
     valuesCents: { rf: 50_000n, rv: 50_000n },
-    targetsE6: { rf: 1_000_000, rv: 0 },
+    targetsE6: { rf: 1_000_000n, rv: 0n },
     amountCents: 10_000n,
   });
   const [rf, rv] = result.groups;
@@ -95,7 +95,7 @@ test("meta 100/0 zera o grupo acima e concentra o aporte", () => {
 test("arredonda o alvo da RF half-up e fecha o aporte no centavo", () => {
   const result = rebalance({
     valuesCents: { rf: 33_333n, rv: 66_667n },
-    targetsE6: { rf: 333_333, rv: 666_667 },
+    targetsE6: { rf: 333_333n, rv: 666_667n },
     amountCents: 100_000n,
   });
   const [rf, rv] = result.groups;
@@ -104,4 +104,18 @@ test("arredonda o alvo da RF half-up e fecha o aporte no centavo", () => {
   assert.equal((rf?.suggestedCents ?? 0n) + (rv?.suggestedCents ?? 0n), 100_000n);
   assert.equal(rf?.pctAfter, 33.33);
   assert.equal(rv?.pctAfter, 66.67);
+});
+
+test("total zero mantem os percentuais em zero", () => {
+  const result = rebalance({
+    valuesCents: { rf: 0n, rv: 0n },
+    targetsE6: METAS_80_20,
+    amountCents: 0n,
+  });
+  assert.equal(result.totalCents, 0n);
+  const [rf, rv] = result.groups;
+  assert.equal(rf?.pctBefore, 0);
+  assert.equal(rf?.pctAfter, 0);
+  assert.equal(rv?.pctAfter, 0);
+  assert.equal((rf?.suggestedCents ?? 0n) + (rv?.suggestedCents ?? 0n), 0n);
 });
