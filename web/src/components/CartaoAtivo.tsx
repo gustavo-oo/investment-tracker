@@ -26,7 +26,7 @@ export function CartaoAtivo({ posicao, totalCents, onAbrir }: {
     if (posicao.priceCents !== null) meta.push(formataBRL(posicao.priceCents));
   }
   if (posicao.broker !== null && posicao.broker !== "") meta.push(posicao.broker);
-  meta.push(posicao.investor ?? "sem investidor");
+  meta.push(posicao.investor === null || posicao.investor === "" ? "sem investidor" : posicao.investor);
   if (posicao.objective !== null && posicao.objective !== "") meta.push(posicao.objective);
 
   return (
