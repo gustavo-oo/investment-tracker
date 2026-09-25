@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { MagnifyingGlass, Plus, Table } from "@phosphor-icons/react";
 import { getInstruments, getPortfolio, getTransactions, type Instrument, type PortfolioPosition, type Transaction } from "../api.ts";
-import { formataBRL, formataPercentualSinal } from "../format.ts";
+import { formataBRL, formataBRLSinal, formataPercentualSinal } from "../format.ts";
 import { COR_DA_CLASSE, ORDEM_CLASSE, ROTULO_CLASSE, classeDe, type Classe } from "../classes.ts";
 import { FormAtivo } from "../components/FormAtivo.tsx";
 import { FormTransacao } from "../components/FormTransacao.tsx";
@@ -163,7 +163,7 @@ export function PositionsView({ reloadToken, filtroInicial }: {
             <span>{visiveis.length} de {(posicoes ?? []).length} ativos</span>
             <span>valor total {formataBRL(total)}</span>
             <span className={rendimentoTotal >= 0 ? "rendimento-positivo" : "rendimento-negativo"}>
-              rendimento {rendimentoTotal > 0 ? "+" : ""}{formataBRL(rendimentoTotal)}
+              rendimento {formataBRLSinal(rendimentoTotal)}
               {rendimentoPctTotal === null ? "" : ` (${formataPercentualSinal(rendimentoPctTotal)})`}
             </span>
           </p>
@@ -262,7 +262,7 @@ export function PositionsView({ reloadToken, filtroInicial }: {
               <summary>
                 <span className="encerradas-resumo">
                   {encerradas.length} {encerradas.length === 1 ? "posição encerrada" : "posições encerradas"} (R$ 0,00) · resultado realizado{" "}
-                  <strong className={resultadoEncerradas >= 0 ? "rendimento-positivo" : "rendimento-negativo"}>{formataBRL(resultadoEncerradas)}</strong>
+                  <strong className={resultadoEncerradas >= 0 ? "rendimento-positivo" : "rendimento-negativo"}>{formataBRLSinal(resultadoEncerradas)}</strong>
                 </span>
                 <span className="encerradas-toggle">mostrar</span>
               </summary>
@@ -276,7 +276,7 @@ export function PositionsView({ reloadToken, filtroInicial }: {
                         <span className="encerrada-meta">
                           {[posicao.broker, posicao.investor].filter((valorMeta): valorMeta is string => valorMeta !== null && valorMeta !== "").join(" · ")}
                         </span>
-                        <span className={resultado >= 0 ? "encerrada-resultado rendimento-positivo" : "encerrada-resultado rendimento-negativo"}>{formataBRL(resultado)}</span>
+                        <span className={resultado >= 0 ? "encerrada-resultado rendimento-positivo" : "encerrada-resultado rendimento-negativo"}>{formataBRLSinal(resultado)}</span>
                       </button>
                     </li>
                   );

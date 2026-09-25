@@ -2,6 +2,10 @@ export function formataBRL(cents: number): string {
   return (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
+export function formataBRLSinal(cents: number): string {
+  return `${cents > 0 ? "+" : ""}${formataBRL(cents)}`;
+}
+
 export function formataNumero(valor: number): string {
   return valor.toLocaleString("pt-BR");
 }

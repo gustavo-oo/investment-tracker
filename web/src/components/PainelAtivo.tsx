@@ -1,6 +1,6 @@
 import { PencilSimple, Plus } from "@phosphor-icons/react";
 import type { PortfolioPosition, Transaction } from "../api.ts";
-import { formataBRL, formataCategoria, formataData, formataPercentualSinal, formataQuantidade } from "../format.ts";
+import { formataBRL, formataBRLSinal, formataCategoria, formataData, formataPercentualSinal, formataQuantidade } from "../format.ts";
 import { COR_DA_CLASSE, ROTULO_CLASSE, classeDe } from "../classes.ts";
 import { capitalDe, participacaoPct, rendimentoDe } from "../posicoes.ts";
 
@@ -78,7 +78,7 @@ export function PainelAtivo({ posicao, totalCents, transacoes, onNovaTransacao, 
         <p className="painel-sem-cotacao">sem cotação registrada</p>
       ) : (
         <p className={rendimento.cents >= 0 ? "painel-rendimento rendimento-positivo" : "painel-rendimento rendimento-negativo"}>
-          {rendimento.cents >= 0 ? "▲" : "▼"} {formataBRL(rendimento.cents)}
+          {rendimento.cents >= 0 ? "▲" : "▼"} {formataBRLSinal(rendimento.cents)}
           {rendimento.pct === null ? "" : ` (${formataPercentualSinal(rendimento.pct)})`}
         </p>
       )}
@@ -97,7 +97,7 @@ export function PainelAtivo({ posicao, totalCents, transacoes, onNovaTransacao, 
         ))}
       </div>
       <div className="painel-acoes">
-        <button type="button" className="btn btn-secondary" onClick={onEditarCadastro}>
+        <button type="button" className="btn btn-secondary" disabled={transacoes === null} onClick={onEditarCadastro}>
           <PencilSimple size={15} aria-hidden="true" /> Editar cadastro
         </button>
         <button type="button" className="btn btn-primary" onClick={onNovaTransacao}>

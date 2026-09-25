@@ -1,5 +1,5 @@
 import type { PortfolioPosition } from "../api.ts";
-import { formataBRL, formataCategoria, formataData, formataPercentualSinal, formataQuantidade } from "../format.ts";
+import { formataBRL, formataBRLSinal, formataCategoria, formataData, formataPercentualSinal, formataQuantidade } from "../format.ts";
 import { COR_DA_CLASSE, classeDe } from "../classes.ts";
 import { participacaoPct, rendimentoDe } from "../posicoes.ts";
 import { taxaTexto } from "./PainelAtivo.tsx";
@@ -40,7 +40,7 @@ export function CartaoAtivo({ posicao, totalCents, onAbrir }: {
         <span className="cartao-sem-cotacao">sem cotação hoje</span>
       ) : (
         <span className={rendimento.cents >= 0 ? "cartao-rendimento rendimento-positivo" : "cartao-rendimento rendimento-negativo"}>
-          {rendimento.cents >= 0 ? "▲" : "▼"} {formataBRL(rendimento.cents)}
+          {rendimento.cents >= 0 ? "▲" : "▼"} {formataBRLSinal(rendimento.cents)}
           {rendimento.pct === null ? "" : ` (${formataPercentualSinal(rendimento.pct)})`}
         </span>
       )}
