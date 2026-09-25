@@ -13,6 +13,15 @@ export function Gaveta({ aberta, titulo, onFechar, children }: {
     if (!aberta && dialog.open) dialog.close();
   }, [aberta]);
 
+  useEffect(() => {
+    if (!aberta) return;
+    const anterior = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = anterior;
+    };
+  }, [aberta]);
+
   return (
     <dialog
       ref={ref}
