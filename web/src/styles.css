@@ -1224,6 +1224,9 @@ select {
 .btn-danger:hover:not(:disabled) { background: color-mix(in srgb, var(--danger) 86%, var(--bg)); }
 
 .grupo-classe { margin-bottom: 20px; }
+.filtros + .grupo-classe,
+.filtros + .encerradas,
+.filtros + .empty { margin-top: 18px; }
 .grupo-cabecalho { display: flex; align-items: center; gap: 9px; }
 .grupo-cor { width: 10px; height: 10px; border-radius: 3px; flex: none; }
 .grupo-nome { font-size: 13.5px; font-weight: 600; }
