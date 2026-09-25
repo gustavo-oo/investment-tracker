@@ -15,10 +15,14 @@ export function Gaveta({ aberta, titulo, onFechar, children }: {
 
   useEffect(() => {
     if (!aberta) return;
-    const anterior = document.body.style.overflow;
+    const html = document.documentElement;
+    const anteriorBody = document.body.style.overflow;
+    const anteriorHtml = html.style.overflow;
     document.body.style.overflow = "hidden";
+    html.style.overflow = "hidden";
     return () => {
-      document.body.style.overflow = anterior;
+      document.body.style.overflow = anteriorBody;
+      html.style.overflow = anteriorHtml;
     };
   }, [aberta]);
 
