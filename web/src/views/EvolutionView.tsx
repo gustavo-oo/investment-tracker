@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { CaretDown, CaretUp } from "@phosphor-icons/react";
-import { Bar, CartesianGrid, ComposedChart, Legend, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { getHistory, getPerformance, type HistoryPoint, type Performance } from "../api.ts";
 import { formataBRL, formataJanela, formataMes, formataPercentualSinal, formataPontosPercentuais, mesDeslocado } from "../format.ts";
 import { type Periodo } from "../periodos.ts";
-import { EvolucaoChart } from "../components/EvolucaoChart.tsx";
-import { ControlesGrafico, type Aba, type SubAba } from "../components/ControlesGrafico.tsx";
+import { ControleGranularidade, ControlePeriodo, type SubAba } from "../components/ControlesGrafico.tsx";
+import { FluxosChart } from "../components/FluxosChart.tsx";
+import { PatrimonioChart } from "../components/PatrimonioChart.tsx";
+import { RendimentoChart } from "../components/RendimentoChart.tsx";
+import { mesesDe } from "../components/graficoComum.tsx";
 import { ExplicacaoRendimentos } from "../components/InfoPopover.tsx";
-
-type LinhaCrescimento = { rotulo: string; aporteCents: number; rendimentoCents: number; resgateCents: number };
 
 const mesCorrente = (): string =>
   new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date()).slice(0, 7);
@@ -19,22 +19,8 @@ function inicioDoPeriodo(periodo: Periodo, mes: string): string {
   return "2000-01";
 }
 
-function TooltipCrescimento({ active, payload }: { active?: boolean; payload?: Array<{ payload: LinhaCrescimento }> }) {
-  if (!active || !payload || payload.length === 0) return null;
-  const linha = payload[0]!.payload;
-  return (
-    <div className="chart-tooltip">
-      <p className="chart-tooltip-title">{linha.rotulo}</p>
-      <p>Você aportou: {formataBRL(linha.aporteCents)}</p>
-      <p>O mercado rendeu: {formataBRL(linha.rendimentoCents)}</p>
-      <p>Você resgatou: {formataBRL(linha.resgateCents)}</p>
-    </div>
-  );
-}
-
 export function EvolutionView({ reloadToken }: { reloadToken: number }) {
   const [periodo, setPeriodo] = useState<Periodo>("1a");
-  const [aba, setAba] = useState<Aba>("rs");
   const [subAba, setSubAba] = useState<SubAba>("mes");
   const [history, setHistory] = useState<HistoryPoint[] | null>(null);
   const [performance, setPerformance] = useState<Performance | null>(null);
@@ -70,9 +56,7 @@ export function EvolutionView({ reloadToken }: { reloadToken: number }) {
   }
 
   const patrimonioPorMes = new Map(history.map((ponto) => [ponto.month, ponto.marketValueCents]));
-  const crescimento: LinhaCrescimento[] = performance.months.map((mes) => ({
-    rotulo: formataMes(mes.month), aporteCents: mes.investedCents, rendimentoCents: mes.rendimentoCents, resgateCents: -mes.redeemedCents,
-  }));
+  const meses = mesesDe(history, performance);
   let acumulado = 1;
 
   return (
@@ -80,7 +64,10 @@ export function EvolutionView({ reloadToken }: { reloadToken: number }) {
       <div className="page-head">
         <div>
           <h1 className="page-title">Evolução</h1>
-          <p className="page-sub">Janela: {formataJanela(performance.from, performance.to)}.</p>
+          <p className="page-sub">Evolução mensal da carteira contra CDI e IPCA.</p>
+        </div>
+        <div className="page-head-actions">
+          <ControlePeriodo periodo={periodo} onPeriodo={setPeriodo} trimestral={performance.months.length > 24} />
         </div>
       </div>
 
@@ -88,18 +75,39 @@ export function EvolutionView({ reloadToken }: { reloadToken: number }) {
 
       <div className="stack">
         <section className="card">
+          <div className="section-head">
+            <h2 className="section-title">Evolução do patrimônio</h2>
+            <p className="section-hint">
+              <span className="hint-janela">{formataJanela(performance.from, performance.to)}</span> Quanto você tinha em cada mês.
+            </p>
+          </div>
+          <PatrimonioChart meses={meses} altura={360} />
+        </section>
+
+        <section className="card">
+          <div className="section-head">
+            <h2 className="section-title">Aportes e resgates</h2>
+            <p className="section-hint">
+              <span className="hint-janela">{formataJanela(performance.from, performance.to)}</span> O que entrou e saiu da carteira em cada mês.
+            </p>
+          </div>
+          <FluxosChart meses={meses} altura={320} />
+        </section>
+
+        <section className="card">
           <div className="section-head section-head-linha">
             <div>
-              <h2 className="section-title">Evolução da carteira</h2>
-              <p className="section-hint">Carteira em TWR (sem o efeito dos aportes), contra CDI e IPCA.</p>
+              <h2 className="section-title">Rendimento vs CDI e IPCA</h2>
+              <p className="section-hint">
+                <span className="hint-janela">{formataJanela(performance.from, performance.to)}</span> Carteira em TWR (sem o efeito dos aportes), contra CDI e IPCA.
+              </p>
             </div>
             <div className="controles-cabecalho">
-              <ControlesGrafico aba={aba} onAba={setAba} subAba={subAba} onSubAba={setSubAba}
-                periodo={periodo} onPeriodo={setPeriodo} trimestral={performance.months.length > 24} />
               <ExplicacaoRendimentos />
+              <ControleGranularidade subAba={subAba} onSubAba={setSubAba} />
             </div>
           </div>
-          <EvolucaoChart history={history} performance={performance} altura={360} aba={aba} subAba={subAba} />
+          <RendimentoChart meses={meses} performance={performance} subAba={subAba} altura={360} resumo />
         </section>
 
         <section className="card">
@@ -146,26 +154,6 @@ export function EvolutionView({ reloadToken }: { reloadToken: number }) {
               </tbody>
             </table>
           </div>
-        </section>
-
-        <section className="card">
-          <div className="section-head">
-            <h2 className="section-title">De onde veio o crescimento</h2>
-            <p className="section-hint">Aporte na base, rendimento no topo, resgate abaixo do eixo.</p>
-          </div>
-          <ResponsiveContainer width="100%" height={260}>
-            <ComposedChart data={crescimento} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="rotulo" tickLine={false} axisLine={false} fontSize={12} />
-              <YAxis tickLine={false} axisLine={false} fontSize={12} width={64} tickFormatter={(valor: number) => formataBRL(valor)} />
-              <ReferenceLine y={0} stroke="var(--border-strong)" />
-              <Tooltip content={<TooltipCrescimento />} />
-              <Legend />
-              <Bar dataKey="aporteCents" name="Aporte" stackId="crescimento" fill="var(--sand)" />
-              <Bar dataKey="rendimentoCents" name="Rendimento" stackId="crescimento" fill="var(--accent)" />
-              <Bar dataKey="resgateCents" name="Resgate" fill="var(--danger)" />
-            </ComposedChart>
-          </ResponsiveContainer>
         </section>
       </div>
     </div>

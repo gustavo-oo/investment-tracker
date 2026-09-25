@@ -9,8 +9,11 @@ import {
 } from "../format.ts";
 import { ORDEM_CLASSE, ROTULO_CLASSE, classeDe, type Classe } from "../classes.ts";
 import { type Periodo } from "../periodos.ts";
-import { EvolucaoChart } from "../components/EvolucaoChart.tsx";
-import { ControlesGrafico, type Aba, type SubAba } from "../components/ControlesGrafico.tsx";
+import { ControleGranularidade, ControlePeriodo, SeletorVisao, type SubAba, type Visao } from "../components/ControlesGrafico.tsx";
+import { FluxosChart } from "../components/FluxosChart.tsx";
+import { PatrimonioChart } from "../components/PatrimonioChart.tsx";
+import { RendimentoChart } from "../components/RendimentoChart.tsx";
+import { mesesDe } from "../components/graficoComum.tsx";
 import { Modal } from "../components/Modal.tsx";
 
 const ALOCACOES: Array<{ by: AllocationBy; rotulo: string }> = [
@@ -31,6 +34,12 @@ type Dados = {
 const INICIO_TUDO = "2000-01";
 const OBJETIVO_RESERVA = "Reserva";
 
+const HINTS: Record<Visao, string> = {
+  patrimonio: "Quanto você tinha em cada mês.",
+  fluxos: "O que entrou e saiu da carteira em cada mês.",
+  rendimento: "Carteira em TWR (sem o efeito dos aportes), contra CDI e IPCA.",
+};
+
 function inicioDoPeriodo(periodo: Periodo, mes: string): string {
   if (periodo === "1a") return mesDeslocado(mes, -11);
   if (periodo === "5a") return mesDeslocado(mes, -59);
@@ -42,7 +51,7 @@ export function OverviewView({ reloadToken, onAbrirPosicoes }: {
   onAbrirPosicoes: (classe: Classe | null) => void;
 }) {
   const [periodo, setPeriodo] = useState<Periodo>("1a");
-  const [aba, setAba] = useState<Aba>("rs");
+  const [visao, setVisao] = useState<Visao>("patrimonio");
   const [subAba, setSubAba] = useState<SubAba>("mes");
   const [alocacaoBy, setAlocacaoBy] = useState<AllocationBy>("category");
   const [dados, setDados] = useState<Dados | null>(null);
@@ -97,6 +106,7 @@ export function OverviewView({ reloadToken, onAbrirPosicoes }: {
   }
 
   const { portfolio, history, performance, performanceTudo, allocation } = dados;
+  const meses = mesesDe(history, performance);
   const capital = portfolio.totals.investedCents - portfolio.totals.redeemedCents;
   const rendimento = portfolio.totals.marketValueCents - capital;
   const rendimentoPct = capital > 0 ? (rendimento / capital) * 100 : 0;
@@ -179,18 +189,20 @@ export function OverviewView({ reloadToken, onAbrirPosicoes }: {
             </div>
           </section>
 
-          <section className="card card-desempenho">
+          <section className="card">
             <div className="section-head section-head-linha">
-              <div>
-                <h2 className="section-title">Desempenho no período</h2>
-                <p className="section-hint">{formataJanela(performance.from, performance.to)}.</p>
+              <SeletorVisao visao={visao} onVisao={setVisao} />
+              <div className="controles-cabecalho">
+                <ControlePeriodo periodo={periodo} onPeriodo={setPeriodo} trimestral={performance.months.length > 24} />
+                {visao === "rendimento" && <ControleGranularidade subAba={subAba} onSubAba={setSubAba} />}
               </div>
-              <ControlesGrafico aba={aba} onAba={setAba} subAba={subAba} onSubAba={setSubAba}
-                periodo={periodo} onPeriodo={setPeriodo} trimestral={performance.months.length > 24} />
             </div>
-            <div className="grafico-area">
-              <EvolucaoChart history={history} performance={performance} altura="100%" resumo={false} aba={aba} subAba={subAba} />
-            </div>
+            <p className="section-hint hint-grafico">
+              <span className="hint-janela">{formataJanela(performance.from, performance.to)}</span> {HINTS[visao]}
+            </p>
+            {visao === "patrimonio" && <PatrimonioChart meses={meses} />}
+            {visao === "fluxos" && <FluxosChart meses={meses} />}
+            {visao === "rendimento" && <RendimentoChart meses={meses} performance={performance} subAba={subAba} />}
           </section>
         </div>
 
