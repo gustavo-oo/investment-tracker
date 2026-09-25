@@ -7,15 +7,17 @@ import { FormAtivo } from "../components/FormAtivo.tsx";
 import { FormTransacao } from "../components/FormTransacao.tsx";
 import { Gaveta } from "../components/Gaveta.tsx";
 import { PainelAtivo } from "../components/PainelAtivo.tsx";
+import { PainelGrupo } from "../components/PainelGrupo.tsx";
 import { CartaoAtivo } from "../components/CartaoAtivo.tsx";
-import { agruparPosicoes, capitalDe, resultadoRealizadoDe, rendimentoDe } from "../posicoes.ts";
+import { agruparPosicoes, capitalDe, chaveDoGrupo, rendimentoDe, type GrupoPosicoes } from "../posicoes.ts";
 
 type Ordem = "valor" | "nome" | "rendimento" | "rendimentoPct" | "pct";
 
 type EstadoGaveta =
   | { tipo: "detalhe" }
   | { tipo: "transacao"; transacao: Transaction | null }
-  | { tipo: "cadastro"; instrumento: Instrument | null; qtdTransacoes: number };
+  | { tipo: "cadastro"; instrumento: Instrument | null; qtdTransacoes: number }
+  | { tipo: "grupo"; chave: string };
 
 export function PositionsView({ reloadToken, filtroInicial }: {
   reloadToken: number; filtroInicial: Classe | null;
@@ -30,6 +32,7 @@ export function PositionsView({ reloadToken, filtroInicial }: {
   const [ordem, setOrdem] = useState<Ordem>("valor");
   const [selecionada, setSelecionada] = useState<PortfolioPosition | null>(null);
   const [gaveta, setGaveta] = useState<EstadoGaveta | null>(null);
+  const [origemGrupo, setOrigemGrupo] = useState<string | null>(null);
   const [sugestoesLiquidez, setSugestoesLiquidez] = useState<string[]>([]);
   const [transacoes, setTransacoes] = useState<Transaction[] | null>(null);
   const [recargaLocal, setRecargaLocal] = useState(0);
@@ -43,6 +46,10 @@ export function PositionsView({ reloadToken, filtroInicial }: {
     getPortfolio(controller.signal)
       .then((portfolio) => {
         setPosicoes(portfolio.positions);
+        setGaveta((atual) => {
+          if (atual === null || atual.tipo !== "grupo") return atual;
+          return portfolio.positions.some((posicao) => chaveDoGrupo(posicao) === atual.chave) ? atual : null;
+        });
         setSelecionada((atual) => atual === null
           ? null
           : portfolio.positions.find((posicao) => posicao.instrumentId === atual.instrumentId) ?? null);
@@ -87,12 +94,27 @@ export function PositionsView({ reloadToken, filtroInicial }: {
 
   function abrirAtivo(posicao: PortfolioPosition) {
     setSelecionada(posicao);
+    setOrigemGrupo(null);
+    setGaveta({ tipo: "detalhe" });
+  }
+
+  function abrirGrupo(grupo: GrupoPosicoes) {
+    setSelecionada(null);
+    setOrigemGrupo(null);
+    setGaveta({ tipo: "grupo", chave: grupo.chave });
+  }
+
+  function abrirMembroDoGrupo(posicao: PortfolioPosition) {
+    if (gaveta?.tipo !== "grupo") return;
+    setSelecionada(posicao);
+    setOrigemGrupo(gaveta.chave);
     setGaveta({ tipo: "detalhe" });
   }
 
   function fecharGaveta() {
     setGaveta(null);
     setSelecionada(null);
+    setOrigemGrupo(null);
   }
 
   function liquidezDe(instrumentos: Instrument[]): string[] {
@@ -147,12 +169,27 @@ export function PositionsView({ reloadToken, filtroInicial }: {
   const capitalTotal = (posicoes ?? []).reduce((soma, posicao) => soma + capitalDe(posicao), 0);
   const rendimentoPctTotal = capitalTotal > 0 ? (rendimentoTotal / capitalTotal) * 100 : null;
 
-  const ativas = visiveis.filter((posicao) => posicao.marketValueCents !== 0);
   const encerradas = visiveis.filter((posicao) => posicao.marketValueCents === 0);
-  const resultadoEncerradas = encerradas.reduce((soma, posicao) => soma + resultadoRealizadoDe(posicao), 0);
-  const grupos = ORDEM_CLASSE
-    .map((classeGrupo) => ({ classe: classeGrupo, posicoes: ativas.filter((posicao) => classeDe(posicao) === classeGrupo) }))
-    .filter((grupo) => grupo.posicoes.length > 0);
+
+  function comparaGrupos(a: GrupoPosicoes, b: GrupoPosicoes): number {
+    if (ordem === "nome") return a.nome.localeCompare(b.nome, "pt-BR");
+    if (ordem === "rendimento") return (b.rendimentoCents ?? -Infinity) - (a.rendimentoCents ?? -Infinity);
+    if (ordem === "rendimentoPct") return (b.rendimentoPct ?? -Infinity) - (a.rendimentoPct ?? -Infinity);
+    return b.valorCents - a.valorCents;
+  }
+
+  const gruposAtivos = agruparPosicoes(visiveis.filter((posicao) => posicao.marketValueCents !== 0)).sort(comparaGrupos);
+  const gruposEncerrados = agruparPosicoes(encerradas);
+  const resultadoEncerradas = gruposEncerrados.reduce((soma, grupo) => soma + grupo.resultadoRealizadoCents, 0);
+  const grupoDaGaveta = gaveta?.tipo === "grupo"
+    ? [...gruposAtivos, ...gruposEncerrados].find((grupo) => grupo.chave === gaveta.chave) ?? null
+    : null;
+  const podeRenderizarGaveta = (() => {
+    if (gaveta === null) return false;
+    if (gaveta.tipo === "cadastro") return true;
+    if (gaveta.tipo === "grupo") return grupoDaGaveta !== null;
+    return selecionada !== null;
+  })();
 
   return (
     <div className="page">
@@ -233,8 +270,11 @@ export function PositionsView({ reloadToken, filtroInicial }: {
         </div>
       ) : (
         <>
-          {grupos.map(({ classe: classeGrupo, posicoes: doGrupo }) => {
-            const valor = doGrupo.reduce((soma, posicao) => soma + (posicao.marketValueCents ?? 0), 0);
+          {ORDEM_CLASSE.map((classeGrupo) => {
+            const doGrupo = gruposAtivos.filter((grupo) => classeDe(grupo.membros[0]) === classeGrupo);
+            if (doGrupo.length === 0) return null;
+            const valor = doGrupo.reduce((soma, grupo) => soma + grupo.valorCents, 0);
+            const qtdPosicoes = doGrupo.reduce((soma, grupo) => soma + grupo.membros.length, 0);
             const pct = total > 0 ? (valor / total) * 100 : 0;
             return (
               <section key={classeGrupo} className="grupo-classe" aria-label={ROTULO_CLASSE[classeGrupo]}>
@@ -242,58 +282,63 @@ export function PositionsView({ reloadToken, filtroInicial }: {
                   <span className="grupo-cor" style={{ background: COR_DA_CLASSE[classeGrupo] }} aria-hidden="true" />
                   <h2 className="grupo-nome">{ROTULO_CLASSE[classeGrupo]}</h2>
                   <span className="grupo-numeros">
-                    {doGrupo.length} {doGrupo.length === 1 ? "ativo" : "ativos"} · {formataBRL(valor)} · {pct.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%
+                    {doGrupo.length} {doGrupo.length === 1 ? "grupo" : "grupos"} · {qtdPosicoes} {qtdPosicoes === 1 ? "ativo" : "ativos"} · {formataBRL(valor)} · {pct.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%
                   </span>
                 </div>
                 <span className="grupo-barra" aria-hidden="true">
                   <span className="grupo-barra-fill" style={{ width: `${Math.min(100, pct)}%`, background: COR_DA_CLASSE[classeGrupo] }} />
                 </span>
                 <div className="grade-cartoes">
-                  {doGrupo.map((posicao) => (
-                    <CartaoAtivo
-                      key={posicao.instrumentId}
-                      grupo={agruparPosicoes([posicao])[0]}
-                      totalCents={total}
-                      onAbrir={() => abrirAtivo(posicao)}
-                    />
+                  {doGrupo.map((grupo) => (
+                    <CartaoAtivo key={grupo.chave} grupo={grupo} totalCents={total} onAbrir={abrirGrupo} />
                   ))}
                 </div>
               </section>
             );
           })}
 
-          {encerradas.length > 0 && (
+          {gruposEncerrados.length > 0 && (
             <details className="encerradas">
               <summary>
                 <span className="encerradas-resumo">
-                  {encerradas.length} {encerradas.length === 1 ? "posição encerrada" : "posições encerradas"} (R$ 0,00) · resultado realizado{" "}
+                  {encerradas.length} {encerradas.length === 1 ? "posição encerrada" : "posições encerradas"}
+                  {gruposEncerrados.length > 1 ? ` em ${gruposEncerrados.length} grupos` : ""} (R$ 0,00) · resultado realizado{" "}
                   <strong className={resultadoEncerradas >= 0 ? "rendimento-positivo" : "rendimento-negativo"}>{formataBRLSinal(resultadoEncerradas)}</strong>
                 </span>
                 <span className="encerradas-toggle">mostrar</span>
               </summary>
               <ul className="encerradas-lista">
-                {encerradas.map((posicao) => {
-                  const resultado = resultadoRealizadoDe(posicao);
-                  return (
-                    <li key={posicao.instrumentId}>
-                      <button type="button" className="encerrada" onClick={() => abrirAtivo(posicao)}>
-                        <span className="encerrada-nome">{posicao.name}</span>
-                        <span className="encerrada-meta">
-                          {[posicao.broker, posicao.investor].filter((valorMeta): valorMeta is string => valorMeta !== null && valorMeta !== "").join(" · ")}
-                        </span>
-                        <span className={resultado >= 0 ? "encerrada-resultado rendimento-positivo" : "encerrada-resultado rendimento-negativo"}>{formataBRLSinal(resultado)}</span>
-                      </button>
-                    </li>
-                  );
-                })}
+                {gruposEncerrados.map((grupo) => (
+                  <li key={grupo.chave}>
+                    <button type="button" className="encerrada" onClick={() => abrirGrupo(grupo)}>
+                      <span className="encerrada-nome">
+                        {grupo.nome}
+                        {grupo.membros.length > 1 && <span className="encerradas-contagem"> · {grupo.membros.length} posições</span>}
+                      </span>
+                      <span className="encerrada-meta">
+                        {[grupo.brokers[0], grupo.investidor].filter((valorMeta): valorMeta is string => valorMeta !== undefined && valorMeta !== null && valorMeta !== "").join(" · ")}
+                      </span>
+                      <span className={grupo.resultadoRealizadoCents >= 0 ? "encerrada-resultado rendimento-positivo" : "encerrada-resultado rendimento-negativo"}>
+                        {formataBRLSinal(grupo.resultadoRealizadoCents)}
+                      </span>
+                    </button>
+                  </li>
+                ))}
               </ul>
             </details>
           )}
         </>
       )}
 
-      {gaveta !== null && (gaveta.tipo === "cadastro" || selecionada !== null) && (
-        <Gaveta aberta titulo={selecionada === null ? "Novo ativo" : selecionada.name} onFechar={fecharGaveta}>
+      {podeRenderizarGaveta && gaveta !== null && (
+        <Gaveta
+          aberta
+          titulo={gaveta.tipo === "grupo" ? (grupoDaGaveta?.nome ?? "Grupo") : selecionada === null ? "Novo ativo" : selecionada.name}
+          onFechar={fecharGaveta}
+        >
+          {gaveta.tipo === "grupo" && grupoDaGaveta !== null && (
+            <PainelGrupo grupo={grupoDaGaveta} totalCents={total} onAbrirMembro={abrirMembroDoGrupo} />
+          )}
           {gaveta.tipo === "detalhe" && selecionada !== null && (
             <PainelAtivo
               posicao={selecionada}
@@ -302,6 +347,7 @@ export function PositionsView({ reloadToken, filtroInicial }: {
               onNovaTransacao={() => setGaveta({ tipo: "transacao", transacao: null })}
               onEditarTransacao={(transacao) => setGaveta({ tipo: "transacao", transacao })}
               onEditarCadastro={() => void editarAtivo()}
+              onVoltarGrupo={origemGrupo === null ? undefined : () => { setGaveta({ tipo: "grupo", chave: origemGrupo }); setSelecionada(null); }}
             />
           )}
           {gaveta.tipo === "transacao" && selecionada !== null && (
