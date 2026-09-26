@@ -26,6 +26,7 @@ test("projectionPremise ignora null, exige 6 validos e clampa o pessimista em âˆ
 });
 
 test("projectionPremise arredonda o aporte half-up e aceita aporte negativo", () => {
+  assert.equal(projectionPremise([0, 0, 0, 0, 0, 0], []), null);
   assert.equal(projectionPremise([0, 0, 0, 0, 0, 0], [1n, 0n])?.contributionCents, 1n);
   assert.equal(projectionPremise([0, 0, 0, 0, 0, 0], [-100n, -201n])?.contributionCents, -151n);
 });

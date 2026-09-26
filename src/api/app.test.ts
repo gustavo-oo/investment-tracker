@@ -332,6 +332,9 @@ test("GET /api/projection devolve premissa, histórico e 24 pontos", async () =>
   assert.ok(projection.premise !== null);
   assert.ok(projection.premise.monthsUsed >= 6);
   assert.equal(typeof projection.premise.contributionCents, "number");
+  for (const campo of ["monthlyRatePct", "bandPp", "pessimisticMonthlyPct", "optimisticMonthlyPct", "patrimonyCents"] as const) {
+    assert.equal(typeof projection.premise[campo], "number");
+  }
   assert.ok(projection.projection[0].pessimisticCents <= projection.projection[0].baseCents);
   assert.ok(projection.projection[0].baseCents <= projection.projection[0].optimisticCents);
 

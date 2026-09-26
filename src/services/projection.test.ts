@@ -56,7 +56,7 @@ test("buildProjection mantém paridade com o acumulado de buildPerformance", () 
   const performance = buildPerformance(db, { from: result.from, to: result.to }, { now });
   assert.ok(result.premise !== null);
   const composto = (1 + result.premise.monthlyRatePct / 100) ** result.premise.monthsUsed - 1;
-  assert.ok(Math.abs(composto - performance.accumulated.portfolioPct / 100) < 0.0005);
+  assert.ok(Math.abs(composto - performance.accumulated.portfolioPct / 100) < 0.0001);
 });
 
 test("buildProjection devolve premissa nula com histórico curto ou banco vazio", () => {
@@ -72,5 +72,6 @@ test("buildProjection devolve premissa nula com histórico curto ou banco vazio"
   migrate(vazio);
   const semDados = buildProjection(vazio, { now });
   assert.equal(semDados.premise, null);
+  assert.deepEqual(semDados.history, []);
   assert.deepEqual(semDados.projection, []);
 });

@@ -30,7 +30,7 @@ const TITULOS: Record<Detalhe, string> = {
 type Dados = {
   portfolio: Portfolio; history: HistoryPoint[];
   performance: Performance; performanceTudo: Performance; allocation: Allocation;
-  projection: Projection;
+  projection: Projection | null;
 };
 
 const INICIO_TUDO = "2000-01";
@@ -71,7 +71,7 @@ export function OverviewView({ reloadToken, onAbrirPosicoes }: {
         getPerformance(from, mes, signal),
         getPerformance(INICIO_TUDO, mes, signal),
         getAllocation(alocacaoBy, signal),
-        getProjection(signal),
+        getProjection(signal).catch(() => null),
       ]);
       setDados({ portfolio, history, performance, performanceTudo, allocation, projection });
       setErro(null);
@@ -212,17 +212,21 @@ export function OverviewView({ reloadToken, onAbrirPosicoes }: {
           <section className="card">
             <div className="section-head section-head-linha">
               <h2 className="section-title">Projeção do patrimônio</h2>
-              {projection.premise !== null && (
+              {projection !== null && projection.premise !== null && (
                 <div className="chart-grupo" role="group" aria-label="Horizonte da projeção">
                   <button type="button" className={horizonte === 12 ? "chip active" : "chip"} aria-pressed={horizonte === 12} onClick={() => setHorizonte(12)}>1 ano</button>
                   <button type="button" className={horizonte === 24 ? "chip active" : "chip"} aria-pressed={horizonte === 24} onClick={() => setHorizonte(24)}>2 anos</button>
                 </div>
               )}
             </div>
-            {projection.premise === null ? (
+            {projection === null || projection.premise === null ? (
               <div className="empty">
-                <p className="empty-title">Sem histórico suficiente</p>
-                <p className="empty-hint">A projeção aparece quando houver 6 meses de retornos e o patrimônio atual.</p>
+                <p className="empty-title">{projection === null ? "Projeção indisponível" : "Sem histórico suficiente"}</p>
+                <p className="empty-hint">
+                  {projection === null
+                    ? "Não foi possível carregar a projeção agora — o resto da Visão geral segue normalmente."
+                    : "A projeção aparece quando houver 6 meses de retornos e o patrimônio atual."}
+                </p>
               </div>
             ) : (
               <>

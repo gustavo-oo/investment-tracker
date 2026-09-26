@@ -30,7 +30,7 @@ function TooltipProjecao({ active, payload }: { active?: boolean; payload?: Arra
   const linha = payload[0]!.payload;
   return (
     <div className="chart-tooltip">
-      <p className="chart-tooltip-title">{linha.rotulo}{linha.realCents !== null ? " · hoje" : ""}</p>
+      <p className="chart-tooltip-title">{linha.rotulo}{linha.realCents !== null && linha.baseCents !== null ? " · hoje" : ""}</p>
       {linha.realCents !== null && <p>Patrimônio: <strong>{formataBRL(linha.realCents)}</strong></p>}
       {linha.baseCents !== null && linha.faixaCents !== null && (
         <>
@@ -55,9 +55,9 @@ export function ProjecaoChart({ projecao, horizonte, altura = 300 }: {
         <YAxis tickLine={false} axisLine={false} fontSize={12} width={76} tickFormatter={formataEixoRs} />
         <Tooltip content={<TooltipProjecao />} />
         <Legend />
-        <Area dataKey="faixaCents" name="Faixa (±1σ)" stroke="none" fill="var(--accent-soft)" fillOpacity={0.9} isAnimationActive={false} />
-        <Area dataKey="realCents" name="Patrimônio" stroke="var(--accent)" fill="var(--accent-soft)" strokeWidth={2} />
-        <Line dataKey="baseCents" name="Projeção" stroke="var(--accent)" strokeWidth={2} strokeDasharray="5 4" dot={false} />
+        <Area dataKey="faixaCents" name="Faixa (±1σ)" type="monotone" stroke="none" fill="var(--accent-soft)" fillOpacity={0.9} isAnimationActive={false} />
+        <Area dataKey="realCents" name="Patrimônio" type="monotone" stroke="var(--accent)" fill="var(--accent-soft)" strokeWidth={2} />
+        <Line dataKey="baseCents" name="Projeção" type="monotone" stroke="var(--accent)" strokeWidth={2} strokeDasharray="5 4" dot={false} />
         <ReferenceLine x={formataMes(projecao.to)} stroke="var(--border-strong)" strokeDasharray="3 3" label={{ value: "hoje", position: "top", fontSize: 11 }} />
       </ComposedChart>
     </ResponsiveContainer>
