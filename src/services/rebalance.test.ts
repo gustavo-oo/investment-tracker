@@ -51,6 +51,7 @@ test("agrupa RF (inclusive previdencia e ETF RF), exclui reserva e posicao sem v
   assert.equal(result.asOf, "2026-09-18");
   assert.equal(result.baseCents, 120_710n);
   assert.equal(result.stale, false);
+  assert.equal(result.portfolioTotalCents, 220_810n); // inclui a reserva (100.100) e o CDB sem reserva
   const [rf, rv] = result.groups;
   assert.equal(rf?.valueCents, 110_710n); // CDB 100.100 + ETF RF 10.000 + PGBL 610
   assert.equal(rv?.valueCents, 10_000n);
@@ -64,7 +65,7 @@ test("agrupa RF (inclusive previdencia e ETF RF), exclui reserva e posicao sem v
   assert.equal(rv?.aboveTarget, false);
 });
 
-test("usa as metas do banco (seed 80/20) e o aporte persistido", () => {
+test("usa as metas do banco (seed 80/20) e nao persiste aporte", () => {
   const db = openDb(":memory:");
   migrate(db);
   seed(db);
@@ -72,6 +73,7 @@ test("usa as metas do banco (seed 80/20) e o aporte persistido", () => {
   assert.deepEqual(result.targets, { rfE6: 800_000n, rvE6: 200_000n });
   assert.equal(result.amountCents, 0n);
   assert.equal(result.baseCents, 120_710n);
+  assert.equal(result.portfolioTotalCents, 220_810n);
   const [rf, rv] = result.groups;
   assert.equal(rf?.aboveTarget, true); // 91,72% > 80%
   assert.equal(rv?.aboveTarget, false);
@@ -87,4 +89,5 @@ test("marca stale quando uma posicao considerada esta desatualizada", () => {
   const result = buildRebalance(db, { now: NOW });
   assert.equal(result.stale, true);
   assert.equal(result.baseCents, 120_710n); // ultimo valor conhecido continua valendo
+  assert.equal(result.portfolioTotalCents, 220_810n);
 });

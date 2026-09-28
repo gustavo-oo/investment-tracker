@@ -3,9 +3,9 @@ import assert from "node:assert/strict";
 import { openDb } from "./index.ts";
 import { migrate } from "./migrate.ts";
 
-test("migrate aplica 001 a 004 e é idempotente", () => {
+test("migrate aplica 001 a 005 e é idempotente", () => {
   const db = openDb(":memory:");
-  assert.equal(migrate(db), 4);
+  assert.equal(migrate(db), 5);
   assert.equal(migrate(db), 0);
   const tables = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name")
     .all()
@@ -13,6 +13,9 @@ test("migrate aplica 001 a 004 e é idempotente", () => {
   for (const table of ["instruments", "transactions", "quotes", "index_rates", "valuations", "legacy_snapshots", "import_runs", "source_status", "fund_quotas", "rebalance_targets"]) {
     assert.ok(tables.includes(table), `tabela ${table} existe`);
   }
+  const colunas = db.prepare("PRAGMA table_info(rebalance_targets)").all()
+    .map((row) => (row as { name: string }).name);
+  assert.deepEqual(colunas, ["id", "rf_e6", "rv_e6", "updated_at"]);
 });
 
 test("schema rejeita kind inválido em transaction", () => {

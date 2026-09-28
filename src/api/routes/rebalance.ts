@@ -35,6 +35,7 @@ function toApiRebalance(result: RebalanceView) {
   return {
     asOf: result.asOf,
     baseCents: toNumberSafe(result.baseCents),
+    portfolioTotalCents: toNumberSafe(result.portfolioTotalCents),
     amountCents: toNumberSafe(result.amountCents),
     targets: { rfE6: toNumberSafe(result.targets.rfE6), rvE6: toNumberSafe(result.targets.rvE6) },
     groups: result.groups.map((group) => ({
@@ -73,19 +74,16 @@ export function registerRebalanceRoutes(app: FastifyInstance, db: Db): void {
 
   app.put<{ Body: unknown }>("/api/rebalance", (request, reply) => {
     if (!isRecord(request.body)) return reply.code(400).send({ error: "corpo deve ser um objeto" });
-    const { rfE6, rvE6, amountCents } = request.body;
-    if (!Number.isSafeInteger(rfE6) || !Number.isSafeInteger(rvE6) || !Number.isSafeInteger(amountCents)) {
-      return reply.code(400).send({ error: "metas e aporte devem ser inteiros" });
+    const { rfE6, rvE6 } = request.body;
+    if (!Number.isSafeInteger(rfE6) || !Number.isSafeInteger(rvE6)) {
+      return reply.code(400).send({ error: "metas devem ser inteiras" });
     }
-    const values = { rfE6: BigInt(rfE6 as number), rvE6: BigInt(rvE6 as number), amountCents: BigInt(amountCents as number) };
-    const targets = validateTargets(values.rfE6, values.rvE6);
+    const targets = validateTargets(BigInt(rfE6 as number), BigInt(rvE6 as number));
     if (!targets.ok) return reply.code(400).send({ error: targets.error });
-    if (values.amountCents < 0n) return reply.code(400).send({ error: "valor a investir inválido" });
-    const saved = saveRebalanceTargets(db, values);
+    const saved = saveRebalanceTargets(db, targets.value);
     return {
       rfE6: toNumberSafe(saved.rfE6),
       rvE6: toNumberSafe(saved.rvE6),
-      amountCents: toNumberSafe(saved.amountCents),
       updatedAt: saved.updatedAt,
     };
   });

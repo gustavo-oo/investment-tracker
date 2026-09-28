@@ -384,25 +384,21 @@ export function listAllFundQuotas(db: Db): FundQuotaRow[] {
   }));
 }
 
-export type RebalanceTargetsRow = { rfE6: bigint; rvE6: bigint; amountCents: bigint; updatedAt: string };
+export type RebalanceTargetsRow = { rfE6: bigint; rvE6: bigint; updatedAt: string };
 
-type RebalanceTargetsDbRow = { rf_e6: bigint; rv_e6: bigint; amount_cents: bigint; updated_at: string };
+type RebalanceTargetsDbRow = { rf_e6: bigint; rv_e6: bigint; updated_at: string };
 
 export function getRebalanceTargets(db: Db): RebalanceTargetsRow {
-  const row = db.prepare("SELECT rf_e6, rv_e6, amount_cents, updated_at FROM rebalance_targets WHERE id = 1")
+  const row = db.prepare("SELECT rf_e6, rv_e6, updated_at FROM rebalance_targets WHERE id = 1")
     .get() as RebalanceTargetsDbRow;
-  return { rfE6: row.rf_e6, rvE6: row.rv_e6, amountCents: row.amount_cents, updatedAt: row.updated_at };
+  return { rfE6: row.rf_e6, rvE6: row.rv_e6, updatedAt: row.updated_at };
 }
 
-export function saveRebalanceTargets(
-  db: Db,
-  targets: { rfE6: bigint; rvE6: bigint; amountCents: bigint },
-): RebalanceTargetsRow {
-  db.prepare(`INSERT INTO rebalance_targets (id, rf_e6, rv_e6, amount_cents, updated_at)
-    VALUES (1, ?, ?, ?, datetime('now'))
+export function saveRebalanceTargets(db: Db, targets: { rfE6: bigint; rvE6: bigint }): RebalanceTargetsRow {
+  db.prepare(`INSERT INTO rebalance_targets (id, rf_e6, rv_e6, updated_at)
+    VALUES (1, ?, ?, datetime('now'))
     ON CONFLICT(id) DO UPDATE SET
-      rf_e6 = excluded.rf_e6, rv_e6 = excluded.rv_e6,
-      amount_cents = excluded.amount_cents, updated_at = excluded.updated_at`)
-    .run(targets.rfE6, targets.rvE6, targets.amountCents);
+      rf_e6 = excluded.rf_e6, rv_e6 = excluded.rv_e6, updated_at = excluded.updated_at`)
+    .run(targets.rfE6, targets.rvE6);
   return getRebalanceTargets(db);
 }

@@ -618,10 +618,12 @@ function seedRebalance(db: ReturnType<typeof openDb>) {
   insertInstruments(db, [
     { ...baseRebalance, id: "cdb-r", legacyKey: "CDB R", name: "CDB R", kind: "fixed_income", category: "cdb", ticker: null, benchmark: "CDI", rateE6: 1_000_000n },
     { ...baseRebalance, id: "etf-r", legacyKey: "ETF R", name: "ETF R", kind: "equity", category: "etf_equity", ticker: "WRLD11", benchmark: null, rateE6: null, broker: "XP" },
+    { ...baseRebalance, id: "cdb-res", legacyKey: "CDB Res", name: "CDB Res", kind: "fixed_income", category: "cdb", ticker: null, benchmark: "CDI", rateE6: 1_000_000n, objective: "Reserva" },
   ]);
   insertTransactions(db, [
     { instrumentId: "cdb-r", tradeDate: "2026-09-17", kind: "BUY", quantityE8: null, grossCents: 100_000n, feesCents: 0n, note: null, legacyRow: null },
     { instrumentId: "etf-r", tradeDate: "2026-09-17", kind: "BUY", quantityE8: 10_00000000n, grossCents: 9_000n, feesCents: 0n, note: null, legacyRow: null },
+    { instrumentId: "cdb-res", tradeDate: "2026-09-17", kind: "BUY", quantityE8: null, grossCents: 100_000n, feesCents: 0n, note: null, legacyRow: null },
   ]);
   writeIndexRates(db, [{ series: "CDI", date: "2026-09-17", valueE12: 1_000_000_000n }]);
   writeQuotes(db, [{ ticker: "WRLD11", date: "2026-09-17", closeCents: 1_000n, source: "yahoo", settled: true }], "2026-09-18");
@@ -639,6 +641,7 @@ test("GET /api/rebalance calcula o aporte por grupo e aceita metas na query", as
   assert.equal(res.statusCode, 200);
   assert.deepEqual(res.json().targets, { rfE6: 800000, rvE6: 200000 });
   assert.equal(res.json().baseCents, 110_100);
+  assert.equal(res.json().portfolioTotalCents, 210_200); // inclui a reserva
   assert.equal(res.json().amountCents, 0);
   assert.equal(res.json().stale, false);
 
@@ -653,7 +656,7 @@ test("GET /api/rebalance calcula o aporte por grupo e aceita metas na query", as
   await app.close();
 });
 
-test("PUT /api/rebalance persiste as metas e o ultimo aporte", async () => {
+test("PUT /api/rebalance persiste so as metas", async () => {
   const db = openDb(":memory:");
   migrate(db);
   seedRebalance(db);
@@ -661,15 +664,16 @@ test("PUT /api/rebalance persiste as metas e o ultimo aporte", async () => {
 
   let res = await app.inject({
     method: "PUT", url: "/api/rebalance",
-    payload: { rfE6: 700000, rvE6: 300000, amountCents: 123456 },
+    payload: { rfE6: 700000, rvE6: 300000 },
   });
   assert.equal(res.statusCode, 200);
   assert.equal(res.json().rfE6, 700000);
-  assert.equal(res.json().amountCents, 123456);
+  assert.equal(res.json().rvE6, 300000);
+  assert.equal(typeof res.json().updatedAt, "string");
 
   res = await app.inject({ method: "GET", url: "/api/rebalance" });
   assert.deepEqual(res.json().targets, { rfE6: 700000, rvE6: 300000 });
-  assert.equal(res.json().amountCents, 123456);
+  assert.equal(res.json().amountCents, 0);
 
   await app.close();
 });
@@ -681,31 +685,24 @@ test("rebalance valida metas e aporte com 400", async () => {
 
   let res = await app.inject({
     method: "PUT", url: "/api/rebalance",
-    payload: { rfE6: 500000, rvE6: 400000, amountCents: 0 },
+    payload: { rfE6: 500000, rvE6: 400000 },
   });
   assert.equal(res.statusCode, 400);
   assert.match(res.json().error, /somar 100%/);
 
   res = await app.inject({
     method: "PUT", url: "/api/rebalance",
-    payload: { rfE6: -1, rvE6: 1000001, amountCents: 0 },
+    payload: { rfE6: -1, rvE6: 1000001 },
   });
   assert.equal(res.statusCode, 400);
   assert.match(res.json().error, /entre 0% e 100%/);
 
   res = await app.inject({
     method: "PUT", url: "/api/rebalance",
-    payload: { rfE6: 800000, rvE6: 200000, amountCents: -1 },
+    payload: { rfE6: 1.5, rvE6: 200000 },
   });
   assert.equal(res.statusCode, 400);
-  assert.match(res.json().error, /valor a investir inválido/);
-
-  res = await app.inject({
-    method: "PUT", url: "/api/rebalance",
-    payload: { rfE6: 1.5, rvE6: 200000, amountCents: 0 },
-  });
-  assert.equal(res.statusCode, 400);
-  assert.match(res.json().error, /inteiros/);
+  assert.match(res.json().error, /inteiras/);
 
   res = await app.inject({ method: "GET", url: "/api/rebalance?amountCents=abc" });
   assert.equal(res.statusCode, 400);

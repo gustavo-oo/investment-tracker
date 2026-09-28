@@ -8,6 +8,7 @@ const OBJETIVO_RESERVA = "Reserva";
 export type RebalanceView = {
   asOf: string;
   baseCents: bigint;
+  portfolioTotalCents: bigint;
   amountCents: bigint;
   targets: { rfE6: bigint; rvE6: bigint };
   groups: RebalanceGroup[];
@@ -27,7 +28,7 @@ export function buildRebalance(
   const portfolio = buildPortfolio(db, { now: deps.now });
   const stored = getRebalanceTargets(db);
   const targets = deps.targetsE6 ?? { rfE6: stored.rfE6, rvE6: stored.rvE6 };
-  const amountCents = deps.amountCents ?? stored.amountCents;
+  const amountCents = deps.amountCents ?? 0n;
   const consideradas = portfolio.positions.filter(
     (position) => position.objective !== OBJETIVO_RESERVA && position.marketValueCents !== null,
   );
@@ -43,6 +44,7 @@ export function buildRebalance(
   return {
     asOf: portfolio.asOf,
     baseCents: result.baseCents,
+    portfolioTotalCents: portfolio.totals.marketValueCents,
     amountCents: result.amountCents,
     targets,
     groups: result.groups,
