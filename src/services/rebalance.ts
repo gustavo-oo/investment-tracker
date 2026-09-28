@@ -48,6 +48,6 @@ export function buildRebalance(
     amountCents: result.amountCents,
     targets,
     groups: result.groups,
-    stale: consideradas.some((position) => position.stale),
+    stale: portfolio.positions.some((position) => position.marketValueCents !== null && position.stale),
   };
 }

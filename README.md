@@ -50,8 +50,8 @@ Se o volume der erro de permissão, ajuste o dono de `./data` para o uid do cont
 | `GET /api/performance?from=YYYY-MM&to=YYYY-MM` | retorno mensal/acumulado da carteira, diferença em p.p. contra CDI/IPCA e MWR (mesma janela clampada do `/api/history`) |
 | `GET /api/allocation?by=category\|broker\|objective` | alocação por critério |
 | `GET /api/reconciliation?month=YYYY-MM&asOf=YYYY-MM-DD` | reconciliação do mês contra o legado (totais e divergências com causa) |
-| `GET /api/rebalance?amountCents&rfE6&rvE6` | Cálculo do rebalanceamento RF × RV (fora da reserva) por grupo |
-| `PUT /api/rebalance` | Salva as metas RF × RV e o último aporte |
+| `GET /api/rebalance?amountCents&rfE6&rvE6` | Cálculo do rebalanceamento RF × RV fora da reserva (aporte transiente via query `amountCents`) |
+| `PUT /api/rebalance` | Salva as metas RF × RV (o aporte é transiente; existe só na query do GET) |
 | `POST /api/refresh?full=1&source=yahoo\|alphavantage\|bcb\|cvm-swb` | coleta manual (todas as fontes sem `source`); `full=1` refaz a janela; resposta inclui `repairs` |
 | `GET /api/health` | status + contagens + fontes (última coleta/erro, stale) |
 

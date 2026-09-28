@@ -91,3 +91,23 @@ test("marca stale quando uma posicao considerada esta desatualizada", () => {
   assert.equal(result.baseCents, 120_710n); // ultimo valor conhecido continua valendo
   assert.equal(result.portfolioTotalCents, 220_810n);
 });
+
+test("stale do total considera tambem a reserva", () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  insertInstruments(db, [
+    { ...cdb, id: "cdb-b", legacyKey: "CDB B", name: "CDB B" },
+    { ...reservaCdb, id: "reserva-etf", legacyKey: "Reserva ETF", name: "Reserva ETF", kind: "equity", category: "etf_equity", ticker: "B5P211" },
+  ]);
+  insertTransactions(db, [
+    { instrumentId: "cdb-b", tradeDate: "2026-09-17", kind: "BUY", quantityE8: null, grossCents: 100_000n, feesCents: 0n, note: null, legacyRow: null },
+    { instrumentId: "reserva-etf", tradeDate: "2026-09-17", kind: "BUY", quantityE8: 10_00000000n, grossCents: 9_000n, feesCents: 0n, note: null, legacyRow: null },
+  ]);
+  writeIndexRates(db, [{ series: "CDI", date: "2026-09-17", valueE12: 1_000_000_000n }]);
+  writeQuotes(db, [{ ticker: "B5P211", date: "2026-09-17", closeCents: 1_000n, source: "yahoo", settled: true }], "2026-09-18");
+  recordSourceAttempt(db, "bcb", { ok: true });
+  const result = buildRebalance(db, { now: NOW });
+  assert.equal(result.stale, true); // a reserva esta stale e o total a inclui
+  assert.equal(result.baseCents, 100_100n); // so o CDB fora da reserva entra na base
+  assert.equal(result.portfolioTotalCents, 110_100n);
+});
