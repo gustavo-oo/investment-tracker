@@ -168,6 +168,7 @@ export function RebalanceView({ reloadToken }: { reloadToken: number }) {
       {dados !== null && (
         <p className="reb-nota reb-rodape">
           Base do cálculo: {formataBRL(dados.baseCents)} fora da reserva ({formataBRL(dados.portfolioTotalCents - dados.baseCents)} na reserva de emergência).
+          {dados.stale && " Há cotações desatualizadas — usando o último valor conhecido."}
         </p>
       )}
     </div>
