@@ -10,6 +10,7 @@ import { migrate } from "../db/migrate.ts";
 import { insertInstruments, insertLegacySnapshots, insertTransactions, recordSourceAttempt, writeFundQuotas, writeIndexRates, writeQuotes } from "../db/repos.ts";
 import type { InstrumentRow } from "../db/repos.ts";
 import type { FundQuotaSource, IndexSource, MonthlyQuoteSource, QuoteSource } from "../sources/types.ts";
+import { addMonths } from "../domain/dates.ts";
 
 const gzip = (obj: unknown) => gzipSync(Buffer.from(JSON.stringify(obj))).toString("base64");
 
@@ -302,6 +303,57 @@ test("portfolio com PGBL calcula pela cota CVM e health lista cvm-swb", async ()
 
   const health = (await app.inject({ method: "GET", url: "/api/health" })).json();
   assert.ok(health.sources.some((source: { id: string }) => source.id === "cvm-swb"), "health inclui cvm-swb");
+
+  await app.close();
+});
+
+test("GET /api/projection devolve premissa, histórico e 24 pontos", async () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  insertInstruments(db, [etfInstrument]);
+  insertTransactions(db, [{ instrumentId: etfInstrument.id, tradeDate: "2026-03-02", kind: "BUY", quantityE8: 100_00000000n, grossCents: 100_000n, feesCents: 0n, note: null, legacyRow: null }]);
+  writeQuotes(db, [
+    { ticker: "WRLD11", date: "2026-03-31", closeCents: 1_000n, source: "yahoo", settled: true },
+    { ticker: "WRLD11", date: "2026-04-30", closeCents: 1_010n, source: "yahoo", settled: true },
+    { ticker: "WRLD11", date: "2026-05-31", closeCents: 1_020n, source: "yahoo", settled: true },
+    { ticker: "WRLD11", date: "2026-06-30", closeCents: 1_030n, source: "yahoo", settled: true },
+    { ticker: "WRLD11", date: "2026-07-31", closeCents: 1_040n, source: "yahoo", settled: true },
+    { ticker: "WRLD11", date: "2026-08-31", closeCents: 1_050n, source: "yahoo", settled: true },
+    { ticker: "WRLD11", date: "2026-09-17", closeCents: 1_060n, source: "yahoo", settled: true },
+  ], "2026-09-18");
+  const app = buildApp({ db, csvDir: csvDirFixture(), logger: false });
+
+  const res = await app.inject({ method: "GET", url: "/api/projection" });
+  assert.equal(res.statusCode, 200);
+  const projection = res.json();
+  assert.equal(projection.projection.length, 24);
+  assert.equal(projection.history.at(-1).month, projection.to);
+  assert.equal(projection.projection[0].month, addMonths(projection.to, 1));
+  assert.ok(projection.premise !== null);
+  assert.ok(projection.premise.monthsUsed >= 6);
+  assert.equal(typeof projection.premise.contributionCents, "number");
+  for (const campo of ["monthlyRatePct", "bandPp", "pessimisticMonthlyPct", "optimisticMonthlyPct", "patrimonyCents"] as const) {
+    assert.equal(typeof projection.premise[campo], "number");
+  }
+  assert.ok(projection.projection[0].pessimisticCents <= projection.projection[0].baseCents);
+  assert.ok(projection.projection[0].baseCents <= projection.projection[0].optimisticCents);
+
+  await app.close();
+});
+
+test("GET /api/projection sem dados devolve premissa nula", async () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  const app = buildApp({ db, csvDir: csvDirFixture(), logger: false });
+
+  const res = await app.inject({ method: "GET", url: "/api/projection" });
+  assert.equal(res.statusCode, 200);
+  const projection = res.json();
+  assert.match(projection.from, /^\d{4}-\d{2}$/);
+  assert.match(projection.to, /^\d{4}-\d{2}$/);
+  assert.equal(projection.premise, null);
+  assert.deepEqual(projection.history, []);
+  assert.deepEqual(projection.projection, []);
 
   await app.close();
 });

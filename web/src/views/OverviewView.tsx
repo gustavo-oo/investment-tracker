@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { ChartPie, WarningCircle } from "@phosphor-icons/react";
 import {
-  getAllocation, getHistory, getPerformance, getPortfolio,
-  type Allocation, type AllocationBy, type HistoryPoint, type Performance, type Portfolio,
+  getAllocation, getHistory, getPerformance, getPortfolio, getProjection,
+  type Allocation, type AllocationBy, type HistoryPoint, type Performance, type Portfolio, type Projection,
 } from "../api.ts";
 import {
   formataBRL, formataCategoria, formataData, formataJanela, formataMes, formataPercentual, formataPercentualSinal, formataPontosPercentuais, mesDeslocado,
@@ -12,6 +12,7 @@ import { type Periodo } from "../periodos.ts";
 import { ControleGranularidade, ControlePeriodo, SeletorVisao, type SubAba, type Visao } from "../components/ControlesGrafico.tsx";
 import { FluxosChart } from "../components/FluxosChart.tsx";
 import { PatrimonioChart } from "../components/PatrimonioChart.tsx";
+import { ProjecaoChart } from "../components/ProjecaoChart.tsx";
 import { RendimentoChart } from "../components/RendimentoChart.tsx";
 import { mesesDe } from "../components/graficoComum.tsx";
 import { Modal } from "../components/Modal.tsx";
@@ -29,6 +30,7 @@ const TITULOS: Record<Detalhe, string> = {
 type Dados = {
   portfolio: Portfolio; history: HistoryPoint[];
   performance: Performance; performanceTudo: Performance; allocation: Allocation;
+  projection: Projection | null;
 };
 
 const INICIO_TUDO = "2000-01";
@@ -57,19 +59,21 @@ export function OverviewView({ reloadToken, onAbrirPosicoes }: {
   const [dados, setDados] = useState<Dados | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [detalhe, setDetalhe] = useState<Detalhe | null>(null);
+  const [horizonte, setHorizonte] = useState<12 | 24>(12);
 
   const carregar = useCallback(async (signal: AbortSignal) => {
     try {
       const portfolio = await getPortfolio(signal);
       const mes = portfolio.asOf.slice(0, 7);
       const from = inicioDoPeriodo(periodo, mes);
-      const [history, performance, performanceTudo, allocation] = await Promise.all([
+      const [history, performance, performanceTudo, allocation, projection] = await Promise.all([
         getHistory(from, mes, signal),
         getPerformance(from, mes, signal),
         getPerformance(INICIO_TUDO, mes, signal),
         getAllocation(alocacaoBy, signal),
+        getProjection(signal).catch(() => null),
       ]);
-      setDados({ portfolio, history, performance, performanceTudo, allocation });
+      setDados({ portfolio, history, performance, performanceTudo, allocation, projection });
       setErro(null);
     } catch (cause) {
       if (cause instanceof DOMException && cause.name === "AbortError") return;
@@ -105,7 +109,7 @@ export function OverviewView({ reloadToken, onAbrirPosicoes }: {
     );
   }
 
-  const { portfolio, history, performance, performanceTudo, allocation } = dados;
+  const { portfolio, history, performance, performanceTudo, allocation, projection } = dados;
   const meses = mesesDe(history, performance);
   const capital = portfolio.totals.investedCents - portfolio.totals.redeemedCents;
   const rendimento = portfolio.totals.marketValueCents - capital;
@@ -203,6 +207,35 @@ export function OverviewView({ reloadToken, onAbrirPosicoes }: {
             {visao === "patrimonio" && <PatrimonioChart meses={meses} />}
             {visao === "fluxos" && <FluxosChart meses={meses} />}
             {visao === "rendimento" && <RendimentoChart meses={meses} performance={performance} subAba={subAba} />}
+          </section>
+
+          <section className="card">
+            <div className="section-head section-head-linha">
+              <h2 className="section-title">Projeção do patrimônio</h2>
+              {projection !== null && projection.premise !== null && (
+                <div className="chart-grupo" role="group" aria-label="Horizonte da projeção">
+                  <button type="button" className={horizonte === 12 ? "chip active" : "chip"} aria-pressed={horizonte === 12} onClick={() => setHorizonte(12)}>1 ano</button>
+                  <button type="button" className={horizonte === 24 ? "chip active" : "chip"} aria-pressed={horizonte === 24} onClick={() => setHorizonte(24)}>2 anos</button>
+                </div>
+              )}
+            </div>
+            {projection === null || projection.premise === null ? (
+              <div className="empty">
+                <p className="empty-title">{projection === null ? "Projeção indisponível" : "Sem histórico suficiente"}</p>
+                <p className="empty-hint">
+                  {projection === null
+                    ? "Não foi possível carregar a projeção agora — o resto da Visão geral segue normalmente."
+                    : "A projeção aparece quando houver 6 meses de retornos e o patrimônio atual."}
+                </p>
+              </div>
+            ) : (
+              <>
+                <p className="section-hint hint-grafico">
+                  Estimativa pelos últimos {projection.premise.monthsUsed} meses: rendimento médio de {formataPercentual(projection.premise.monthlyRatePct)}/mês e aporte médio de {formataBRL(projection.premise.contributionCents)}/mês. A faixa cobre ±{formataPercentual(projection.premise.bandPp)} (1 desvio-padrão dos retornos mensais).
+                </p>
+                <ProjecaoChart projecao={projection} horizonte={horizonte} />
+              </>
+            )}
           </section>
         </div>
 

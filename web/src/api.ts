@@ -90,6 +90,17 @@ export type Performance = {
   monthsBeaten: number; monthsTotal: number; mwr: { periodPct: number | null; months: number };
 };
 
+export type ProjectionPremise = {
+  monthsUsed: number; monthlyRatePct: number; bandPp: number; contributionCents: number;
+  pessimisticMonthlyPct: number; optimisticMonthlyPct: number; patrimonyCents: number;
+};
+
+export type Projection = {
+  from: string; to: string; premise: ProjectionPremise | null;
+  history: Array<{ month: string; marketValueCents: number }>;
+  projection: Array<{ month: string; baseCents: number; pessimisticCents: number; optimisticCents: number }>;
+};
+
 export type Transaction = {
   id: number; tradeDate: string; kind: string; quantityE8: number | null;
   grossCents: number; feesCents: number; note: string | null; legacyRow: number | null;
@@ -144,6 +155,7 @@ export const saveRebalance = (payload: { rfE6: number; rvE6: number }): Promise<
 export const getReconciliation = (month: string, signal?: AbortSignal): Promise<Reconciliation> => getJson(`/api/reconciliation?month=${month}`, signal);
 export const getHistory = (from: string, to: string, signal?: AbortSignal): Promise<HistoryPoint[]> => getJson(`/api/history?from=${from}&to=${to}`, signal);
 export const getPerformance = (from: string, to: string, signal?: AbortSignal): Promise<Performance> => getJson(`/api/performance?from=${from}&to=${to}`, signal);
+export const getProjection = (signal?: AbortSignal): Promise<Projection> => getJson("/api/projection", signal);
 export const getTransactions = (id: string, signal?: AbortSignal): Promise<Transaction[]> =>
   getJson(`/api/instruments/${encodeURIComponent(id)}/transactions`, signal);
 
