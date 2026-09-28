@@ -1118,20 +1118,28 @@ select {
 
 .controles-cabecalho { display: flex; align-items: center; gap: 8px; margin-left: auto; }
 
-.reb-metas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)) minmax(0, 1.2fr); gap: 14px; }
+.reb-secao-titulo { margin: 0; font-size: 15px; }
+.reb-topo { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 14px; align-items: stretch; }
+.reb-topo > .card { display: flex; flex-direction: column; justify-content: space-between; gap: 12px; }
+.reb-metas-linha { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.reb-metas-linha .campo { min-width: 92px; max-width: 110px; }
+.reb-base { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+.reb-base .campo-moeda { min-width: 190px; }
+.reb-resumo-total { text-align: right; }
+.reb-resumo-total strong { display: block; margin-top: 2px; font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 30px; font-weight: 600; letter-spacing: -0.03em; white-space: nowrap; }
 .reb-grade { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 14px; }
 .reb-card { display: flex; flex-direction: column; gap: 12px; }
 .reb-card-topo { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .reb-titulo { margin: 0; font-size: 15px; }
-.reb-pct { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
-.reb-pct-bloco { display: flex; flex-direction: column; gap: 2px; }
-.reb-pct-bloco strong { font-family: var(--font-mono); font-size: 18px; }
+.reb-hero { display: flex; flex-direction: column; gap: 2px; margin-top: 14px; }
+.reb-hero strong { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 30px; font-weight: 600; letter-spacing: -0.02em; color: var(--accent); }
+.reb-caminho { display: flex; gap: 8px; margin-top: 8px; color: var(--text-2); font-size: 12.5px; }
+.reb-caminho-rotulo { color: var(--text-3); min-width: 78px; }
 .reb-seta { color: var(--text-3); }
-.reb-valores { display: flex; flex-direction: column; gap: 4px; border-top: 1px solid var(--border); padding-top: 10px; }
-.reb-sugerido { font-family: var(--font-mono); font-size: 26px; font-weight: 600; color: var(--accent); }
 .reb-nota { color: var(--text-2); font-size: 12px; }
+.reb-rodape { margin-top: 14px; }
 @media (max-width: 1024px) {
-  .reb-metas, .reb-grade { grid-template-columns: minmax(0, 1fr); }
+  .reb-topo, .reb-grade { grid-template-columns: minmax(0, 1fr); }
 }
 .gaveta {
   position: fixed;

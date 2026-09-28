@@ -10,10 +10,6 @@ function textoDeE6(e6: number): string {
   return (e6 / 10_000).toLocaleString("pt-BR", { maximumFractionDigits: 4 });
 }
 
-function textoDeCents(cents: number): string {
-  return cents === 0 ? "" : (cents / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
 export function RebalanceView({ reloadToken }: { reloadToken: number }) {
   const [dados, setDados] = useState<Rebalance | null>(null);
   const [erro, setErro] = useState<string | null>(null);
@@ -33,7 +29,7 @@ export function RebalanceView({ reloadToken }: { reloadToken: number }) {
         setDados(resultado);
         setRfTexto(textoDeE6(resultado.targets.rfE6));
         setRvTexto(textoDeE6(resultado.targets.rvE6));
-        setAporteTexto(textoDeCents(resultado.amountCents));
+        setAporteTexto(""); // transiente: sempre começa vazio
         setErro(null);
         setCarregado(true);
       })
@@ -69,14 +65,12 @@ export function RebalanceView({ reloadToken }: { reloadToken: number }) {
   async function salvar() {
     const rfE6 = parsePercentualParaE6(rfTexto, true);
     const rvE6 = parsePercentualParaE6(rvTexto, true);
-    const aporte = aporteTexto.trim() === "" ? 0 : parseMoedaParaCents(aporteTexto);
     if (rfE6 === null || rvE6 === null) return setErroEntrada("meta inválida (ex.: 80 ou 72,5)");
     if (rfE6 + rvE6 !== SOMA_METAS) return setErroEntrada("as metas precisam somar 100%");
-    if (aporte === null) return setErroEntrada("valor a investir inválido");
     setSalvando(true);
     setRecado(null);
     try {
-      await saveRebalance({ rfE6, rvE6, amountCents: aporte });
+      await saveRebalance({ rfE6, rvE6 });
       setRecado("Metas salvas");
     } catch (cause) {
       setErroEntrada(cause instanceof Error ? cause.message : String(cause));
@@ -84,6 +78,8 @@ export function RebalanceView({ reloadToken }: { reloadToken: number }) {
       setSalvando(false);
     }
   }
+
+  const totalDepois = dados === null ? 0 : dados.portfolioTotalCents + dados.amountCents;
 
   return (
     <div className="page">
@@ -101,38 +97,46 @@ export function RebalanceView({ reloadToken }: { reloadToken: number }) {
         </div>
       )}
 
-      <section className="card">
-        <div className="reb-metas">
-          <label className="campo">
-            <span className="stat-label">Meta · Renda Fixa</span>
-            <span className="campo-sufixo">
-              <input inputMode="decimal" value={rfTexto} onChange={(evento) => setRfTexto(evento.target.value)} placeholder="80" />
-              <span className="campo-sufixo-texto">%</span>
-            </span>
-          </label>
-          <label className="campo">
-            <span className="stat-label">Meta · Renda Variável</span>
-            <span className="campo-sufixo">
-              <input inputMode="decimal" value={rvTexto} onChange={(evento) => setRvTexto(evento.target.value)} placeholder="20" />
-              <span className="campo-sufixo-texto">%</span>
-            </span>
-          </label>
-          <label className="campo campo-largo">
-            <span className="stat-label">Quanto quero investir</span>
+      <div className="reb-topo">
+        <section className="card">
+          <h2 className="reb-secao-titulo">Metas</h2>
+          <div className="reb-metas-linha">
+            <label className="campo">
+              <span className="stat-label">Renda Fixa</span>
+              <span className="campo-sufixo">
+                <input inputMode="decimal" value={rfTexto} onChange={(evento) => setRfTexto(evento.target.value)} placeholder="80" />
+                <span className="campo-sufixo-texto">%</span>
+              </span>
+            </label>
+            <label className="campo">
+              <span className="stat-label">Renda Variável</span>
+              <span className="campo-sufixo">
+                <input inputMode="decimal" value={rvTexto} onChange={(evento) => setRvTexto(evento.target.value)} placeholder="20" />
+                <span className="campo-sufixo-texto">%</span>
+              </span>
+            </label>
+            <button type="button" className="btn btn-secondary" disabled={salvando} onClick={() => void salvar()}>
+              {salvando ? "Salvando…" : "Salvar metas"}
+            </button>
+          </div>
+          {erroEntrada !== null && <p className="campo-erro" role="alert">{erroEntrada}</p>}
+          {recado !== null && <span className="reb-nota" role="status">{recado}</span>}
+        </section>
+
+        <section className="card">
+          <span className="stat-label">Quanto vou investir</span>
+          <div className="reb-base">
             <span className="campo-moeda">
               <span className="campo-prefixo">R$</span>
               <input inputMode="decimal" value={aporteTexto} onChange={(evento) => setAporteTexto(evento.target.value)} placeholder="6.500,00" />
             </span>
-          </label>
-        </div>
-        {erroEntrada !== null && <p className="campo-erro" role="alert">{erroEntrada}</p>}
-        <div className="form-acoes">
-          {recado !== null && <span className="reb-nota" role="status">{recado}</span>}
-          <button type="button" className="btn btn-primary" disabled={salvando} onClick={() => void salvar()}>
-            {salvando ? "Salvando…" : "Salvar metas"}
-          </button>
-        </div>
-      </section>
+            <div className="reb-resumo-total">
+              <span className="stat-label">Patrimônio total depois</span>
+              <strong>{formataBRL(totalDepois)}</strong>
+            </div>
+          </div>
+        </section>
+      </div>
 
       {dados !== null && (
         <div className="reb-grade">
@@ -140,32 +144,30 @@ export function RebalanceView({ reloadToken }: { reloadToken: number }) {
             <section className="card reb-card" key={grupo.key}>
               <div className="reb-card-topo">
                 <h2 className="reb-titulo">{ROTULOS[grupo.key] ?? grupo.key}</h2>
-                {grupo.aboveTarget && <span className="badge badge-warn">acima da meta — sem aporte novo</span>}
-              </div>
-              <div className="reb-pct">
-                <span className="reb-pct-bloco"><span className="stat-label">Hoje</span><strong>{formataPercentual(grupo.pctBefore)}</strong></span>
-                <span className="reb-seta" aria-hidden="true">→</span>
-                <span className="reb-pct-bloco"><span className="stat-label">Alvo</span><strong>{formataPercentual(grupo.targetE6 / 10_000)}</strong></span>
-                <span className="reb-seta" aria-hidden="true">→</span>
-                <span className="reb-pct-bloco"><span className="stat-label">Depois</span><strong>{formataPercentual(grupo.pctAfter)}</strong></span>
-              </div>
-              <div className="reb-valores">
-                <span className="stat-label">Investir</span>
-                <strong className="reb-sugerido">{formataBRL(grupo.suggestedCents)}</strong>
-                <span className="reb-nota">
-                  hoje {formataBRL(grupo.valueCents)} · depois {formataBRL(grupo.afterValueCents)}
+                <span className={grupo.aboveTarget ? "badge badge-warn" : "badge badge-neutro"}>
+                  {grupo.aboveTarget ? "acima da meta — sem aporte novo" : `meta ${formataPercentual(grupo.targetE6 / 10_000)}`}
                 </span>
               </div>
+              <div className="reb-hero">
+                <span className="stat-label">Investir</span>
+                <strong>{formataBRL(grupo.suggestedCents)}</strong>
+              </div>
+              <span className="reb-caminho">
+                <span className="reb-caminho-rotulo">Valor</span>
+                {formataBRL(grupo.valueCents)} <span className="reb-seta">→</span> {formataBRL(grupo.afterValueCents)}
+              </span>
+              <span className="reb-caminho">
+                <span className="reb-caminho-rotulo">Participação</span>
+                {formataPercentual(grupo.pctBefore)} <span className="reb-seta">→</span> {formataPercentual(grupo.pctAfter)}
+              </span>
             </section>
           ))}
         </div>
       )}
 
       {dados !== null && (
-        <p className="reb-nota">
-          Carteira fora da reserva: {formataBRL(dados.baseCents)} + aporte {formataBRL(dados.amountCents)} ={" "}
-          {formataBRL(dados.baseCents + dados.amountCents)}.
-          {dados.stale && " Há cotações desatualizadas — usando o último valor conhecido."}
+        <p className="reb-nota reb-rodape">
+          Base do cálculo: {formataBRL(dados.baseCents)} fora da reserva ({formataBRL(dados.portfolioTotalCents - dados.baseCents)} na reserva de emergência).
         </p>
       )}
     </div>

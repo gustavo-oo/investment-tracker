@@ -120,10 +120,10 @@ export type RebalanceGroup = {
   suggestedCents: number; afterValueCents: number; pctAfter: number; aboveTarget: boolean;
 };
 export type Rebalance = {
-  asOf: string; baseCents: number; amountCents: number;
+  asOf: string; baseCents: number; portfolioTotalCents: number; amountCents: number;
   targets: { rfE6: number; rvE6: number }; groups: RebalanceGroup[]; stale: boolean;
 };
-export type RebalanceConfig = { rfE6: number; rvE6: number; amountCents: number; updatedAt: string };
+export type RebalanceConfig = { rfE6: number; rvE6: number; updatedAt: string };
 
 export function getRebalance(
   params: { amountCents?: number; rfE6?: number; rvE6?: number },
@@ -139,7 +139,7 @@ export function getRebalance(
   return getJson(`/api/rebalance${qs === "" ? "" : `?${qs}`}`, signal);
 }
 
-export const saveRebalance = (payload: { rfE6: number; rvE6: number; amountCents: number }): Promise<RebalanceConfig> =>
+export const saveRebalance = (payload: { rfE6: number; rvE6: number }): Promise<RebalanceConfig> =>
   sendJson("/api/rebalance", "PUT", payload);
 export const getReconciliation = (month: string, signal?: AbortSignal): Promise<Reconciliation> => getJson(`/api/reconciliation?month=${month}`, signal);
 export const getHistory = (from: string, to: string, signal?: AbortSignal): Promise<HistoryPoint[]> => getJson(`/api/history?from=${from}&to=${to}`, signal);
