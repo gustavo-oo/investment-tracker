@@ -383,3 +383,26 @@ export function listAllFundQuotas(db: Db): FundQuotaRow[] {
     symbol: row.symbol, date: row.date, quotaE12: row.quota_e12, source: row.source, settled: Number(row.settled) === 1,
   }));
 }
+
+export type RebalanceTargetsRow = { rfE6: bigint; rvE6: bigint; amountCents: bigint; updatedAt: string };
+
+type RebalanceTargetsDbRow = { rf_e6: bigint; rv_e6: bigint; amount_cents: bigint; updated_at: string };
+
+export function getRebalanceTargets(db: Db): RebalanceTargetsRow {
+  const row = db.prepare("SELECT rf_e6, rv_e6, amount_cents, updated_at FROM rebalance_targets WHERE id = 1")
+    .get() as RebalanceTargetsDbRow;
+  return { rfE6: row.rf_e6, rvE6: row.rv_e6, amountCents: row.amount_cents, updatedAt: row.updated_at };
+}
+
+export function saveRebalanceTargets(
+  db: Db,
+  targets: { rfE6: bigint; rvE6: bigint; amountCents: bigint },
+): RebalanceTargetsRow {
+  db.prepare(`INSERT INTO rebalance_targets (id, rf_e6, rv_e6, amount_cents, updated_at)
+    VALUES (1, ?, ?, ?, datetime('now'))
+    ON CONFLICT(id) DO UPDATE SET
+      rf_e6 = excluded.rf_e6, rv_e6 = excluded.rv_e6,
+      amount_cents = excluded.amount_cents, updated_at = excluded.updated_at`)
+    .run(targets.rfE6, targets.rvE6, targets.amountCents);
+  return getRebalanceTargets(db);
+}

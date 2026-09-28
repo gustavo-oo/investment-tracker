@@ -34,6 +34,21 @@ test("allocation agrupa por categoria com percentual", () => {
   ]);
 });
 
+test("allocation omite grupos sem valor (0%)", () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  const encerrado: InstrumentRow = { ...base, id: "c", legacyKey: "C", name: "C", kind: "equity", category: "etf_equity", ticker: null, benchmark: null, rateE6: null, broker: "PagBank", objective: "Reserva" };
+  insertInstruments(db, [etfB, encerrado]);
+  insertTransactions(db, [
+    { instrumentId: "b", tradeDate: "2026-09-17", kind: "BUY", quantityE8: 30_00000000n, grossCents: 1_000n, feesCents: 0n, note: null, legacyRow: null },
+    { instrumentId: "c", tradeDate: "2026-09-17", kind: "BUY", quantityE8: 10_00000000n, grossCents: 1_000n, feesCents: 0n, note: null, legacyRow: null },
+    { instrumentId: "c", tradeDate: "2026-09-17", kind: "SELL", quantityE8: -10_00000000n, grossCents: 1_000n, feesCents: 0n, note: null, legacyRow: null },
+  ]);
+  writeQuotes(db, [{ ticker: "B5P211", date: "2026-09-17", closeCents: 1_000n, source: "yahoo", settled: true }], "2026-09-18");
+  const result = buildAllocation(db, "broker", { now: () => new Date("2026-09-18T12:00:00-03:00") });
+  assert.deepEqual(result.groups, [{ key: "XP", marketValueCents: 30_000n, pct: 100 }]);
+});
+
 test("allocation soma o total do portfólio", () => {
   const db = openDb(":memory:");
   migrate(db);

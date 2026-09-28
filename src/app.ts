@@ -8,6 +8,7 @@ import { registerInstrumentsRoutes } from "./api/routes/instruments.ts";
 import { registerPerformanceRoutes } from "./api/routes/performance.ts";
 import { registerPortfolioRoutes } from "./api/routes/portfolio.ts";
 import { registerProjectionRoutes } from "./api/routes/projection.ts";
+import { registerRebalanceRoutes } from "./api/routes/rebalance.ts";
 import { registerReconciliationRoutes } from "./api/routes/reconciliation.ts";
 import { registerRefreshRoutes } from "./api/routes/refresh.ts";
 import { registerTransactionsRoutes } from "./api/routes/transactions.ts";
@@ -25,6 +26,7 @@ export function buildApp(options: {
   registerPerformanceRoutes(app, options.db);
   registerProjectionRoutes(app, options.db);
   registerReconciliationRoutes(app, options.db);
+  registerRebalanceRoutes(app, options.db);
   registerRefreshRoutes(app, options.db, options.refreshDeps);
 
   if (options.webDir && existsSync(options.webDir)) {
