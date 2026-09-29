@@ -4,7 +4,7 @@ import type { InstrumentRow } from "../../db/repos.ts";
 import { listInstruments, listTransactionsByInstrument } from "../../db/repos.ts";
 import type { InstrumentCategory, InstrumentKind } from "../../domain/model.ts";
 import { toNumberSafe } from "../../domain/money.ts";
-import { createInstrument, patchInstrument, removeInstrument, type InstrumentInput } from "../../services/writes.ts";
+import { createInstrument, listInvestors, patchInstrument, removeInstrument, type InstrumentInput } from "../../services/writes.ts";
 import { toApiTransaction } from "./transactions.ts";
 
 const KINDS: InstrumentKind[] = ["fixed_income", "equity", "pension"];
@@ -50,7 +50,7 @@ function parseBody(body: Body, partial: boolean): { ok: true; patch: Partial<Ins
     if (value === null) { patch[key] = null; continue; }
     if (typeof value !== "string") return { ok: false, error: `${key} inválido` };
     if (value.trim() === "") {
-      if (key === "investor") return { ok: false, error: "investor deve ser Ana ou Beto" };
+      if (key === "investor") return { ok: false, error: "investor inválido" };
       patch[key] = null;
       continue;
     }
@@ -73,6 +73,8 @@ function parseBody(body: Body, partial: boolean): { ok: true; patch: Partial<Ins
 }
 
 export function registerInstrumentsRoutes(app: FastifyInstance, db: Db): void {
+  app.get("/api/investors", () => listInvestors(db));
+
   app.get("/api/instruments", () => listInstruments(db).map(toApiInstrument));
 
   app.post<{ Body: unknown }>("/api/instruments", (request, reply) => {

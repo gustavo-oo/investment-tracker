@@ -56,6 +56,7 @@ Se o volume der erro de permissão, ajuste o dono de `./data` para o uid do cont
 | `DB_PATH` | `data/investments.db` | arquivo SQLite |
 | `CSV_DIR` | `data/csv` | pasta lida pelo import via CLI |
 | `ALPHAVANTAGE_API_KEY` | vazio | fallback opcional das cotações |
+| `INVESTORS` | vazio | investidores aceitos no cadastro, separados por vírgula (vazio = valores já existentes no banco) |
 
 ## API (v1)
 

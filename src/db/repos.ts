@@ -394,6 +394,12 @@ export function getRebalanceTargets(db: Db): RebalanceTargetsRow {
   return { rfE6: row.rf_e6, rvE6: row.rv_e6, updatedAt: row.updated_at };
 }
 
+export function listDistinctInvestors(db: Db): string[] {
+  const rows = db.prepare("SELECT DISTINCT investor FROM instruments WHERE investor IS NOT NULL AND investor != '' ORDER BY investor")
+    .all() as Array<{ investor: string }>;
+  return rows.map((row) => row.investor);
+}
+
 export function saveRebalanceTargets(db: Db, targets: { rfE6: bigint; rvE6: bigint }): RebalanceTargetsRow {
   db.prepare(`INSERT INTO rebalance_targets (id, rf_e6, rv_e6, updated_at)
     VALUES (1, ?, ?, datetime('now'))

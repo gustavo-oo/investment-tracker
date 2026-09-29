@@ -210,7 +210,7 @@ export const patchTransaction = (id: number, payload: Partial<TransactionPayload
   sendJson(`/api/transactions/${id}`, "PATCH", payload);
 export const deleteTransaction = (id: number): Promise<void> => sendDelete(`/api/transactions/${id}`);
 
-export type Investor = "Ana" | "Beto";
+export const getInvestidores = (signal?: AbortSignal): Promise<string[]> => getJson<string[]>("/api/investors", signal);
 
 export async function postRefresh(): Promise<RefreshResult> {
   const response = await fetch("/api/refresh", { method: "POST" });

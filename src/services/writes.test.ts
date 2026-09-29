@@ -4,8 +4,10 @@ import { openDb } from "../db/index.ts";
 import { migrate } from "../db/migrate.ts";
 import { getInstrument, insertInstruments, insertLegacySnapshots, writeIndexRates, type InstrumentRow } from "../db/repos.ts";
 import {
-  addTransaction, createInstrument, editTransaction, patchInstrument, removeInstrument, removeTransaction,
+  addTransaction, createInstrument, editTransaction, listInvestors, patchInstrument, removeInstrument, removeTransaction,
 } from "./writes.ts";
+
+process.env.INVESTORS = "Ana,Beto";
 
 const cdb: InstrumentRow = {
   id: "cdb-1", legacyKey: "CDB 1", name: "CDB 1", kind: "fixed_income", category: "cdb",
@@ -138,6 +140,31 @@ test("patchInstrument aceita investidor legado Ambos, mas valida quando enviado"
   });
   assert.equal(criadoComAmbos.ok, false);
   if (!criadoComAmbos.ok) assert.equal(criadoComAmbos.failure.status, 400);
+});
+
+test("listInvestors usa INVESTORS configurado e cai nos dados sem configuração", () => {
+  const db = freshDb();
+  insertInstruments(db, [cdb]);
+  assert.deepEqual(listInvestors(db), ["Ana", "Beto"]);
+
+  const antes = process.env.INVESTORS;
+  delete process.env.INVESTORS;
+  try {
+    assert.deepEqual(listInvestors(db), ["Ana"]);
+    assert.equal(patchInstrument(db, cdb.id, { investor: "Carla" }).ok, false);
+
+    const vazio = freshDb();
+    insertInstruments(vazio, [{ ...cdb, investor: null }]);
+    assert.deepEqual(listInvestors(vazio), []);
+    assert.equal(patchInstrument(vazio, cdb.id, { investor: "Carla" }).ok, true);
+  } finally {
+    if (antes === undefined) delete process.env.INVESTORS;
+    else process.env.INVESTORS = antes;
+  }
+
+  const fora = patchInstrument(db, cdb.id, { investor: "Carla" });
+  assert.equal(fora.ok, false);
+  if (!fora.ok) assert.equal(fora.failure.status, 400);
 });
 
 test("removeInstrument bloqueia quando há snapshots de histórico", () => {

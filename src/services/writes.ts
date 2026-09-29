@@ -1,7 +1,7 @@
 import type { Db } from "../db/index.ts";
 import {
   countLegacySnapshots, countTransactions, deleteInstrument, deleteTransaction, getInstrument, getTransaction, insertInstrument,
-  insertTransaction, listAllIndexRates, listTransactionsByInstrument, updateInstrument, updateTransaction,
+  insertTransaction, listAllIndexRates, listDistinctInvestors, listTransactionsByInstrument, updateInstrument, updateTransaction,
   type InstrumentRow, type TransactionRow, type TransactionWithId,
 } from "../db/repos.ts";
 import { isDate, toBrDate } from "../domain/dates.ts";
@@ -24,7 +24,11 @@ export type TransactionInput = {
   quantityE8: bigint | null; note: string | null;
 };
 
-const INVESTORS = new Set(["Ana", "Beto"]);
+export function listInvestors(db: Db): string[] {
+  const configured = (process.env.INVESTORS ?? "")
+    .split(",").map((value) => value.trim()).filter((value) => value !== "");
+  return configured.length > 0 ? configured : listDistinctInvestors(db);
+}
 const CATEGORY_KINDS: Record<InstrumentCategory, InstrumentKind> = {
   cdb: "fixed_income", lca: "fixed_income", selic: "fixed_income",
   etf_fixed: "equity", etf_equity: "equity", pension_ipca: "pension",
@@ -36,8 +40,10 @@ const clean = (value: string | null): string | null => {
   return trimmed === "" ? null : trimmed;
 };
 
-function validateInvestor(investor: string | null): string | null {
-  return investor !== null && !INVESTORS.has(investor) ? "investidor deve ser Ana ou Beto" : null;
+function validateInvestor(db: Db, investor: string | null): string | null {
+  if (investor === null) return null;
+  const allowed = listInvestors(db);
+  return allowed.length === 0 || allowed.includes(investor) ? null : "investidor fora da lista (INVESTORS)";
 }
 
 function validateInstrument(input: InstrumentInput): string | null {
@@ -86,7 +92,7 @@ function runGuard(
 const failure = (status: 400 | 404 | 409, message: string): WriteResult<never> => ({ ok: false, failure: { status, message } });
 
 export function createInstrument(db: Db, input: InstrumentInput): WriteResult<InstrumentRow> {
-  const invalid = validateInstrument(input) ?? validateInvestor(input.investor);
+  const invalid = validateInstrument(input) ?? validateInvestor(db, input.investor);
   if (invalid !== null) return failure(400, invalid);
   let id: string;
   try {
@@ -132,7 +138,7 @@ export function patchInstrument(db: Db, id: string, patch: Partial<InstrumentInp
     objective: patch.objective !== undefined ? patch.objective : current.objective,
     investor: patch.investor !== undefined ? patch.investor : current.investor,
   };
-  const invalid = validateInstrument(merged) ?? (patch.investor !== undefined ? validateInvestor(merged.investor) : null);
+  const invalid = validateInstrument(merged) ?? (patch.investor !== undefined ? validateInvestor(db, merged.investor) : null);
   if (invalid !== null) return failure(400, invalid);
   const mudaRF = patch.benchmark !== undefined || patch.rateE6 !== undefined || patch.maturityDate !== undefined;
   if (hasTransactions && merged.kind === "fixed_income" && mudaRF) {

@@ -12,6 +12,8 @@ import type { InstrumentRow } from "../db/repos.ts";
 import type { FundQuotaSource, IndexSource, MonthlyQuoteSource, QuoteSource } from "../sources/types.ts";
 import { addMonths } from "../domain/dates.ts";
 
+process.env.INVESTORS = "Ana,Beto";
+
 const gzip = (obj: unknown) => gzipSync(Buffer.from(JSON.stringify(obj))).toString("base64");
 
 function csvDirFixture(): string {
@@ -502,6 +504,16 @@ test("PATCH /api/instruments/:id corrige o investidor", async () => {
   const posicao = portfolio.positions.find((p: { instrumentId: string }) => p.instrumentId === cdbInstrument.id);
   assert.equal(posicao.investor, "Beto");
 
+  await app.close();
+});
+
+test("GET /api/investors devolve a lista configurada", async () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  const app = buildApp({ db, csvDir: csvDirFixture(), logger: false });
+  const res = await app.inject({ method: "GET", url: "/api/investors" });
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(res.json(), ["Ana", "Beto"]);
   await app.close();
 });
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Trash } from "@phosphor-icons/react";
-import { deleteInstrument, patchInstrument, postInstrument, type Instrument, type InstrumentPayload } from "../api.ts";
+import { deleteInstrument, getInvestidores, patchInstrument, postInstrument, type Instrument, type InstrumentPayload } from "../api.ts";
 import { formataCategoria, parsePercentualParaE6 } from "../format.ts";
 import { Segmented } from "./Segmented.tsx";
 
@@ -12,7 +12,6 @@ const MODELOS: Array<{ id: string; rotulo: string; kind: Instrument["kind"]; cat
 ];
 
 const CATEGORIAS_RF: Record<string, string> = { cdb: "CDB", lca: "LCA", selic: "Selic" };
-const INVESTIDORES: string[] = ["Ana", "Beto"];
 
 type CampoComErro = "nome" | "rentabilidade" | "ticker" | "codigoCvm" | "geral";
 
@@ -39,6 +38,13 @@ export function FormAtivo({ instrumento, qtdTransacoes, sugestoes, onVoltar, onC
   const [erro, setErro] = useState<{ campo: CampoComErro; mensagem: string } | null>(null);
   const [salvando, setSalvando] = useState(false);
   const [confirmandoExclusao, setConfirmandoExclusao] = useState(false);
+  const [investidores, setInvestidores] = useState<string[]>([]);
+
+  useEffect(() => {
+    let ativo = true;
+    getInvestidores().then((lista) => { if (ativo) setInvestidores(lista); }).catch(() => {});
+    return () => { ativo = false; };
+  }, []);
 
   useEffect(() => {
     setErro(null);
@@ -68,12 +74,12 @@ export function FormAtivo({ instrumento, qtdTransacoes, sugestoes, onVoltar, onC
 
   const definicao = MODELOS.find((item) => item.id === modelo) ?? MODELOS[0];
   const ehRF = definicao.kind === "fixed_income";
-  const investidores: string[] = instrumento !== null && instrumento.investor !== null && !INVESTIDORES.includes(instrumento.investor)
-    ? [instrumento.investor, ...INVESTIDORES]
-    : INVESTIDORES;
+  const investidoresDoFormulario: string[] = instrumento !== null && instrumento.investor !== null && !investidores.includes(instrumento.investor)
+    ? [instrumento.investor, ...investidores]
+    : investidores;
   const opcoesInvestidor: Array<{ valor: string; rotulo: string }> = [
     { valor: "", rotulo: "—" },
-    ...investidores.map((valor) => ({ valor, rotulo: valor })),
+    ...investidoresDoFormulario.map((valor) => ({ valor, rotulo: valor })),
   ];
 
   async function salvar() {
