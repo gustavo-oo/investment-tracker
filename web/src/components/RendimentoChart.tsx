@@ -1,27 +1,50 @@
 import { CartesianGrid, LabelList, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { Performance } from "../api.ts";
-import { formataMes, formataPercentual, formataPercentualSinal, formataPontosPercentuais } from "../format.ts";
+import { formataMes, formataPercentual, formataPercentualSinal, formataBRLSinal, formataPontosPercentuais } from "../format.ts";
 import type { SubAba } from "./ControlesGrafico.tsx";
 import { SemHistorico, acumula, deslocamentosRotulos, formataEixoPct, rotuloTrimestre, type Mes } from "./graficoComum.tsx";
 
-type LinhaPct = { rotulo: string; carteira: number | null; cdi: number | null; ipca: number | null; real: number | null };
-type LinhaAcumulada = { rotulo: string; carteira: number; cdi: number; ipca: number; real: number };
+type ValoresCents = { carteiraCents: number | null; cdiCents: number | null; ipcaCents: number | null; realCents: number | null };
+type LinhaPct = ValoresCents & { rotulo: string; carteira: number | null; cdi: number | null; ipca: number | null; real: number | null };
+type LinhaAcumulada = ValoresCents & { rotulo: string; carteira: number; cdi: number; ipca: number; real: number };
+
+function centavosDoMes(mes: Mes): ValoresCents {
+  const carteiraCents = mes.portfolioPct === null ? null : mes.rendimentoCents;
+  const cdiCents = mes.baseCents === null || mes.cdiPct === null ? null : Math.round((mes.baseCents * mes.cdiPct) / 100);
+  const ipcaCents = mes.baseCents === null || mes.ipcaPct === null ? null : Math.round((mes.baseCents * mes.ipcaPct) / 100);
+  return {
+    carteiraCents, cdiCents, ipcaCents,
+    realCents: carteiraCents === null || ipcaCents === null ? null : carteiraCents - ipcaCents,
+  };
+}
+
+function somaCents(valores: Array<number | null>): number | null {
+  let total: number | null = null;
+  for (const valor of valores) if (valor !== null) total = (total ?? 0) + valor;
+  return total;
+}
 
 function visaoPct(meses: Mes[], trimestral: boolean): LinhaPct[] {
   if (!trimestral) {
     return meses.map((mes) => ({
       rotulo: formataMes(mes.month), carteira: mes.portfolioPct, cdi: mes.cdiPct, ipca: mes.ipcaPct, real: mes.realPct,
+      ...centavosDoMes(mes),
     }));
   }
   const linhas: LinhaPct[] = [];
   for (let inicio = 0; inicio < meses.length; inicio += 3) {
     const grupo = meses.slice(inicio, inicio + 3);
+    const centavos = grupo.map(centavosDoMes);
     linhas.push({
       rotulo: rotuloTrimestre(grupo[0]!.month),
       carteira: acumula(grupo.map((mes) => mes.portfolioPct)),
       cdi: acumula(grupo.map((mes) => mes.cdiPct)),
       ipca: acumula(grupo.map((mes) => mes.ipcaPct)),
       real: acumula(grupo.map((mes) => mes.realPct)),
+      carteiraCents: somaCents(centavos.map((valor) => valor.carteiraCents)),
+      cdiCents: somaCents(centavos.map((valor) => valor.cdiCents)),
+      ipcaCents: somaCents(centavos.map((valor) => valor.ipcaCents)),
+      realCents: somaCents(centavos.map((valor) => valor.realCents)),
     });
   }
   return linhas;
@@ -30,30 +53,44 @@ function visaoPct(meses: Mes[], trimestral: boolean): LinhaPct[] {
 function visaoAcumulada(meses: Mes[]): LinhaAcumulada[] {
   const linhas: LinhaAcumulada[] = [];
   let carteira = 1, cdi = 1, ipca = 1, real = 1;
+  let carteiraCents = 0, cdiCents = 0, ipcaCents = 0;
+  let temCarteira = false, temCdi = false, temIpca = false;
   for (const mes of meses) {
     if (mes.portfolioPct !== null) carteira *= 1 + mes.portfolioPct / 100;
     if (mes.cdiPct !== null) cdi *= 1 + mes.cdiPct / 100;
     if (mes.ipcaPct !== null) ipca *= 1 + mes.ipcaPct / 100;
     if (mes.realPct !== null) real *= 1 + mes.realPct / 100;
+    const centavos = centavosDoMes(mes);
+    if (centavos.carteiraCents !== null) { carteiraCents += centavos.carteiraCents; temCarteira = true; }
+    if (centavos.cdiCents !== null) { cdiCents += centavos.cdiCents; temCdi = true; }
+    if (centavos.ipcaCents !== null) { ipcaCents += centavos.ipcaCents; temIpca = true; }
     linhas.push({
       rotulo: formataMes(mes.month), carteira: (carteira - 1) * 100, cdi: (cdi - 1) * 100,
       ipca: (ipca - 1) * 100, real: (real - 1) * 100,
+      carteiraCents: temCarteira ? carteiraCents : null,
+      cdiCents: temCdi ? cdiCents : null,
+      ipcaCents: temIpca ? ipcaCents : null,
+      realCents: temCarteira && temIpca ? carteiraCents - ipcaCents : null,
     });
   }
   return linhas;
 }
 
+function valorComCents(pct: number | null, cents: number | null): string {
+  const texto = pct === null ? "—" : formataPercentualSinal(pct);
+  return cents === null ? texto : `${texto} (${formataBRLSinal(cents)})`;
+}
+
 function TooltipPct({ active, payload }: { active?: boolean; payload?: Array<{ payload: LinhaPct | LinhaAcumulada }> }) {
   if (!active || !payload || payload.length === 0) return null;
   const linha = payload[0]!.payload;
-  const mostra = (valor: number | null): string => (valor === null ? "—" : formataPercentualSinal(valor));
   return (
     <div className="chart-tooltip">
       <p className="chart-tooltip-title">{linha.rotulo}</p>
-      <p>Carteira: {mostra(linha.carteira)}</p>
-      <p>CDI: {mostra(linha.cdi)}</p>
-      <p>IPCA: {mostra(linha.ipca)}</p>
-      <p>Líquido (Carteira − IPCA): <strong>{mostra(linha.real)}</strong></p>
+      <p>Carteira: {valorComCents(linha.carteira, linha.carteiraCents)}</p>
+      <p>CDI: {valorComCents(linha.cdi, linha.cdiCents)}</p>
+      <p>IPCA: {valorComCents(linha.ipca, linha.ipcaCents)}</p>
+      <p>Líquido (Carteira − IPCA): <strong>{valorComCents(linha.real, linha.realCents)}</strong></p>
     </div>
   );
 }
