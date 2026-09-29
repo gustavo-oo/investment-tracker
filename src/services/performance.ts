@@ -1,10 +1,10 @@
 import type { Db } from "../db/index.ts";
 import { addMonths, daysBetween } from "../domain/dates.ts";
-import { accumulatePct, gapPp, monthlyPortfolioPct, monthsBeaten, realReturnPct, xirrPct, type DatedFlow } from "../domain/performance.ts";
+import { accumulatePct, gapPp, monthlyReturn, monthsBeaten, realReturnPct, xirrPct, type DatedFlow } from "../domain/performance.ts";
 import { buildHistory, resolveHistoryWindow, type HistoryOptions } from "./history.ts";
 
 export type PerformanceMonth = {
-  month: string; portfolioPct: number | null; cdiPct: number | null; ipcaPct: number | null; realPct: number | null;
+  month: string; portfolioPct: number | null; baseCents: bigint | null; cdiPct: number | null; ipcaPct: number | null; realPct: number | null;
   diffCdiPp: number | null; rendimentoCents: bigint; investedCents: bigint; redeemedCents: bigint;
 };
 
@@ -23,9 +23,10 @@ export function buildPerformance(db: Db, options: HistoryOptions = {}, deps: { n
   let previous = base;
   for (const point of points.slice(1)) {
     if (!previous) break;
-    const portfolioPct = monthlyPortfolioPct(previous.marketValueCents, previous.asOf, point.marketValueCents, point.asOf, point.flows);
+    const retorno = monthlyReturn(previous.marketValueCents, previous.asOf, point.marketValueCents, point.asOf, point.flows);
+    const portfolioPct = retorno?.pct ?? null;
     months.push({
-      month: point.month, portfolioPct, cdiPct: point.cdiPct, ipcaPct: point.ipcaPct,
+      month: point.month, portfolioPct, baseCents: retorno?.baseCents ?? null, cdiPct: point.cdiPct, ipcaPct: point.ipcaPct,
       realPct: portfolioPct === null || point.ipcaPct === null ? null : realReturnPct(portfolioPct, point.ipcaPct),
       diffCdiPp: portfolioPct === null || point.cdiPct === null ? null : gapPp(portfolioPct, point.cdiPct),
       rendimentoCents: point.marketValueCents - previous.marketValueCents - point.investedCents + point.redeemedCents,

@@ -478,6 +478,7 @@ test("GET /api/performance valida a janela e devolve números", async () => {
   assert.equal(typeof body.months[1].rendimentoCents, "number", "bigint convertido na borda");
   assert.equal(typeof body.mwr.months, "number");
   assert.equal(body.months[1].realPct, null, "sem IPCA no mês, o líquido é null");
+  assert.equal(body.months[1].baseCents, null, "sem base no mês, baseCents null");
 
   assert.equal((await app.inject({ method: "GET", url: "/api/performance?from=2026-13" })).statusCode, 400);
   assert.equal((await app.inject({ method: "GET", url: "/api/performance?from=2026-10&to=2026-09" })).statusCode, 400);

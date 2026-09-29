@@ -21,6 +21,7 @@ export function registerPerformanceRoutes(app: FastifyInstance, db: Db): void {
         realPct: month.realPct,
         diffCdiPp: month.diffCdiPp,
         rendimentoCents: toNumberSafe(month.rendimentoCents),
+        baseCents: month.baseCents === null ? null : toNumberSafe(month.baseCents),
         investedCents: toNumberSafe(month.investedCents),
         redeemedCents: toNumberSafe(month.redeemedCents),
       })),

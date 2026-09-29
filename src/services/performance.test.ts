@@ -35,6 +35,7 @@ test("buildPerformance calcula meses, acumulado e MWR com fluxos datados", () =>
     ["2026-06", 0.7519, 1],   // 1010 ÷ (101000 + 50000 × 20/30)
   ]);
   assert.equal(result.months[1]?.rendimentoCents, 1_010n);
+  assert.deepEqual(result.months.map((month) => month.baseCents), [100_000n, 134_333n]);
   assert.equal(result.months[1]?.investedCents, 50_000n);
   assert.deepEqual(result.accumulated, { portfolioPct: 1.7594, cdiPct: 2.01, ipcaPct: 0, diffCdiPp: -0.2506, diffIpcaPp: 1.7594, realPct: 1.7594 });
   assert.equal(result.monthsBeaten, 0);
@@ -65,6 +66,7 @@ test("buildPerformance sem dados devolve meses nulos e MWR nulo", () => {
   const result = buildPerformance(db, { from: "2026-08", to: "2026-09" }, { now });
   assert.equal(result.monthsTotal, 2);
   assert.equal(result.months[0]?.portfolioPct, null);
+  assert.equal(result.months[0]?.baseCents, null);
   assert.equal(result.months[0]?.realPct, null);
   assert.equal(result.accumulated.portfolioPct, 0);
   assert.equal(result.mwr.periodPct, null);

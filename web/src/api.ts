@@ -80,7 +80,7 @@ export type RefreshResult = {
 };
 
 export type PerformanceMonth = {
-  month: string; portfolioPct: number | null; cdiPct: number | null; ipcaPct: number | null; realPct: number | null;
+  month: string; portfolioPct: number | null; baseCents: number | null; cdiPct: number | null; ipcaPct: number | null; realPct: number | null;
   diffCdiPp: number | null; rendimentoCents: number; investedCents: number; redeemedCents: number;
 };
 
