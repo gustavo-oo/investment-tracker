@@ -14,6 +14,7 @@ export const RECONCILIATION_CAUSES = [
   "fonte-yahoo-corrompida",
   "data-de-referencia",
   "cotacao-fora-da-janela",
+  "transacao-no-mes",
   "nao-explicada",
 ] as const;
 export type ReconciliationCause = (typeof RECONCILIATION_CAUSES)[number];
@@ -39,7 +40,7 @@ const abs = (value: bigint): bigint => (value < 0n ? -value : value);
 /** Primeira regra que casar define a causa; regras de bug conhecido do legado vêm antes das genéricas. */
 export function classifyDivergence(input: {
   instrument: InstrumentRow; month: string; legacyCents: bigint; ourCents: bigint; diffCents: bigint;
-  transactionAfterAsOf: boolean; currentMonth: string;
+  transactionAfterAsOf: boolean; transactionInMonthUpToAsOf: boolean; currentMonth: string;
 }): ReconciliationCause {
   const { instrument, month, legacyCents, ourCents, diffCents } = input;
   if (ourCents === 0n && legacyCents !== 0n && legacyCents <= 1n) return "residuo-zerado";
@@ -51,6 +52,7 @@ export function classifyDivergence(input: {
   if (legacyCents !== 0n && abs(diffCents) * 200n <= abs(legacyCents)) return "data-de-referencia";
   if ((instrument.kind === "equity" || instrument.kind === "pension") && month === input.currentMonth
     && legacyCents !== 0n && abs(diffCents) * 20n <= abs(legacyCents)) return "cotacao-fora-da-janela";
+  if (input.transactionInMonthUpToAsOf) return "transacao-no-mes";
   return "nao-explicada";
 }
 
@@ -72,6 +74,10 @@ export function buildReconciliation(
     transactions.some((transaction) =>
       transaction.instrumentId === instrumentId && BALANCE_KINDS.has(transaction.kind)
       && transaction.tradeDate > asOf && transaction.tradeDate <= end);
+  const hasTransactionInMonthUpTo = (instrumentId: string): boolean =>
+    transactions.some((transaction) =>
+      transaction.instrumentId === instrumentId && BALANCE_KINDS.has(transaction.kind)
+      && transaction.tradeDate >= `${month}-01` && transaction.tradeDate <= asOf);
 
   let legacyTotal = 0n;
   let referenceTotal = 0n;
@@ -92,6 +98,7 @@ export function buildReconciliation(
       legacyCents, ourCents, diffCents,
       cause: noQuote ? "nao-explicada" : classifyDivergence({
         instrument, month, legacyCents, ourCents, diffCents, transactionAfterAsOf: hasTransactionAfter(instrument.id),
+        transactionInMonthUpToAsOf: hasTransactionInMonthUpTo(instrument.id),
         currentMonth: today.slice(0, 7),
       }),
     });

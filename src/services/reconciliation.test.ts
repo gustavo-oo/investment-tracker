@@ -23,7 +23,7 @@ const etf: InstrumentRow = {
 const classify = (overrides: Partial<Parameters<typeof classifyDivergence>[0]>) =>
   classifyDivergence({
     instrument: cdi, month: "2026-09", legacyCents: 100n, ourCents: 200n, diffCents: 100n,
-    transactionAfterAsOf: false, currentMonth: "2026-09", ...overrides,
+    transactionAfterAsOf: false, transactionInMonthUpToAsOf: false, currentMonth: "2026-09", ...overrides,
   });
 
 test("classifyDivergence segue a ordem das regras", () => {
@@ -164,4 +164,56 @@ test("buildReconciliation resolve asOf default e devolve vazio sem dados", () =>
   assert.deepEqual(buildReconciliation(db, { month: "2026-08" }, { now }).totals, {
     legacyCents: 0n, referenceCents: 0n, ourCents: 0n, diffCents: 0n,
   });
+});
+
+test("classifyDivergence: transação no mês até o asOf explica a divergência", () => {
+  assert.equal(
+    classify({ ourCents: 0n, legacyCents: 500n, diffCents: -500n, transactionInMonthUpToAsOf: true }),
+    "transacao-no-mes",
+  );
+  // causas específicas têm prioridade sobre a genérica
+  assert.equal(classify({ transactionInMonthUpToAsOf: true }), "legado-sem-cdi-maio-2026");
+  assert.equal(
+    classify({ transactionInMonthUpToAsOf: true, transactionAfterAsOf: true }),
+    "transacao-fora-da-janela",
+  );
+  assert.equal(
+    classify({ month: "2024-12", legacyCents: 100_000n, ourCents: 100_100n, diffCents: 100n, transactionInMonthUpToAsOf: true }),
+    "data-de-referencia",
+  );
+  assert.equal(
+    classify({
+      instrument: etf, month: "2026-09", currentMonth: "2026-09",
+      legacyCents: 100_000n, ourCents: 101_340n, diffCents: 1_340n, transactionInMonthUpToAsOf: true,
+    }),
+    "cotacao-fora-da-janela",
+  );
+  // sem transação no mês segue não explicada
+  assert.equal(classify({ ourCents: 0n, legacyCents: 500n, diffCents: -500n }), "nao-explicada");
+});
+
+test("buildReconciliation: SELL de 20/09 vira transacao-no-mes em 30/09 e transacao-fora-da-janela em 19/09", () => {
+  const db = openDb(":memory:");
+  migrate(db);
+  const etfMov = { ...etf, id: "etf-mov", legacyKey: "ETF MOV", name: "ETF MOV" };
+  insertInstruments(db, [etfMov]);
+  insertTransactions(db, [
+    { instrumentId: etfMov.id, tradeDate: "2026-09-01", kind: "BUY", quantityE8: 10_00000000n, grossCents: 9_000n, feesCents: 0n, note: null, legacyRow: null },
+    { instrumentId: etfMov.id, tradeDate: "2026-09-20", kind: "SELL", quantityE8: -5_00000000n, grossCents: 5_000n, feesCents: 0n, note: null, legacyRow: null },
+  ]);
+  writeQuotes(db, [{ ticker: "WRLD11", date: "2026-09-10", closeCents: 1_000n, source: "yahoo", settled: true }], "2026-10-01");
+  insertLegacySnapshots(db, [{ month: "2026-09-01", instrumentId: etfMov.id, valueCents: 8_000n, sharesE8: null }]);
+
+  const antes = buildReconciliation(db, { month: "2026-09", asOf: "2026-09-19" });
+  assert.deepEqual(
+    antes.divergences.map((divergence) => [divergence.cause, divergence.ourCents, divergence.diffCents]),
+    [["transacao-fora-da-janela", 10_000n, 2_000n]],
+  );
+
+  const depois = buildReconciliation(db, { month: "2026-09", asOf: "2026-09-30" });
+  assert.deepEqual(
+    depois.divergences.map((divergence) => [divergence.cause, divergence.ourCents, divergence.diffCents]),
+    [["transacao-no-mes", 5_000n, -3_000n]],
+  );
+  assert.equal(depois.unexplained, 0);
 });
