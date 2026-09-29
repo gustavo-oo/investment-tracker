@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ArrowsClockwise, ChartLine, ChartLineUp, Coins, Table, Target } from "@phosphor-icons/react";
 import { getHealth, postRefresh, type Health } from "./api.ts";
-import { formataHora } from "./format.ts";
+import { formataDataHoraCurta, formataHora } from "./format.ts";
 import { Logo } from "./Logo.tsx";
 import type { Classe } from "./classes.ts";
 import { OverviewView } from "./views/OverviewView.tsx";
@@ -104,7 +104,13 @@ export function App() {
           ))}
         </nav>
         <div className="sidebar-foot">
-          <span className="updated">{ultima ? `atualizado às ${formataHora(ultima)}` : "sem coleta registrada"}</span>
+          <div className={stale ? "selo selo-warn" : "selo"}>
+            <span className="selo-topo">
+              <span className="selo-dot" aria-hidden="true" />
+              {stale ? "desatualizado" : "atualizado"}
+            </span>
+            <span className="selo-valor">{ultima ? formataDataHoraCurta(ultima) : "sem coleta registrada"}</span>
+          </div>
           {health !== null && health.sources.length > 0 && (
             <ul className="sidebar-fontes" aria-label="Fontes de dados">
               {health.sources.map((source) => {

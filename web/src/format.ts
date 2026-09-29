@@ -64,6 +64,18 @@ export function formataHora(value: string): string {
   return parsed === null ? value : formatadorHora.format(parsed);
 }
 
+const formatadorDataCurta = new Intl.DateTimeFormat("pt-BR", {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  timeZone: "America/Sao_Paulo",
+});
+
+export function formataDataHoraCurta(value: string): string {
+  const parsed = parseTimestamp(value);
+  return parsed === null ? value : `${formatadorDataCurta.format(parsed)} · ${formatadorHora.format(parsed)}`;
+}
+
 export function formataPercentual(valor: number): string {
   return `${valor.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%`;
 }
