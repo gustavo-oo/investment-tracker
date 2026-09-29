@@ -10,7 +10,8 @@ web/dist/
 !.env.example
 .clasp.json
 
-# banco local
+# dados locais (banco + arquivos importados)
+data/
 *.sqlite
 *.sqlite3
 *.db
