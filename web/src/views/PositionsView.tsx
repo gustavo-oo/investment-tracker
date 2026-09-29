@@ -296,7 +296,7 @@ export function PositionsView({ reloadToken, filtroInicial }: {
                 </span>
                 <div className="grade-cartoes">
                   {doGrupo.map((grupo) => (
-                    <CartaoAtivo key={grupo.chave} grupo={grupo} totalCents={total} onAbrir={abrirGrupo} />
+                    <CartaoAtivo key={grupo.chave} grupo={grupo} totalCents={total} ocultarInvestidor={investidor !== "todos"} onAbrir={abrirGrupo} />
                   ))}
                 </div>
               </section>
@@ -322,7 +322,7 @@ export function PositionsView({ reloadToken, filtroInicial }: {
                         {grupo.membros.length > 1 && <span className="encerradas-contagem"> · {grupo.membros.length} posições</span>}
                       </span>
                       <span className="encerrada-meta">
-                        {[grupo.brokers[0], grupo.investidor].filter((valorMeta): valorMeta is string => valorMeta !== undefined && valorMeta !== null && valorMeta !== "").join(" · ")}
+                        {[grupo.brokers[0], grupo.investidores.join(", ")].filter((valorMeta): valorMeta is string => valorMeta !== undefined && valorMeta !== null && valorMeta !== "").join(" · ")}
                       </span>
                       <span className={grupo.resultadoRealizadoCents >= 0 ? "encerrada-resultado rendimento-positivo" : "encerrada-resultado rendimento-negativo"}>
                         {formataBRLSinal(grupo.resultadoRealizadoCents)}

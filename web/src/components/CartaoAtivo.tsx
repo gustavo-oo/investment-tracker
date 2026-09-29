@@ -1,17 +1,19 @@
 import { formataBRL, formataBRLSinal, formataCategoria, formataData, formataPercentualSinal, formataQuantidade } from "../format.ts";
 import { COR_DA_CLASSE, classeDe } from "../classes.ts";
-import { participacaoPct, type GrupoPosicoes } from "../posicoes.ts";
+import { participacaoPct, vencimentoComum, type GrupoPosicoes } from "../posicoes.ts";
 import { taxaTexto } from "./PainelAtivo.tsx";
 
-export function CartaoAtivo({ grupo, totalCents, onAbrir }: {
+export function CartaoAtivo({ grupo, totalCents, ocultarInvestidor = false, onAbrir }: {
   grupo: GrupoPosicoes;
   totalCents: number;
+  ocultarInvestidor?: boolean;
   onAbrir: (grupo: GrupoPosicoes) => void;
 }) {
   const posicao = grupo.membros[0];
   const cor = COR_DA_CLASSE[classeDe(posicao)];
   const umSo = grupo.membros.length === 1;
   const taxa = taxaTexto(posicao.rateE6, posicao.benchmark);
+  const vencimento = vencimentoComum(grupo.membros);
   const participacao = participacaoPct(grupo.semValor ? null : grupo.valorCents, totalCents);
 
   const chip = umSo
@@ -28,7 +30,7 @@ export function CartaoAtivo({ grupo, totalCents, onAbrir }: {
   }
   if (grupo.brokers.length === 1) meta.push(grupo.brokers[0]);
   else if (grupo.brokers.length > 1) meta.push(`${grupo.brokers.length} corretoras`);
-  meta.push(grupo.investidor ?? "sem investidor");
+  if (!ocultarInvestidor) meta.push(grupo.investidores.join(", "));
   if (grupo.objetivos.length === 1) meta.push(grupo.objetivos[0]);
   else if (grupo.objetivos.length > 1) meta.push(`${grupo.objetivos.length} objetivos`);
 
@@ -58,11 +60,11 @@ export function CartaoAtivo({ grupo, totalCents, onAbrir }: {
         {grupo.stale && <span className="badge badge-warn">desatualizado</span>}
         {grupo.pendente && (
           <span className="badge badge-warn">
-            {umSo && posicao.maturityDate !== null ? `vencido em ${formataData(posicao.maturityDate)} · resgate pendente` : "vencido · resgate pendente"}
+            {vencimento === null ? "vencido · resgate pendente" : `vencido em ${formataData(vencimento)} · resgate pendente`}
           </span>
         )}
-        {umSo && !grupo.pendente && posicao.maturityDate !== null && (
-          <span className="badge badge-neutro">vence {formataData(posicao.maturityDate)}</span>
+        {!grupo.pendente && vencimento !== null && (
+          <span className="badge badge-neutro">vence {formataData(vencimento)}</span>
         )}
       </span>
     </button>

@@ -1350,3 +1350,8 @@ select {
 .membro-valor { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-weight: 600; }
 .membro-extra { font-size: 11px; color: var(--text-3); }
 .encerradas-contagem { color: var(--text-3); font-weight: 400; }
+
+.secao-investidor { margin-top: 18px; }
+.secao-cabecalho { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.secao-cabecalho .membros-titulo { margin-top: 0; }
+.secao-subtotal { font-size: 12px; color: var(--text-2); font-variant-numeric: tabular-nums; text-align: right; }

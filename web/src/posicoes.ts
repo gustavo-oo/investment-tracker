@@ -24,10 +24,16 @@ export function participacaoPct(valorCents: number | null, totalCents: number): 
   return (valorCents / totalCents) * 100;
 }
 
+/** Investidor normalizado; nulo ou vazio vira "sem investidor". */
+export function investidorDe(posicao: Pick<PortfolioPosition, "investor">): string {
+  const valor = (posicao.investor ?? "").trim();
+  return valor === "" ? "sem investidor" : valor;
+}
+
 export type GrupoPosicoes = {
   chave: string;
   nome: string;
-  investidor: string | null;
+  investidores: string[];
   membros: PortfolioPosition[];
   valorCents: number;
   semValor: boolean;
@@ -41,9 +47,9 @@ export type GrupoPosicoes = {
   objetivos: string[];
 };
 
-/** Chave de agrupamento: nome normalizado + investidor (nulos/vazios agrupam juntos). */
-export function chaveDoGrupo(posicao: Pick<PortfolioPosition, "name" | "investor">): string {
-  return `${posicao.name.trim().toLowerCase()}|${posicao.investor ?? ""}`;
+/** Chave de agrupamento: nome normalizado (investidor fica no detalhamento). */
+export function chaveDoGrupo(posicao: Pick<PortfolioPosition, "name">): string {
+  return posicao.name.trim().toLowerCase();
 }
 
 /** Ordena por vencimento, do mais recente para o mais antigo (sem vencimento ao final). */
@@ -54,7 +60,7 @@ function porVencimentoDesc(a: PortfolioPosition, b: PortfolioPosition): number {
   return a.maturityDate < b.maturityDate ? 1 : -1;
 }
 
-/** Agrupa posições por nome + investidor; membros pelo vencimento mais recente primeiro. */
+/** Agrupa posições por nome; membros pelo vencimento mais recente primeiro. */
 export function agruparPosicoes(posicoes: PortfolioPosition[]): GrupoPosicoes[] {
   const mapa = new Map<string, PortfolioPosition[]>();
   for (const posicao of posicoes) {
@@ -66,33 +72,70 @@ export function agruparPosicoes(posicoes: PortfolioPosition[]): GrupoPosicoes[] 
   return [...mapa.entries()].map(([chave, membros]) => agregarGrupo(chave, membros));
 }
 
-function agregarGrupo(chave: string, membros: PortfolioPosition[]): GrupoPosicoes {
-  const ordenados = [...membros].sort(porVencimentoDesc);
-  const semValor = ordenados.every((posicao) => posicao.marketValueCents === null);
-  const valorCents = ordenados.reduce((soma, posicao) => soma + (posicao.marketValueCents ?? 0), 0);
-  const capitalCents = ordenados.reduce((soma, posicao) => soma + capitalDe(posicao), 0);
-  const resultadoRealizadoCents = ordenados.reduce((soma, posicao) => soma + resultadoRealizadoDe(posicao), 0);
+/** Data de vencimento comum a todos os membros com data; null se não houver ou se houver mais de uma. */
+export function vencimentoComum(membros: PortfolioPosition[]): string | null {
+  const datas = [...new Set(membros.map((membro) => membro.maturityDate).filter((data): data is string => data !== null))];
+  return datas.length === 1 ? datas[0] : null;
+}
+
+type SomatorioMembros = {
+  valorCents: number;
+  semValor: boolean;
+  capitalCents: number;
+  resultadoRealizadoCents: number;
+  rendimentoCents: number | null;
+  rendimentoPct: number | null;
+};
+
+function somarMembros(membros: PortfolioPosition[]): SomatorioMembros {
+  const semValor = membros.every((posicao) => posicao.marketValueCents === null);
+  const valorCents = membros.reduce((soma, posicao) => soma + (posicao.marketValueCents ?? 0), 0);
+  const capitalCents = membros.reduce((soma, posicao) => soma + capitalDe(posicao), 0);
+  const resultadoRealizadoCents = membros.reduce((soma, posicao) => soma + resultadoRealizadoDe(posicao), 0);
   const rendimentoCents = semValor
     ? null
-    : ordenados.reduce((soma, posicao) => soma + (rendimentoDe(posicao).cents ?? 0), 0);
+    : membros.reduce((soma, posicao) => soma + (rendimentoDe(posicao).cents ?? 0), 0);
   const rendimentoPct = rendimentoCents === null || capitalCents <= 0 ? null : (rendimentoCents / capitalCents) * 100;
-  const distintos = (valores: Array<string | null>): string[] =>
-    [...new Set(valores.filter((valor): valor is string => valor !== null && valor !== ""))].sort();
-  const investidor = ordenados.find((posicao) => (posicao.investor ?? "").trim() !== "")?.investor ?? null;
+  return { valorCents, semValor, capitalCents, resultadoRealizadoCents, rendimentoCents, rendimentoPct };
+}
+
+const distintos = (valores: Array<string | null>): string[] =>
+  [...new Set(valores.filter((valor): valor is string => valor !== null && valor !== ""))].sort();
+
+function agregarGrupo(chave: string, membros: PortfolioPosition[]): GrupoPosicoes {
+  const ordenados = [...membros].sort(porVencimentoDesc);
   return {
     chave,
     nome: ordenados[0].name,
-    investidor,
+    investidores: distintos(ordenados.map(investidorDe)),
     membros: ordenados,
-    valorCents,
-    semValor,
-    capitalCents,
-    resultadoRealizadoCents,
-    rendimentoCents,
-    rendimentoPct,
+    ...somarMembros(ordenados),
     stale: ordenados.some((posicao) => posicao.stale),
     pendente: ordenados.some((posicao) => posicao.pendingRedemption),
     brokers: distintos(ordenados.map((posicao) => posicao.broker)),
     objetivos: distintos(ordenados.map((posicao) => posicao.objective)),
   };
+}
+
+export type SecaoInvestidor = SomatorioMembros & {
+  investidor: string;
+  membros: PortfolioPosition[];
+};
+
+/** Seções por investidor (valor ↓, nome como desempate); nulos/vazios em "sem investidor". */
+export function secoesPorInvestidor(membros: PortfolioPosition[]): SecaoInvestidor[] {
+  const mapa = new Map<string, PortfolioPosition[]>();
+  for (const posicao of membros) {
+    const investidor = investidorDe(posicao);
+    const daSecao = mapa.get(investidor);
+    if (daSecao === undefined) mapa.set(investidor, [posicao]);
+    else daSecao.push(posicao);
+  }
+  return [...mapa.entries()]
+    .map(([investidor, doInvestidor]) => ({
+      investidor,
+      membros: [...doInvestidor].sort(porVencimentoDesc),
+      ...somarMembros(doInvestidor),
+    }))
+    .sort((a, b) => b.valorCents - a.valorCents || a.investidor.localeCompare(b.investidor, "pt-BR"));
 }
