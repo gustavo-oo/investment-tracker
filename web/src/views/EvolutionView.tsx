@@ -57,7 +57,13 @@ export function EvolutionView({ reloadToken }: { reloadToken: number }) {
 
   const patrimonioPorMes = new Map(history.map((ponto) => [ponto.month, ponto.marketValueCents]));
   const meses = mesesDe(history, performance);
+  const acumuladoPorMes = new Map<string, number>();
   let acumulado = 1;
+  for (const mes of performance.months) {
+    if (mes.portfolioPct !== null) acumulado *= 1 + mes.portfolioPct / 100;
+    acumuladoPorMes.set(mes.month, (acumulado - 1) * 100);
+  }
+  const mesesRecentesPrimeiro = [...performance.months].reverse();
 
   return (
     <div className="page">
@@ -126,31 +132,27 @@ export function EvolutionView({ reloadToken }: { reloadToken: number }) {
                 </tr>
               </thead>
               <tbody>
-                {performance.months.map((mes) => {
-                  if (mes.portfolioPct !== null) acumulado *= 1 + mes.portfolioPct / 100;
-                  const acumuladoPct = (acumulado - 1) * 100;
-                  return (
-                    <tr key={mes.month}>
-                      <td>{formataMes(mes.month)}</td>
-                      <td className="num">{formataBRL(patrimonioPorMes.get(mes.month) ?? 0)}</td>
-                      <td className="num">{formataBRL(mes.investedCents)}</td>
-                      <td className="num">{formataBRL(mes.redeemedCents)}</td>
-                      <td className={`num ${mes.rendimentoCents >= 0 ? "rendimento-positivo" : "rendimento-negativo"}`}>
-                        <span className="valores">
-                          <span className="delta-inline">
-                            {mes.rendimentoCents >= 0 ? <CaretUp size={11} aria-hidden="true" /> : <CaretDown size={11} aria-hidden="true" />}
-                            {formataBRL(mes.rendimentoCents)}
-                          </span>
-                          {mes.portfolioPct !== null && <span className="valor-fraco">{formataPercentualSinal(mes.portfolioPct)}</span>}
+                {mesesRecentesPrimeiro.map((mes) => (
+                  <tr key={mes.month}>
+                    <td>{formataMes(mes.month)}</td>
+                    <td className="num">{formataBRL(patrimonioPorMes.get(mes.month) ?? 0)}</td>
+                    <td className="num">{formataBRL(mes.investedCents)}</td>
+                    <td className="num">{formataBRL(mes.redeemedCents)}</td>
+                    <td className={`num ${mes.rendimentoCents >= 0 ? "rendimento-positivo" : "rendimento-negativo"}`}>
+                      <span className="valores">
+                        <span className="delta-inline">
+                          {mes.rendimentoCents >= 0 ? <CaretUp size={11} aria-hidden="true" /> : <CaretDown size={11} aria-hidden="true" />}
+                          {formataBRL(mes.rendimentoCents)}
                         </span>
-                      </td>
-                      <td className="num">{mes.cdiPct === null ? "—" : formataPercentualSinal(mes.cdiPct)}</td>
-                      <td className="num">{mes.ipcaPct === null ? "—" : formataPercentualSinal(mes.ipcaPct)}</td>
-                      <td className="num">{mes.diffCdiPp === null ? "—" : formataPontosPercentuais(mes.diffCdiPp)}</td>
-                      <td className="num">{formataPercentualSinal(acumuladoPct)}</td>
-                    </tr>
-                  );
-                })}
+                        {mes.portfolioPct !== null && <span className="valor-fraco">{formataPercentualSinal(mes.portfolioPct)}</span>}
+                      </span>
+                    </td>
+                    <td className="num">{mes.cdiPct === null ? "—" : formataPercentualSinal(mes.cdiPct)}</td>
+                    <td className="num">{mes.ipcaPct === null ? "—" : formataPercentualSinal(mes.ipcaPct)}</td>
+                    <td className="num">{mes.diffCdiPp === null ? "—" : formataPontosPercentuais(mes.diffCdiPp)}</td>
+                    <td className="num">{formataPercentualSinal(acumuladoPorMes.get(mes.month) ?? 0)}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
