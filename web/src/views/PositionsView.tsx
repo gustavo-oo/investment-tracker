@@ -19,6 +19,12 @@ type EstadoGaveta =
   | { tipo: "cadastro"; instrumento: Instrument | null; qtdTransacoes: number }
   | { tipo: "grupo"; chave: string };
 
+/** Ordena transações da mais recente para a mais antiga (empate: última lançada primeiro). */
+function recentesPrimeiro(a: Transaction, b: Transaction): number {
+  if (a.tradeDate !== b.tradeDate) return a.tradeDate < b.tradeDate ? 1 : -1;
+  return b.id - a.id;
+}
+
 export function PositionsView({ reloadToken, filtroInicial }: {
   reloadToken: number; filtroInicial: Classe | null;
 }) {
@@ -67,7 +73,7 @@ export function PositionsView({ reloadToken, filtroInicial }: {
     const controller = new AbortController();
     setTransacoes(null);
     getTransactions(selecionada.instrumentId, controller.signal)
-      .then(setTransacoes)
+      .then((lista) => setTransacoes([...lista].sort(recentesPrimeiro)))
       .catch((cause: unknown) => {
         if (cause instanceof DOMException && cause.name === "AbortError") return;
         setTransacoes([]);

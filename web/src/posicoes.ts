@@ -46,7 +46,15 @@ export function chaveDoGrupo(posicao: Pick<PortfolioPosition, "name" | "investor
   return `${posicao.name.trim().toLowerCase()}|${posicao.investor ?? ""}`;
 }
 
-/** Agrupa posições por nome + investidor; membros em valor ↓ dentro do grupo. */
+/** Ordena por vencimento, do mais recente para o mais antigo (sem vencimento ao final). */
+function porVencimentoDesc(a: PortfolioPosition, b: PortfolioPosition): number {
+  if (a.maturityDate === b.maturityDate) return 0;
+  if (a.maturityDate === null) return 1;
+  if (b.maturityDate === null) return -1;
+  return a.maturityDate < b.maturityDate ? 1 : -1;
+}
+
+/** Agrupa posições por nome + investidor; membros pelo vencimento mais recente primeiro. */
 export function agruparPosicoes(posicoes: PortfolioPosition[]): GrupoPosicoes[] {
   const mapa = new Map<string, PortfolioPosition[]>();
   for (const posicao of posicoes) {
@@ -59,7 +67,7 @@ export function agruparPosicoes(posicoes: PortfolioPosition[]): GrupoPosicoes[] 
 }
 
 function agregarGrupo(chave: string, membros: PortfolioPosition[]): GrupoPosicoes {
-  const ordenados = [...membros].sort((a, b) => (b.marketValueCents ?? 0) - (a.marketValueCents ?? 0));
+  const ordenados = [...membros].sort(porVencimentoDesc);
   const semValor = ordenados.every((posicao) => posicao.marketValueCents === null);
   const valorCents = ordenados.reduce((soma, posicao) => soma + (posicao.marketValueCents ?? 0), 0);
   const capitalCents = ordenados.reduce((soma, posicao) => soma + capitalDe(posicao), 0);
