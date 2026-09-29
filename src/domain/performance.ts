@@ -1,14 +1,14 @@
 import { daysBetween } from "./dates.ts";
 import { divRoundHalfUp } from "./money.ts";
 
-/** Retorno do período em % (4 casas) com fluxos ponderados pelos dias investidos (Modified Dietz); null sem base/período. */
-export function monthlyPortfolioPct(
+/** Retorno e capital exposto do mês (Modified Dietz, fluxos ponderados pelos dias investidos); null sem base/período. */
+export function monthlyReturn(
   prevValueCents: bigint,
   prevDate: string,
   valueCents: bigint,
   valueDate: string,
   flows: DatedFlow[],
-): number | null {
+): { pct: number; baseCents: bigint } | null {
   if (prevValueCents <= 0n) return null;
   const periodDays = daysBetween(prevDate, valueDate);
   if (periodDays <= 0) return null;
@@ -22,7 +22,21 @@ export function monthlyPortfolioPct(
   const denominator = prevValueCents * BigInt(periodDays) + weightedFlow;
   if (denominator <= 0n) return null;
   const delta = valueCents - prevValueCents - totalFlow;
-  return Number(divRoundHalfUp(delta * 1_000_000n * BigInt(periodDays), denominator)) / 10_000;
+  return {
+    pct: Number(divRoundHalfUp(delta * 1_000_000n * BigInt(periodDays), denominator)) / 10_000,
+    baseCents: prevValueCents + divRoundHalfUp(weightedFlow, BigInt(periodDays)),
+  };
+}
+
+/** Retorno do período em % (4 casas) com fluxos ponderados pelos dias investidos (Modified Dietz); null sem base/período. */
+export function monthlyPortfolioPct(
+  prevValueCents: bigint,
+  prevDate: string,
+  valueCents: bigint,
+  valueDate: string,
+  flows: DatedFlow[],
+): number | null {
+  return monthlyReturn(prevValueCents, prevDate, valueCents, valueDate, flows)?.pct ?? null;
 }
 
 /** Acumula percentuais compostos em % (4 casas); ignora null; 0 se vazio. */

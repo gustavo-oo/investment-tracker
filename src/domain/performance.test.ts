@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { accumulatePct, gapPp, monthlyPortfolioPct, monthsBeaten, realReturnPct, xirrPct } from "./performance.ts";
+import { accumulatePct, gapPp, monthlyPortfolioPct, monthlyReturn, monthsBeaten, realReturnPct, xirrPct } from "./performance.ts";
 
 test("monthlyPortfolioPct desconta fluxos e devolve null sem base", () => {
   // sem fluxos: (103000 − 100000) / 100000 = 3%
@@ -65,4 +65,27 @@ test("xirrPct acha a TIR anual (ACT/365) e devolve null sem raiz", () => {
   assert.equal(xirrPct(100_000n, "2025-01-01", [{ date: "2025-07-01", cents: -20_000n }], 90_000n, "2026-01-01"), 11.0889);
   // perda simples em 365 dias
   assert.equal(xirrPct(100_000n, "2025-01-01", [], 90_000n, "2026-01-01"), -10);
+});
+
+test("monthlyReturn devolve o capital exposto (base do TWR)", () => {
+  // sem fluxos: base = valor anterior
+  assert.deepEqual(monthlyReturn(100_000n, "2025-04-30", 103_000n, "2025-05-31", []), { pct: 3, baseCents: 100_000n });
+  // aporte no último dia pesa 0 dias → base não muda
+  assert.deepEqual(monthlyReturn(100_000n, "2025-04-30", 103_000n, "2025-05-31", [{ date: "2025-05-31", cents: 2_000n }]), { pct: 1, baseCents: 100_000n });
+  // aporte de 3.000 em 16/05 (15 de 31 dias): base 100.000 + 1.452 = 101.452; delta 1.000 → 0,9857%
+  assert.deepEqual(monthlyReturn(100_000n, "2025-04-30", 104_000n, "2025-05-31", [{ date: "2025-05-16", cents: 3_000n }]), { pct: 0.9857, baseCents: 101_452n });
+  // resgate de 5.000 em 10/05 (21 de 31 dias): base 100.000 − 3.387 = 96.613 (mesmo % do teste de monthlyPortfolioPct)
+  assert.deepEqual(monthlyReturn(100_000n, "2025-04-30", 98_000n, "2025-05-31", [{ date: "2025-05-10", cents: -5_000n }]), { pct: 3.1052, baseCents: 96_613n });
+  // caso real de mai/2025: base 5.761.702 + 3.869.973 = 9.631.675
+  assert.equal(monthlyReturn(5_761_702n, "2025-04-30", 10_786_488n, "2025-05-31", [
+    { date: "2025-05-05", cents: 729_476n },
+    { date: "2025-05-06", cents: 708_391n },
+    { date: "2025-05-07", cents: 3_470_542n },
+  ])?.baseCents, 9_631_675n);
+});
+
+test("monthlyReturn devolve null nas mesmas guardas de monthlyPortfolioPct", () => {
+  assert.equal(monthlyReturn(0n, "2025-04-30", 10_000n, "2025-05-31", []), null);
+  assert.equal(monthlyReturn(100_000n, "2025-05-31", 100_000n, "2025-05-31", []), null);
+  assert.equal(monthlyReturn(100_000n, "2025-04-30", 0n, "2025-05-31", [{ date: "2025-05-02", cents: -110_000n }]), null);
 });
