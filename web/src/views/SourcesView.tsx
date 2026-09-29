@@ -12,6 +12,7 @@ const ROTULO_CAUSA: Record<ReconciliationCause, string> = {
   "fonte-yahoo-corrompida": "Fonte Yahoo corrompida no histórico",
   "data-de-referencia": "Data de referência do snapshot do legado",
   "cotacao-fora-da-janela": "Cotação posterior ao snapshot do legado (mês corrente)",
+  "transacao-no-mes": "Transação no mês (posterior ao snapshot do legado)",
   "nao-explicada": "Não explicada",
 };
 
