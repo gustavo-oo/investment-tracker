@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="web/public/favicon.svg" alt="investment-tracker" width="120" height="120">
+</p>
+
 # investment-tracker
 
 App self-hosted para acompanhar uma carteira de investimentos: posições de renda fixa,
