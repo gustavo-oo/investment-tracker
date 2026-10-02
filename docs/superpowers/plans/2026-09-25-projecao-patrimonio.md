@@ -714,7 +714,7 @@ Na worktree:
 
 ```bash
 mkdir -p data
-node --input-type=module -e "import Database from 'better-sqlite3'; const db = new Database('/Users/gustavo/Projects/investment-tracker/data/investments.db', { readonly: true }); await db.backup('data/investments.db'); db.close();"
+node --input-type=module -e "import Database from 'better-sqlite3'; const db = new Database('./data/investments.db', { readonly: true }); await db.backup('data/investments.db'); db.close();"
 PORT=3100 npm start > /tmp/server-3100.log 2>&1 &
 ```
 
@@ -774,9 +774,9 @@ npm test && npm run typecheck && npm run build:web
 Expected: 214 testes verdes, typecheck limpo, build ok. Depois: merge local na `main` (padrão do projeto), atualizar o `ROADMAP.md` na `main` (tabela "Estado atual" + evidência do aceite + "Próxima ação", mantendo o rebalanceamento como próxima etapa) e remover a worktree:
 
 ```bash
-git -C /Users/gustavo/Projects/investment-tracker checkout main
-git -C /Users/gustavo/Projects/investment-tracker merge --ff-only projecao-visao-geral
-git -C /Users/gustavo/Projects/investment-tracker worktree remove .worktrees/projecao-visao-geral
+git -C . checkout main
+git -C . merge --ff-only projecao-visao-geral
+git -C . worktree remove .worktrees/projecao-visao-geral
 ```
 
 Commit do ROADMAP: `docs: registra a projecao do patrimonio no roadmap`.

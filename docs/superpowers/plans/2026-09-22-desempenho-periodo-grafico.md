@@ -255,7 +255,7 @@ Subir o servidor local (DB real copiado da `main`):
 
 ```bash
 mkdir -p data
-node --input-type=module -e "import Database from 'better-sqlite3'; const db = new Database('/Users/gustavo/Projects/investment-tracker/data/investments.db', { readonly: true }); await db.backup('data/investments.db'); db.close();"
+node --input-type=module -e "import Database from 'better-sqlite3'; const db = new Database('./data/investments.db', { readonly: true }); await db.backup('data/investments.db'); db.close();"
 PORT=3100 npm start > /tmp/server-3100.log 2>&1 &
 ```
 
@@ -577,10 +577,10 @@ docker compose build
 ```
 Expected: imagem construída sem erro **sem** recriar o container em execução.
 
-Com o servidor :3100 (reconstruído com o novo `web/dist`), conferir no browser as duas abas nas janelas **1 ano** e **Tudo**; salvar as evidências em `/Users/gustavo/Projects/investment-tracker/.superpowers/sdd/`:
+Com o servidor :3100 (reconstruído com o novo `web/dist`), conferir no browser as duas abas nas janelas **1 ano** e **Tudo**; salvar as evidências em `./.superpowers/sdd/`:
 
 ```bash
-mkdir -p /Users/gustavo/Projects/investment-tracker/.superpowers/sdd
+mkdir -p ./.superpowers/sdd
 # screenshots via agent-browser: grafico-01-rs.png, grafico-02-pct-mes.png, grafico-03-pct-acumulado.png, grafico-04-rotulos.png
 ```
 
@@ -594,9 +594,9 @@ git commit -m "docs: fecha a etapa do grafico Desempenho no periodo no roadmap"
 - [ ] **Step 5: Merge local (após aprovação do usuário)**
 
 ```bash
-git -C /Users/gustavo/Projects/investment-tracker checkout main
-git -C /Users/gustavo/Projects/investment-tracker merge --ff-only desempenho-periodo
-git -C /Users/gustavo/Projects/investment-tracker worktree remove .worktrees/desempenho-periodo
+git -C . checkout main
+git -C . merge --ff-only desempenho-periodo
+git -C . worktree remove .worktrees/desempenho-periodo
 ```
 Expected: fast-forward; worktree removido. (Só executar com o usuário confirmando; o container do homelab segue rodando a `main` até `docker compose up -d --build` ser rodado por ele.)
 

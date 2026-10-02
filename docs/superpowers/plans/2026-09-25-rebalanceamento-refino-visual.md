@@ -582,7 +582,7 @@ Expected: 219 testes; typecheck e build limpos.
 Copiar o banco e subir a API do worktree em segundo plano:
 
 ```bash
-mkdir -p data && sqlite3 /Users/gustavo/Projects/investment-tracker/data/investments.db ".backup 'data/investments.db'"
+mkdir -p data && sqlite3 ./data/investments.db ".backup 'data/investments.db'"
 PORT=3100 DB_PATH=data/investments.db WEB_DIR=web/dist nohup node src/server.ts > /tmp/refino-server.log 2>&1 &
 echo $! > /tmp/refino-server.pid
 sleep 3 && curl -s localhost:3100/api/health | head -c 160
