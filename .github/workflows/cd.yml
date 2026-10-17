@@ -1,0 +1,117 @@
+name: cd
+on:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: cd-main
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/gustavo-oo/investment-tracker
+
+jobs:
+  build:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/${{ matrix.arch }}
+          outputs: type=image,name=ghcr.io/gustavo-oo/investment-tracker,push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=${{ matrix.arch }}
+          cache-to: type=gha,scope=${{ matrix.arch }},mode=max
+      - run: |
+          mkdir -p /tmp/digests
+          touch "/tmp/digests/${DIGEST#sha256:}"
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ matrix.arch }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digests-*
+          merge-multiple: true
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Cria a manifest list (sha-<12> e, na main, :main)
+        working-directory: /tmp/digests
+        run: |
+          SHA="${{ github.event.workflow_run.head_sha || github.sha }}"
+          TAG="sha-$(echo "$SHA" | cut -c1-12)"
+          TAGS="-t $IMAGE:$TAG"
+          if [ "${{ github.event.workflow_run.head_branch || '' }}" = "main" ] || [ "${GITHUB_REF}" = "refs/heads/main" ]; then
+            TAGS="$TAGS -t $IMAGE:main"
+          fi
+          docker buildx imagetools create $TAGS $(printf "$IMAGE@sha256:%s " *)
+          docker buildx imagetools inspect "$IMAGE:$TAG"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+      - name: Resumo
+        run: echo "imagem publicada: $IMAGE:$TAG" >> "$GITHUB_STEP_SUMMARY"
+
+  deploy:
+    needs: merge
+    if: vars.DEPLOY_ENABLED == 'true' && (github.event_name == 'workflow_run' || github.ref == 'refs/heads/main')
+    environment: production
+    runs-on: ubuntu-latest
+    steps:
+      - name: Instala a chave de deploy e o known_hosts
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/apps_deploy
+          chmod 600 ~/.ssh/apps_deploy
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+      - uses: tailscale/github-action@v3
+        with:
+          authkey: ${{ secrets.TS_AUTHKEY }}
+      - name: Deploy na apps-vps (motor apps-deploy)
+        run: |
+          SHA="${{ github.event.workflow_run.head_sha || github.sha }}"
+          TAG="sha-$(echo "$SHA" | cut -c1-12)"
+          ssh -i ~/.ssh/apps_deploy -o IdentitiesOnly=yes \
+            "apps@${{ secrets.DEPLOY_HOST }}" \
+            "sudo /usr/local/bin/apps-deploy investment-tracker $IMAGE:$TAG --commit $SHA --repo https://github.com/gustavo-oo/investment-tracker.git"
