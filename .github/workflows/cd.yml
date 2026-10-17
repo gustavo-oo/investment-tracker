@@ -87,7 +87,8 @@ jobs:
           docker buildx imagetools inspect "$IMAGE:$TAG"
           echo "TAG=$TAG" >> "$GITHUB_ENV"
       - name: Resumo
-        run: echo "imagem publicada: $IMAGE:$TAG" >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          echo "imagem publicada: $IMAGE:$TAG" >> "$GITHUB_STEP_SUMMARY"
 
   deploy:
     needs: merge
